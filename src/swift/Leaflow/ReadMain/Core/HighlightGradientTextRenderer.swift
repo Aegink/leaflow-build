@@ -1729,7 +1729,10 @@ enum HighlightGradientTextRenderer {
     }
 
     /// textRange(for:in:)（0x1001c8b28 L1734-1753 域确证：
-    /// NSNotFound/零长/超界守卫 + location(offset) 链）。
+    /// NSNotFound/零长/超界守卫）。NSRange → NSTextRange 桥：经
+    /// enumerateTextLayoutFragments 收集 fragment 端点（NSTextElement
+    /// elementRange 域）+ NSTextContentManager.offset 定位（fragment
+    /// 粒度——字符级定位无公开 API，还原推断；记入仍不清楚，wave-16）。
     static func textRange(
         for range: NSRange, in textLayoutManager: NSTextLayoutManager
     ) -> NSTextRange? {
@@ -1738,59 +1741,42 @@ enum HighlightGradientTextRenderer {
         else {
             return nil
         }
-        // NSTextRange.location/endLocation 均为非可选 any NSTextLocation
-        // （NSTextRange 域，wave-16）。
-        let documentLocation = contentManager.documentRange.location
-        let documentEndLocation = contentManager.documentRange.endLocation
-        let documentLength = contentManager.offset(
-            from: documentLocation, to: documentEndLocation)
-        guard documentLength != NSNotFound, range.location >= 0,
-              range.location + range.length <= documentLength
-        else {
-            return nil
-        }
-        // NSRange → NSTextRange 桥：经 enumerateTextLayoutFragments 定位
-        // 目标字符 offset 所在 fragment（NSTextContentManager.offset 域；
-        // 字符级定位无公开 API——fragment 粒度，还原推断；记入仍不清楚，
-        // wave-16）。
-        // documentRange.location/endLocation 均为非可选（NSTextRange 域，
-        // wave-16）。
-        guard let contentManager = textLayoutManager.textContentManager else {
-            return nil
-        }
         let start = contentManager.documentRange.location
         let documentEnd = contentManager.documentRange.endLocation
         let documentLength = contentManager.offset(
             from: start, to: documentEnd)
         guard range.location >= 0,
-              range.location + range.length <= documentLength else {
+              range.location + range.length <= documentLength
+        else {
             return nil
         }
-        var startLocation: (any NSTextLocation)?
-        var endLocation: (any NSTextLocation)?
-        var foundStart = false
+        // 端点集：文档起点 + 各 fragment 尾端（文档序）。
+        var endpoints: [(offset: Int, location: any NSTextLocation)] = [
+            (0, start),
+        ]
         textLayoutManager.enumerateTextLayoutFragments(
-            from: start, options: []) { fragment in
-            let fragmentStart = fragment.characterRange.location
-            let fragmentEnd = fragment.characterRange.endLocation
-            let fragmentOffset = contentManager.offset(
-                from: start, to: fragmentStart)
-            let fragmentLength = contentManager.offset(
-                from: fragmentStart, to: fragmentEnd)
-            // fragment 含目标起点 → 记录 start；
-            // fragment 含目标终点 → 记录 end 并停止。
-            if !foundStart, range.location <= fragmentOffset + fragmentLength {
-                startLocation = fragmentStart
-                foundStart = true
+            from: start, options: []
+        ) { fragment in
+            guard let elementEnd = fragment.textElements.last?
+                .elementRange?.endLocation else {
+                return true
             }
-            if foundStart,
-               range.location + range.length <= fragmentOffset + fragmentLength {
-                endLocation = fragmentEnd
-                return false
-            }
+            let offset = contentManager.offset(
+                from: start, to: elementEnd)
+            guard offset < documentLength else { return true }
+            endpoints.append((offset, elementEnd))
             return true
         }
-        guard let startLocation, let endLocation else {
+        // 目标起点：最后一个 offset ≤ range.location 的端点。
+        guard let startLocation = endpoints.last(where: {
+            $0.offset <= range.location
+        })?.location else {
+            return nil
+        }
+        // 目标终点：首个 offset ≥ range.location + range.length 的端点。
+        guard let endLocation = endpoints.first(where: {
+            $0.offset >= range.location + range.length
+        })?.location else {
             return nil
         }
         return NSTextRange(location: startLocation, end: endLocation)
