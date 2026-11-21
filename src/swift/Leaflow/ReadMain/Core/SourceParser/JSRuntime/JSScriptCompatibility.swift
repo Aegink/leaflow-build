@@ -30,7 +30,7 @@ enum JSScriptCompatibility {
     /// 伪代码 0x10007ea0c（L59-107）：`{{name}}` 简单标识符模板转换。
     static func convertSimpleIdentifierTemplatesInTemplateLiterals(_ script: String) -> String {
         guard let regex = try? NSRegularExpression(
-            pattern: "\{\{\s*([A-Za-z_$][A-Za-z0-9_$]*)\s*\}\}"
+            pattern: "\\{\\{\\s*([A-Za-z_$][A-Za-z0-9_$]*)\\s*\\}\\}"
         ) else {
             return script
         }

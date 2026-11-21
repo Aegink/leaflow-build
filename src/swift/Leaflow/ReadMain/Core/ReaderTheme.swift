@@ -83,12 +83,12 @@ struct ReaderTheme: Codable, Equatable, Identifiable {
 
     /// 伪代码 0x10020748c（L227）：背景色。
     var backgroundColor: Color {
-        Color(hex: backgroundColorHex) ?? .white
+        Color(hex: backgroundColorHex)
     }
 
     /// 前景色。
     var foregroundColor: Color {
-        Color(hex: textColorHex) ?? .black
+        Color(hex: textColorHex)
     }
 
     /// 伪代码 0x1002041a4（L230-258）：内置主题工厂。
@@ -120,18 +120,7 @@ struct ReaderTheme: Codable, Equatable, Identifiable {
 
 // MARK: - 十六进制颜色扩展
 
-extension Color {
-    init?(hex: String) {
-        let cleaned = hex.trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: "#", with: "")
-        guard cleaned.count == 6, let value = UInt64(cleaned, radix: 16) else { return nil }
-        self.init(
-            red: Double((value >> 16) & 0xFF) / 255.0,
-            green: Double((value >> 8) & 0xFF) / 255.0,
-            blue: Double(value & 0xFF) / 255.0
-        )
-    }
-}
+
 
 // MARK: - 主题管理器
 

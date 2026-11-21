@@ -85,7 +85,7 @@ struct LoginUiItem: Codable {
     }
 
     /// 伪代码 0x10034d8fc（L76-90）：String 或 JSON 对象宽容解码。
-    static func decodeFlexibleString(
+    private static func decodeFlexibleString(
         _ container: KeyedDecodingContainer<CodingKeys>, forKey key: CodingKeys
     ) throws -> String? {
         guard container.contains(key) else { return nil }

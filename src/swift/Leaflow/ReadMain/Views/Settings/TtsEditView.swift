@@ -45,7 +45,6 @@ struct TtsEditView: View {
     @State private var draft = HttpTts(
         numericId: 0, name: "", url: "")
     @State private var showDiscardConfirm = false
-    @State private var showLoginHeader = false
     @State private var testResult = ""
 
     var body: some View {

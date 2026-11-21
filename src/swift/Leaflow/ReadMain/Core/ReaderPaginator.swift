@@ -254,31 +254,6 @@ enum ReaderPaginator {
 // MARK: - 页面索引缓存
 
 /// 页面索引缓存（伪代码 0x1007682a0 L22-33 / 0x100768954 L40-42）。
-final class PageIndexCache {
-
-    private var layoutIdToIndex: [String: Int] = [:]
-    private var pages: [PageData] = []
-    private let lock = NSLock()
-
-    /// 伪代码 0x1007682a0（L22-33）：更新缓存。
-    @discardableResult
-    func update(with newPages: [PageData]) -> Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        let changed = pages.count != newPages.count
-            || zip(pages, newPages).contains(where: { !$0.hasSameRenderableState(as: $1) })
-        pages = newPages
-        return changed
-    }
-
-    /// 伪代码 0x100768954（L40-42）。
-    func index(forLayoutId id: String) -> Int? {
-        lock.lock()
-        defer { lock.unlock() }
-        return layoutIdToIndex[id]
-    }
-}
-
 // MARK: - 页面翻页状态
 
 /// 翻页页面标识（伪代码 PageTurnPageID 0x100766ff0 L7-10）。

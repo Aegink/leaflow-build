@@ -43,7 +43,7 @@ final class AnalyzeRule {
     static var debugMode: Bool = false
 
     /// 伪代码 L1052-1057：正则缓存（closure #1 @0x100007978）。
-    private static let regexCache = LRUCache<String, NSRegularExpression>(capacity: 64)
+    private static let regexCache = LRUCache<String, NSRegularExpression>(maxSize: 64)
 
     static func cachedRegex(_ pattern: String, options: NSRegularExpression.Options) -> NSRegularExpression? {
         let key = "\(options.rawValue)|\(pattern)"
@@ -87,7 +87,7 @@ final class AnalyzeRule {
     var book: Book?
     var currentChapter: BookChapter?
     var jsonObject: Any?
-    static let isJsBlockRuleMarker: (String) -> Bool = { Self.isJsBlockRule($0) }
+    static let isJsBlockRuleMarker: (String) -> Bool = { AnalyzeRule.isJsBlockRule($0) }
     static let executeRuleLogLevel: Int = 2
 
     let source: BookSource?
@@ -403,7 +403,7 @@ extension AnalyzeRule {
     }
 
     /// jsonPath 引擎静态槽（JSON 分册使用）。
-    static let jsonPathEngineCache = LRUCache<String, Any>(capacity: 16)
+    static let jsonPathEngineCache = LRUCache<String, Any>(maxSize: 16)
 
     static func makeJsonPathEngine(for rule: String) -> AnyObject {
         LegadoJsonPathBridge.makeEngine(for: rule)

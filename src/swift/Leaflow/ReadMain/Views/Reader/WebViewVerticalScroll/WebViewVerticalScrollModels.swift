@@ -20,6 +20,7 @@
 // 还原: 2026-11-19
 
 import Foundation
+import UIKit
 
 /// WebView 滚动进度（章节 + 段落锚点）。
 struct WebViewScrollProgress: Codable, Equatable {

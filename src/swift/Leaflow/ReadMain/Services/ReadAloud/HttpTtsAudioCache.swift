@@ -133,6 +133,4 @@ final class HttpTtsAudioCache {
     }
 }
 
-private extension HttpTts {
-    var id: Int64 { numericId }
-}
+

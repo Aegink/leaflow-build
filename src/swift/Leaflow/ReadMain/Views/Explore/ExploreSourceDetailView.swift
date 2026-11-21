@@ -637,8 +637,7 @@ extension ExploreSourceDetailView {
     func _parseFoundCategories(_ input: String) -> [ExploreCategory] {
         var seen = Set<String>()
         var result: [ExploreCategory] = []
-        for line in input.split(separator: "
-") {
+        for line in input.split(separator: "\n") {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             guard !trimmed.isEmpty else { continue }
             let parts = trimmed.split(separator: "&&", maxSplits: 1)

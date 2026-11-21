@@ -258,7 +258,7 @@ protocol HttpTtsSynthesizing: AnyObject {
     ) async throws -> Data
 }
 
-extension HttpTtsSynthesizer: HttpTtsSynthesizing {
+extension HttpTtsSynthesizer {
     func synthesize(
         source: HttpTts, text: String, speechRate: Float
     ) async throws -> Data {

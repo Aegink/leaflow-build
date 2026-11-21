@@ -25,7 +25,7 @@ enum LegadoJSONLiteral {
         // 容错：数组尾逗号修复后重试。
         if hasTopLevelArrayTrailingComma(text) {
             let repaired = text.replacingOccurrences(
-                of: ",\s*\]", with: "]", options: .regularExpression
+                of: ",\\s*\\]", with: "]", options: .regularExpression
             )
             if let data = repaired.data(using: .utf8),
                 let object = try? JSONSerialization.jsonObject(with: data)
@@ -50,7 +50,7 @@ enum LegadoJSONLiteral {
     static func hasTopLevelArrayTrailingComma(_ text: String) -> Bool {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.hasPrefix("["), trimmed.hasSuffix("]") else { return false }
-        return trimmed.range(of: ",\s*\]", options: .regularExpression) != nil
+        return trimmed.range(of: ",\\s*\\]", options: .regularExpression) != nil
     }
 
     /// 伪代码 0x1001181d0（L122-128）。

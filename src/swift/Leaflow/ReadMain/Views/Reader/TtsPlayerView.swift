@@ -40,10 +40,7 @@ struct TtsPlayerView: View {
     @State private var skin: AudioPlayerSkin = .classic
     @State private var showQuickSettings = false
 
-    /// skin getter（签名域确证）。
-    private var skin: AudioPlayerSkin {
-        skin
-    }
+
 
     var body: some View {
         Group {
@@ -81,11 +78,6 @@ struct TtsPlayerView: View {
 struct TtsSkinApple: View {
 
     @State private var isPreparing = false
-
-    /// isPreparing getter（签名域确证）。
-    private var isPreparing: Bool {
-        false
-    }
 
     var body: some View {
         GeometryReader { geometry in

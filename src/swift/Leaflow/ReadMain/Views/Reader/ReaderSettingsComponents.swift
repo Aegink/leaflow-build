@@ -128,7 +128,7 @@ struct ReaderBrowserSettingsView: View {
 
 /// 保存主题弹层（骨架签名 SaveThemeSheet.body）。
 struct SaveThemeSheet: View {
-    @Environment(\\.dismiss) private var dismiss
+    @Environment(\.dismiss) private var dismiss
     var onSave: (String) -> Void
     @State private var themeName = ""
 

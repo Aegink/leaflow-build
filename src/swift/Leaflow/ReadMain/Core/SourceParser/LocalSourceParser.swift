@@ -12,7 +12,7 @@
 import Foundation
 
 /// 本地书源解析器（Legado 兼容书源的本地执行）。
-enum LocalSourceParser {
+final class LocalSourceParser {
 
     /// 伪代码 0x10011ac3c（L18-41）。
     struct SourceParserError: LocalizedError {

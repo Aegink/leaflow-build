@@ -22,7 +22,7 @@ import SwiftUI
 struct ReaderSettingsView: View {
     @Binding var settings: ReadingSettings
     var onDismiss: () -> Void
-    @Environment(\\.dismiss) private var dismiss
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         // 伪代码 0x1007d4d88（L54-68）。

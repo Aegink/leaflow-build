@@ -239,7 +239,7 @@ final class PageContentViewController: UIViewController, UIGestureRecognizerDele
                 hideWidgetLabels()
             }
             if isViewLoaded {
-                refreshDynamicContent(event: .layout)
+                refreshDynamicContent(event: ReaderWidgetRefreshEvent(.layout))
             }
         }
     }

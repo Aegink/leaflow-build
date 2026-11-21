@@ -26,7 +26,7 @@ struct FullTextSearchView: View {
     @Binding var chapters: [ReaderChapterListChapter]
     var chapterContentProvider: (Int) -> String
     var onPickResult: (Int, Int) -> Void
-    @Environment(\\.dismiss) private var dismiss
+    @Environment(\.dismiss) private var dismiss
     @State private var keyword = ""
     @State private var results: [SearchResult] = []
     @State private var isSearching = false

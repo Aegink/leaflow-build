@@ -69,7 +69,7 @@ final class WebViewPool {
 }
 
 /// 后台 WebView（getStrResponse 的 WebView 降级执行体）。
-final class BackstageWebView {
+final class BackstageWebView: NSObject {
 
     let webView: WKWebView
     private var isCompleted = false

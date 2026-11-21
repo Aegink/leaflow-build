@@ -41,6 +41,8 @@ enum RawJSONValue: Codable {
     case null
     case value(Any)
 
+    init() {}
+
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         if container.decodeNil() {
@@ -135,7 +137,7 @@ private extension KeyedDecodingContainer {
 
 // MARK: - 规则子结构（init() 默认构造确证）
 
-struct SearchRule: Codable {
+struct SearchRule: Codable, Equatable {
     var checkKeyWord: String = ""
     var bookList: String = ""
     var name: String = ""
@@ -151,7 +153,7 @@ struct SearchRule: Codable {
     init() {}
 }
 
-struct TocRule: Codable {
+struct TocRule: Codable, Equatable {
     var chapterList: String = ""
     var chapterName: String = ""
     var chapterUrl: String = ""
@@ -163,7 +165,7 @@ struct TocRule: Codable {
     init() {}
 }
 
-struct ContentRule: Codable {
+struct ContentRule: Codable, Equatable {
     var content: String = ""
     var nextContentUrl: String = ""
     var webJs: String = ""
@@ -175,7 +177,7 @@ struct ContentRule: Codable {
     init() {}
 }
 
-struct BookInfoRule: Codable {
+struct BookInfoRule: Codable, Equatable {
     var init: String = ""
     var name: String = ""
     var author: String = ""
@@ -189,7 +191,7 @@ struct BookInfoRule: Codable {
     init() {}
 }
 
-struct ExploreRule: Codable {
+struct ExploreRule: Codable, Equatable {
     var exploreUrl: String = ""
     var bookList: String = ""
     var name: String = ""

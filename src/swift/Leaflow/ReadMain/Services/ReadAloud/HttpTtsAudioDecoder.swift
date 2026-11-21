@@ -19,7 +19,7 @@
 import AVFoundation
 
 /// 朗读音频解码器（decode/copyFrames/slices 签名域确证）。
-struct HttpTtsAudioDecoder: HttpTtsAudioDecoding {
+final class HttpTtsAudioDecoder: HttpTtsAudioDecoding {
 
     init() {}
 

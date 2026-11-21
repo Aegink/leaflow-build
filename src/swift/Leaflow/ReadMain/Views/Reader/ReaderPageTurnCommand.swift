@@ -1,3 +1,4 @@
+import Foundation
 // 原路径: ReadMain/Views/Reader/ReaderPageTurnCommand.swift
 // 证据:
 //   - PGO: 6 个主函数（index/task_functions.csv T-301-07 / ReaderPageTurnCommand.swift），
@@ -51,7 +52,7 @@ struct ReaderPageCommit {
 }
 
 /// 翻页命令（direction + 可选目标）。
-struct ReaderPageTurnCommand: Equatable {
+struct ReaderPageTurnCommand {
     let id: UUID
     let direction: ReaderPageTurnDirection
     let targetIndex: Int?

@@ -310,7 +310,7 @@ struct ChapterPageMeta {
         // 章节正文源（chapterContents 域）+ 书源域组装；书籍/章节实体随
         // 阅读会话管线注入（executeParagraphImageAction 调用域）。
         var chapter = Chapter(
-            name: '', url: '', index: pageIndex, isRead: true,
+            name: "", url: "", index: pageIndex, isRead: true,
             isPay: nil, resourceUrl: nil, isVip: false, isVolume: false,
             updateTime: nil, wordCount: nil, variable: nil)
         _ = chapter

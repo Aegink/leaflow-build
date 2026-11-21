@@ -272,7 +272,7 @@ struct LayoutWidget: Codable {
 }
 
 /// 章节标题排版配置（Codable：T-1401-01 ChapterTitlePreset 双档解码桥）。
-struct ChapterTitleConfig: Codable {
+struct ChapterTitleConfig: Codable, Equatable {
     var fontName: String
     var fontSize: CGFloat
     var textAlignment: NSTextAlignment

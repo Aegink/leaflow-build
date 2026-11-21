@@ -22,7 +22,7 @@ import SwiftUI
 struct ReplaceRuleCreationSheet: View {
     var sourceText: String
     var onSave: (String, String) -> Void
-    @Environment(\\.dismiss) private var dismiss
+    @Environment(\.dismiss) private var dismiss
     @State private var replacementText = ""
 
     init(sourceText: String, onSave: @escaping (String, String) -> Void) {

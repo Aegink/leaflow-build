@@ -38,9 +38,9 @@ struct AudioPlayerView: View {
             book: book))
     }
 
-    /// skin getter（签名域确证：AudioPlayerSkin 域）。
+    /// skin getter（签名域确证：AudioPlayerSkin 域；默认 classic 档）。
     private var skin: AudioPlayerSkin {
-        skin
+        .classic
     }
 
     var body: some View {

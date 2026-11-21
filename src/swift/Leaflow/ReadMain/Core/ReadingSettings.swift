@@ -129,12 +129,7 @@ enum ScreenAwakeOption: String, CaseIterable, Codable {
     }
 }
 
-/// 双页模式（loadDoublePageMode 0x10021f85c 返回类型确证；档位推断）。
-enum DoublePageMode: String, Codable, CaseIterable {
-    case off
-    case auto
-    case always
-}
+
 
 // MARK: - 阅读设置
 
@@ -971,6 +966,17 @@ final class ReadingSettings: Codable {
 }
 
 // MARK: - 章节标题预设
+
+
+extension ReadingSettings {
+
+    /// 双页模式（loadDoublePageMode 0x10021f85c 返回类型确证；档位推断）。
+    enum DoublePageMode: String, Codable, CaseIterable {
+        case off
+        case auto
+        case always
+    }
+}
 
 extension ReadingSettings {
 

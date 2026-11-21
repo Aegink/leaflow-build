@@ -46,7 +46,8 @@ final class HorizontalPagingViewController: UIViewController, UIScrollViewDelega
     var isDoublePageActive = false
     var bookName: String = ""
     var totalChapters = 0
-    var pageTurnState: PageTurnState = PageTurnState()
+    var pageTurnState: PageTurnState = PageTurnState(
+        sequence: PageTurnSequence(pages: [], committedIndex: 0))
     var transitionStyle: Int = 0
     var isPendingCommandConsumptionScheduled = false
     var needsPostSettlementRefresh = false

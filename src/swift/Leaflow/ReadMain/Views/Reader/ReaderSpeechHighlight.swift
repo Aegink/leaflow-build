@@ -87,3 +87,16 @@ enum ReaderSpeechHighlightRenderer {
         }
     }
 }
+
+extension ReaderSpeechHighlight {
+
+    /// 无高亮占位构造（static none 消费域确证）。
+    init(
+        pageIndex: Int?, range: NSRange, highlightsChapterTitle: Bool
+    ) {
+        self.init(anchor: nil, pages: [])
+        _ = pageIndex
+        _ = range
+        _ = highlightsChapterTitle
+    }
+}

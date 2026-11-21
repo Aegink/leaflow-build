@@ -153,8 +153,7 @@ final class SelectableReaderTextView: UITextView, ReaderTextSelectionHandling {
         didSet { onSelectionChanged?() }
     }
 
-    override func selectedTextRangeDidChange(_ previousSelectedTextRange: UITextRange?) {
-        super.selectedTextRangeDidChange(previousSelectedTextRange)
+    private func selectedTextRangeDidChange(_ previousSelectedTextRange: UITextRange?) {
         observeSelectionStateChange()
     }
 

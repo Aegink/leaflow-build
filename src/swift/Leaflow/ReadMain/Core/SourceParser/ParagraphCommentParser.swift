@@ -34,7 +34,7 @@ enum ParagraphCommentParser {
     /// 伪代码 0x100162560（L31-78）：段评提取。
     static func extractComments(from content: String, source: BookSource?) -> [ParagraphComment] {
         guard let regex = try? NSRegularExpression(
-            pattern: "{{(?!.*\b(java|source)\b)[^}]*}}", options: []
+            pattern: "{{(?!.*\\b(java|source)\\b)[^}]*}}", options: []
         ) else { return [] }
         let range = NSRange(content.startIndex..<content.endIndex, in: content)
         let matches = regex.matches(in: content, options: [], range: range)

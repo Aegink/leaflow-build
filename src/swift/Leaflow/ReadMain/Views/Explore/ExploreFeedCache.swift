@@ -31,7 +31,7 @@ struct ExploreFeedCacheEntry: Codable, Equatable {
 }
 
 /// 发现列表缓存条目（ExploreListCacheEntry 域确证；savedAt 伴生 isFresh）。
-struct ExploreListCacheEntry: Codable, Equatable {
+struct ExploreListCacheEntry: Codable {
     var categories: [(title: String, url: String)]
     var savedAt: Date
 
