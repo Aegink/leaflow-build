@@ -83,12 +83,13 @@ extension AnalyzeRule {
         guard jsonObject != nil else { return nil }
 
         // 拆段 Array 化 + 元素 String 化（ArraySlice→String 消解，wave-16）。
-        let segments = Array(
+        // 拆段 Array 化 + joined String 化（ArraySlice→String 消解，wave-16）。
+        let segments: [String] = Array(
             LegadoRuleAnalyzer
                 .innerRule(rule, markers: ["&&", "||", "%%"])
                 .split { $0.isEmpty }
-        ).map {
-            $0.joined().trimmingCharacters(in: .whitespacesAndNewlines)
+        ).map { slice in
+            slice.joined().trimmingCharacters(in: .whitespacesAndNewlines)
         }
 
         if segments.count <= 1 {

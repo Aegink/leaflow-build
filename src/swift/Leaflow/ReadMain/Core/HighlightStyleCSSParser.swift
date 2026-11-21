@@ -291,11 +291,13 @@ enum HighlightStyleCSSParser {
         }).flatMap({ outer in
             outer.firstRange(of: ")").map { outer[..<$0.lowerBound] }
         }) else { return nil }
-        let components = splitTopLevelCommaList(String(inner)).compactMap {
-            component in
-            guard let parsed = Double(component.trimmingCharacters(
-                in: .whitespaces)) else { return nil }
-            return CGFloat(parsed)
+        // 显式元素类型 + 单语句闭包（compactMap 推断域，wave-16）。
+        let rawComponents = splitTopLevelCommaList(String(inner))
+        var components: [CGFloat] = []
+        for component in rawComponents {
+            let trimmed = component.trimmingCharacters(in: .whitespaces)
+            guard let parsed = Double(trimmed) else { continue }
+            components.append(CGFloat(parsed))
         }
         guard components.count >= 3 else { return nil }
         // rgb()/rgba() 两种：第四位 alpha（0-1 或百分比）。

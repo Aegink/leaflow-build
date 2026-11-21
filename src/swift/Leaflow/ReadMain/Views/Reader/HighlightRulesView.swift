@@ -107,37 +107,45 @@ struct HighlightRulesView: View {
         mergedRules.filter { HighlightRule.builtinRule(for: $0.id) == nil }.map(\.id)
     }
 
+    /// 表达式拆分（List body type-check 超时域，wave-16）。
+    private var builtInSection: some View {
+        Section {
+            ForEach(builtinRuleIDs, id: \.self) { id in
+                if let rule = mergedRules.first(where: { $0.id == id }) {
+                    ruleRow(rule: binding(for: id))
+                }
+            }
+        } header: {
+            // closure #1（0x100701e6c，L76-98）：状态头。
+            Text(highlightRulesStatusText)
+        }
+    }
+
+    private var customRulesSection: some View {
+        Section("自定义规则") {
+            ForEach(customRuleIDs, id: \.self) { id in
+                if let rule = mergedRules.first(where: { $0.id == id }) {
+                    ruleRow(rule: binding(for: id))
+                }
+            }
+            .onDelete { offsets in
+                deleteCustomRules(offsets)
+            }
+            .onMove { source, destination in
+                moveCustomRules(from: source, to: destination)
+            }
+            Button {
+                showAddSheet = true
+            } label: {
+                Label("新建规则", systemImage: "plus")
+            }
+        }
+    }
+
     var body: some View {
-        // 伪代码 0x1006d16a8（L49-168）+ closure #1（0x1006d1f6c，L50-105）。
         List {
-            Section {
-                ForEach(builtinRuleIDs, id: \.self) { id in
-                    if let rule = mergedRules.first(where: { $0.id == id }) {
-                        ruleRow(rule: binding(for: id))
-                    }
-                }
-            } header: {
-                // closure #1（0x100701e6c，L76-98）：状态头。
-                Text(highlightRulesStatusText)
-            }
-            Section("自定义规则") {
-                ForEach(customRuleIDs, id: \.self) { id in
-                    if let rule = mergedRules.first(where: { $0.id == id }) {
-                        ruleRow(rule: binding(for: id))
-                    }
-                }
-                .onDelete { offsets in
-                    deleteCustomRules(offsets)
-                }
-                .onMove { source, destination in
-                    moveCustomRules(from: source, to: destination)
-                }
-                Button {
-                    showAddSheet = true
-                } label: {
-                    Label("新建规则", systemImage: "plus")
-                }
-            }
+            builtInSection
+            customRulesSection
         }
         .navigationTitle("高亮规则")
         .toolbar {

@@ -164,7 +164,7 @@ final class HttpReadAloudDriver: ReadAloudDriver {
                 guard generationCurrent(index: index) else { return }
                 await scheduleSegment(segment, index: index)
             }
-            waitForPlaybackWindow(index: 0, generation: generation)
+            await waitForPlaybackWindow(index: 0, generation: generation)
         }
     }
 
