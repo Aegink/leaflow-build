@@ -176,7 +176,7 @@ struct HighlightRulesView: View {
             NavigationStack {
                 Form {
                     TextField("规则名", text: ruleBinding(rule, keyPath: \.name))
-                    TextField("正则模式", text: ruleBinding(rule, keyPath: \.pattern))
+                    TextField("正则模式", text: ruleBinding(rule, keyPath: \.regex))
                 }
                 .navigationTitle("编辑高亮规则")
                 .toolbar {
