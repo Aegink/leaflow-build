@@ -45,7 +45,7 @@ extension AnalyzeRule {
         if lowered.hasPrefix("@get:") || lowered.hasPrefix("@put:") { return .mode6 }
         // 引号包裹的 put token → CSS。
         if Self.isQuotedToken(trimmed) { return .css }
-        if Self.isJsonContent() { return .json }
+        if isJsonContent() { return .json }
         if lowered.hasPrefix("$.") || lowered.hasPrefix("$[") || lowered.hasPrefix("$..") {
             return .json
         }

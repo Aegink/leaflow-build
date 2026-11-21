@@ -90,7 +90,7 @@ extension AnalyzeRule {
         JSContextPool.warmup(count: context)
 
         if let elementArray = makeJavaScriptElementArrayValueIfNeeded(value) {
-            context.setObject(elementArray, forKey: name as NSString)
+            context.setObject(elementArray, forKeyedSubscript: name as NSString)
             return
         }
         let unwrapped = javaScriptRuntimeBindingUnwrappedValue(value)
@@ -98,34 +98,93 @@ extension AnalyzeRule {
             unwrapped ?? value,
             rawJSONString: rawJSONString
         ) {
-            context.setObject(bridgeValue, forKey: name as NSString)
+            context.setObject(bridgeValue, forKeyedSubscript: name as NSString)
             return
         }
         if let referenceArray = makeJavaScriptJSONObjectReferenceArrayValueIfNeeded(value) {
-            context.setObject(referenceArray, forKey: name as NSString)
+            context.setObject(referenceArray, forKeyedSubscript: name as NSString)
             return
         }
         if shouldBindStructuredJSONObjectDirectly(value) {
-            context.setObject(value, forKey: name as NSString)
+            context.setObject(value, forKeyedSubscript: name as NSString)
             return
         }
         if preferJSONObjectBinding, JSONSerialization.isValidJSONObject(value) {
             if let rawJSONString {
-                context.setObject(rawJSONString, forKey: name as NSString)
+                context.setObject(rawJSONString, forKeyedSubscript: name as NSString)
                 return
             }
             if let data = try? JSONSerialization.data(withJSONObject: value, options: []),
                let json = String(data: data, encoding: .utf8) {
-                context.setObject(json, forKey: name as NSString)
+                context.setObject(json, forKeyedSubscript: name as NSString)
                 return
             }
         }
         if let rawJSONString {
-            context.setObject(rawJSONString, forKey: name as NSString)
+            context.setObject(rawJSONString, forKeyedSubscript: name as NSString)
             return
         }
-        let bridged = bridgeAnythingToObjectiveC(value)
-        context.setObject(bridged, forKey: name as NSString)
+        let bridged = Self.bridgeAnythingToObjectiveC(value)
+        context.setObject(bridged, forKeyedSubscript: name as NSString)
+    }
+
+    // MARK: - 运行时绑定桥族（wave-16 补桥）
+
+    /// 元素数组装箱（子规则族 → JS 字符串数组域）。
+    static func makeJavaScriptElementArrayValueIfNeeded(
+        _ value: Any
+    ) -> [String]? {
+        guard let elements = value as? [AnalyzeRule] else { return nil }
+        return elements.map { Self.stringFromRuleResult($0.idContent) }
+    }
+
+    /// 绑定值解包（Optional 间接包装域——Mirror 解包，wave-16 补桥）。
+    static func javaScriptRuntimeBindingUnwrappedValue(_ value: Any) -> Any? {
+        let mirror = Mirror(reflecting: value)
+        guard mirror.displayStyle == .optional,
+              let child = mirror.children.first else {
+            return value
+        }
+        return child.value
+    }
+
+    /// JSON 数组桥（rawJSONString 解析域——数组形态直返）。
+    static func makeJavaScriptJSONArrayBridgeValueIfNeeded(
+        _ value: Any, rawJSONString: String?
+    ) -> [Any]? {
+        if let array = value as? [Any] {
+            return array
+        }
+        if let rawJSONString,
+           let data = rawJSONString.data(using: .utf8),
+           let parsed = try? JSONSerialization.jsonObject(with: data),
+           let array = parsed as? [Any] {
+            return array
+        }
+        return nil
+    }
+
+    /// JSON 引用数组桥（[[String]] 二维域直绑）。
+    static func makeJavaScriptJSONObjectReferenceArrayValueIfNeeded(
+        _ value: Any
+    ) -> [[String]]? {
+        value as? [[String]]
+    }
+
+    /// ObjC 兜底桥（标量/容器 → NS 域装箱）。
+    static func bridgeAnythingToObjectiveC(_ value: Any) -> Any {
+        switch value {
+        case let string as String:
+            return string as NSString
+        case let number as NSNumber:
+            return number
+        case let array as [Any]:
+            return array as NSArray
+        case let dictionary as [String: Any]:
+            return dictionary as NSDictionary
+        default:
+            return "\(value)" as NSString
+        }
     }
 
     /// 伪代码 0x100050a84（L193-203）：合法 JSON 对象（非数组）直绑。
@@ -205,8 +264,10 @@ extension AnalyzeRule {
         let processed = processInnerJs(script)
 
         // 事实 12：字符串规则求值器（timeout 15.0）。
+        // Result 装箱域——AnalyzeRuleStringRuleEvaluator.Result（wave-16）。
         let evaluator = AnalyzeRuleStringRuleEvaluator()
-        let result = (try? evaluator.evaluate(processed)) ?? Result(text: nil, ok: false)
+        let result = (try? evaluator.evaluate(processed))
+            ?? AnalyzeRuleStringRuleEvaluator.Result(text: nil, ok: false)
 
         guard isExecutionCancelled == false else {
             return nil
@@ -216,8 +277,7 @@ extension AnalyzeRule {
             // 伪代码 L5714-L5811：空结果诊断。
             Logger.log(
                 "[JS] RuleEvaluator 返回空结果, rule=\(rule)",
-                level: Self.executeRuleLogLevel,
-                anchor: 984
+                level: Self.executeRuleLogLevel
             )
             Self.jsRuleFailureCache.insert(rule)
             return nil
@@ -299,14 +359,14 @@ extension AnalyzeRule {
     /// 伪代码 0x10004b7e0（L501-519）：求值上下文预备——变量桥 + 库装载域。
     func prepareJavaScriptEvaluationContext() {
         let context = jsContextHandle()
-        setupJSContextBase(context)
+        AnalyzeRule.setupJSContextBase(context)
         setupChapterVariableBridge()
         installSourceBridgeBindings()
         ensureJsLibLoaded()
     }
 
     /// 伪代码 0x10004ec5c（L545-584）：JSON 对象元素值构造（数组 → JSValue
-    /// 对象数组域）。
+    /// 对象数组域）。元素装箱走 JSValue(object:in:)（构造域统一，wave-16）。
     func makeJavaScriptJSONObjectElementValue(
         _ elements: [String]
     ) -> JSValue? {
@@ -319,7 +379,8 @@ extension AnalyzeRule {
                 array.setObject(object, atIndexedSubscript: array.toArray().count)
             } else {
                 array.setObject(
-                    JSValue(string: element, in: context) ?? JSValue(undefinedIn: context),
+                    JSValue(object: element, in: context)
+                        ?? JSValue(undefinedIn: context),
                     atIndexedSubscript: array.toArray().count)
             }
         }
@@ -378,6 +439,11 @@ extension AnalyzeRule {
 }
 
 /// JS 求值结果绑定（evaluateJS 族参数域确证；最小载体，字段随消费域补齐）。
+/// store(text:)——executeJsRule 结果写回域（wave-16 补桥）。
 struct AnalyzeRuleJavaScriptResultBinding {
     var elementValues: [String] = []
+
+    mutating func store(_ text: String) {
+        elementValues.append(text)
+    }
 }

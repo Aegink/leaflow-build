@@ -136,13 +136,9 @@ extension AnalyzeRule {
                 replacement = variable
             } else if inner.contains("java.") {
                 // 事实 10：含 "java." 的表达式走 JS 求值。
-                var binding: String?
-                prepareJavaScriptEvaluationContext(
-                    resultBinding: &binding,
-                    index: nil,
-                    idContent: nil,
-                    setId: nil
-                )
+                // prepareJavaScriptEvaluationContext 为无参域（签名确证，
+                // wave-16）。
+                prepareJavaScriptEvaluationContext()
                 let evaluated = safeEvaluateScript(
                     inner,
                     timeout: 15.0,

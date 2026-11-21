@@ -125,10 +125,11 @@ extension AnalyzeRule {
     }
 
     /// 伪代码 0x10006e658（L191-207）：Kanna 文档构造（stderr 抑制）。
+    /// 构造走 Kanna.XML 工厂（5.3 域：XMLDocument 为协议，wave-16）。
     func getXPathDocument(from source: String) -> KannaXMLDocument? {
         withLibxmlStderrSuppressed {
             let prepared = preparedXPathSource(source)
-            return KannaXMLDocument(string: prepared, encoding: .utf8)
+            return try Kanna.XML(xml: prepared, encoding: .utf8)
         }
     }
 
@@ -147,9 +148,10 @@ extension AnalyzeRule {
     }
 
     /// 伪代码 0x10006f0a4（L257-273）：结果取串。
+    /// 节点迭代经 leaflowElements 桥（XPathObject 枚举域，wave-16）。
     static func xpathObjectStrings(_ object: KannaXPathObject?) -> [String] {
         guard let object else { return [] }
-        return object.compactMap { node -> String? in
+        return object.leaflowElements.compactMap { node -> String? in
             let text = node.text ?? ""
             return text.isEmpty ? nil : text
         }
@@ -172,10 +174,11 @@ extension AnalyzeRule {
     }
 
     /// 伪代码 0x100070230（L300-313）：XPath 单规则节点执行。
+    /// 节点迭代经 leaflowElements 桥（XPathObject 枚举域，wave-16）。
     func executeXPathSingleRuleForNodes(_ rule: String) -> [KannaXMLElement] {
         let document = getXPathDocument(from: contentString)
         guard let objects = xpathObjects(rule, document: document) else { return [] }
-        return objects.compactMap { $0 as? KannaXMLElement }
+        return objects.leaflowElements
     }
 
     /// 伪代码 0x10006cb34（L315-347）：链式节点提取 —— `|` 分段逐级求值。
@@ -188,7 +191,9 @@ extension AnalyzeRule {
                 break
             }
             // 后续段在已提取节点的字符串形态上重新解析。
-            let joined = nodes.compactMap { try? $0.innerHtml() }.joined(separator: "\n")
+            // innerHTML 为协议域（String? 非 throwing，wave-16）。
+            let joined = nodes.compactMap { $0.innerHTML ?? "" }
+                .joined(separator: "\n")
             nodes = executeXPathSingleRuleForNodes(segment, sourceOverride: joined)
         }
         return nodes.isEmpty ? nil : nodes
@@ -208,8 +213,9 @@ extension AnalyzeRule {
 
     /// 伪代码 0x10006f310（L385-398）：节点取串。
     /// `@html`/innerhtml 关键字 → innerHTML；否则 text（textnode）。
+    /// innerHTML 为协议域（String? 非 throwing，wave-16）。
     func xpathNodeString(_ node: KannaXMLElement) -> String? {
-        let html = (try? node.innerHtml()) ?? ""
+        let html = node.innerHTML ?? ""
         if html.isEmpty {
             let text = node.text ?? ""
             return text.isEmpty ? nil : text
@@ -224,6 +230,6 @@ extension AnalyzeRule {
     ) -> [KannaXMLElement] {
         let document = getXPathDocument(from: sourceOverride)
         guard let objects = xpathObjects(rule, document: document) else { return [] }
-        return objects.compactMap { $0 as? KannaXMLElement }
+        return objects.leaflowElements
     }
 }

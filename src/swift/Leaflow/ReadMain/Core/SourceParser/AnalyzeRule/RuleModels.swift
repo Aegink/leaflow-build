@@ -93,10 +93,12 @@ struct LegadoSourceRule {
 
     /// 伪代码 0x10007bfa4（L72-103）：makeUp —— ruleParam/ruleType 驱动的模板重建。
     /// type -2 → getVariable/variableMap；-1 → resolveLegadoSourceRuleJs；≥1 → param 取值；0 → 字面量。
-    func makeUpRule(result: Any?, context: AnalyzeRule) -> String {
+    /// 返回生效规则结构体（mode/rule 消费域确证——ElementExtraction/Execution，
+    /// wave-16：原还原误返回 String）。
+    func makeUpRule(result: Any?, context: AnalyzeRule) -> LegadoSourceRule {
         guard let params = ruleParam, let types = ruleType, !params.isEmpty else {
-            var base = rule
-            extractReplaceSyntaxFromRuleIfNeeded(&base)
+            var base = self
+            extractReplaceSyntaxFromRuleIfNeeded(&base.rule)
             return base
         }
 
@@ -123,9 +125,10 @@ struct LegadoSourceRule {
             }
         }
 
-        var madeUp = assembled
-        extractReplaceSyntaxFromRuleIfNeeded(&madeUp)
-        return madeUp
+        var effective = self
+        extractReplaceSyntaxFromRuleIfNeeded(&assembled)
+        effective.rule = assembled
+        return effective
     }
 
     /// 伪代码 0x10007cae4（L105-115）：`##` 替换语法提取（就地改写 rule 字段）。

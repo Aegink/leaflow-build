@@ -89,9 +89,10 @@ extension AnalyzeRule {
         }
 
         // 事实 26/27：组合符拆段。
-        let segments = LegadoRuleAnalyzer
-            .innerRule(trimmed, markers: ["&&", "||", "%%"])
-            .split { $0.isEmpty }
+        let segments = Array(
+            LegadoRuleAnalyzer
+                .innerRule(trimmed, markers: ["&&", "||", "%%"])
+                .split { $0.isEmpty })
         if segments.count <= 1 {
             return collectElementsByMode(rules: splitRules(trimmed, allInOne: true), limit: limit)
         }
@@ -199,15 +200,20 @@ extension AnalyzeRule {
                 appendCapped(AnalyzeRule.wrapJsonItemsAsChildRules(capped), to: &result, limit: limit)
             case .xpath:
                 // 事实 25：XPath（空结果按伪代码记 `[XPath] -> 匹配 0` 日志）。
+                // 节点装箱走 childRule 路径（wrapNodesAsChildRules 同域，wave-16）。
                 let nodes = executeXPathRuleForNodes(effective.rule)
-                let wrapped = nodes.map { AnalyzeRule(childRules: $0) } ?? []
-                appendCapped(wrapped, to: &result, limit: limit)
+                let wrapped = nodes.map { node in
+                    wrapNodesAsChildRules([node])
+                } ?? []
+                appendCapped(Array(wrapped.joined()), to: &result, limit: limit)
             case .json:
                 // 事实 25：JSONPath（LRU 引擎缓存 + readJsonPath）。
-                let engine = Self.jsonPathEngineCache.getOrPut(key: effective.rule) {
+                // getOrPut 无 key: 标签（LRUCache 签名域）；readJsonPath
+                // 为 (source:rule:engine:) 三参域。
+                let engine = Self.jsonPathEngineCache.getOrPut(effective.rule) {
                     Self.makeJsonPathEngine(for: effective.rule)
                 }
-                let value = readJsonPath(effective.rule, engine: engine)
+                let value = readJsonPath(contentString, rule: effective.rule, engine: engine)
                 if let anyValue = value {
                     appendCapped(
                         AnalyzeRule.wrapJsonItemsAsChildRules([anyValue]),
@@ -221,14 +227,14 @@ extension AnalyzeRule {
                     appendCapped(elements, to: &result, limit: limit)
                 }
             case .regex:
-                // 事实 25：AnalyzeByRegex.getElements + wrapNodesAsChildRules。
+                // 事实 25：AnalyzeByRegex.getElements（[String] 规则数组域）
+                // + wrapJsonItemsAsChildRules（文本匹配装箱域）。
                 let matches = AnalyzeByRegex.getElements(
                     contentString,
-                    effective.rule,
-                    Self.isJsBlockRuleMarker
-                )
+                    [effective.rule]
+                ).flatMap { $0 }
                 let capped = limit.isUnlimited ? matches : Array(matches.prefix(limit.value))
-                appendCapped(AnalyzeRule.wrapNodesAsChildRules(capped), to: &result, limit: limit)
+                appendCapped(AnalyzeRule.wrapJsonItemsAsChildRules(capped), to: &result, limit: limit)
             default:
                 continue
             }
@@ -287,7 +293,7 @@ extension AnalyzeRule {
                 if nextIsJs {
                     guard let value = executeElementPipelineJson(
                         effective.rule,
-                        currentResult: context ?? contentString,
+                        currentResult: context.map { $0 as Any } ?? contentString,
                         nextMode: .js,
                         maxResults: nil
                     ) else {
@@ -295,10 +301,11 @@ extension AnalyzeRule {
                     }
                     context = value as? AnalyzeRule
                 } else {
-                    let engine = Self.jsonPathEngineCache.getOrPut(key: effective.rule) {
+                    let engine = Self.jsonPathEngineCache.getOrPut(effective.rule) {
                         Self.makeJsonPathEngine(for: effective.rule)
                     }
-                    guard let value = readJsonPath(effective.rule, engine: engine) else {
+                    guard let value = readJsonPath(
+                        contentString, rule: effective.rule, engine: engine) else {
                         return nil
                     }
                     context = Self.wrapElementPipelineResult(value).first
@@ -325,10 +332,12 @@ extension AnalyzeRule {
         }
 
         // 事实 41：组合符拆分。
-        let segments = LegadoRuleAnalyzer
-            .innerRule(rule.trimmingCharacters(in: .whitespacesAndNewlines),
-                       markers: ["&&", "||", "%%"])
-            .split { $0.isEmpty }
+        // 拆段 Array 化（ArraySlice→String 消解，wave-16）。
+        let segments = Array(
+            LegadoRuleAnalyzer
+                .innerRule(rule.trimmingCharacters(in: .whitespacesAndNewlines),
+                           markers: ["&&", "||", "%%"])
+                .split { $0.isEmpty })
         if segments.count > 1 {
             switch LegadoRuleAnalyzer.lastCombiner {
             case "||":
@@ -368,7 +377,8 @@ extension AnalyzeRule {
         var result: [AnalyzeRule] = []
         for analyzer in AnalyzeRule.analyzersForElementPipeline(currentResult) {
             let nodes = executeXPathRuleForNodes(rule)
-            result.append(contentsOf: nodes.map { AnalyzeRule(childRules: $0) } ?? [])
+            // 节点装箱走 wrapNodesAsChildRules（childRule 域，wave-16）。
+            result.append(contentsOf: nodes.map { wrapNodesAsChildRules($0) } ?? [])
         }
         return result
     }
@@ -392,14 +402,16 @@ extension AnalyzeRule {
             }
 
             // 事实 30：每步 makeUp 后执行。
-            let effective = sourceRule.makeUpRule(result: contentOf(current), context: sharedInstance())
+            // contentOf 为实例闭包域——经 sharedInstance 取用（wave-16）。
+            let effective = sourceRule.makeUpRule(
+                result: contentOf(current), context: sharedInstance())
             let nextMode: RuleMode? = offset + 1 < rules.count ? rules[offset + 1].mode : nil
             guard !effective.rule.isEmpty else {
                 break
             }
             let stepResult = executeElementPipelineStep(
                 effective,
-                currentResult: current ?? contentOf(current) ?? "",
+                currentResult: current ?? sharedInstance().contentOf(current) as Any,
                 nextMode: nextMode,
                 maxResults: maxResults
             )
@@ -443,7 +455,8 @@ extension AnalyzeRule {
         case .regex:
             // 事实 31：stringForElementPipeline + AnalyzeByRegex.getElements。
             let subject = stringForElementPipeline(currentResult)
-            return AnalyzeByRegex.getElements(subject, rule.rule, Self.isJsBlockRuleMarker)
+            // AnalyzeByRegex.getElements 为 ([String], Int) 域——展平取值。
+            return AnalyzeByRegex.getElements(subject, [rule.rule]).flatMap { $0 }
         default:
             return nil
         }
@@ -461,10 +474,13 @@ extension AnalyzeRule {
         let analyzers = analyzersForElementPipeline(currentResult)
         var values: [Any] = []
         for analyzer in analyzers {
-            let engine = jsonPathEngineCache.getOrPut(key: rule) {
+            // getOrPut 无 key: 标签；readJsonPath 为 (source:rule:engine:) 域
+            // ——以 analyzer 自身内容为源（wave-16）。
+            let engine = jsonPathEngineCache.getOrPut(rule) {
                 makeJsonPathEngine(for: rule)
             }
-            guard let value = analyzer.readJsonPath(rule, engine: engine) else {
+            guard let value = analyzer.readJsonPath(
+                analyzer.contentString, rule: rule, engine: engine) else {
                 continue
             }
             if nextMode == .mode8 {
@@ -651,16 +667,17 @@ extension AnalyzeRule {
     /// `setContent(_:baseUrl:)` → 写回关联存储。
     static func wrapNodesAsChildRules(_ nodes: [KannaXMLElement]) -> [AnalyzeRule] {
         nodes.compactMap { node in
-            childRule(for: node, contentClosure: { node.xmlString })
+            // Kanna XMLElement 无 xmlString——innerHTML 等价桥（协议域）。
+            childRule(for: node, contentClosure: { node.innerHTML ?? "" })
         }
     }
 
     /// 伪代码 0x10001dd10（闭包 #1 in wrapSoupNodesAsChildRules，L539-551）：
-    /// SwiftSoup.Element → innerHtml（throws）→ 同上构造子规则；
+    /// SwiftSoup.Element → html（throws）→ 同上构造子规则；
     /// v12[22] = element、v12[21] 链接父级关联对象。
     static func wrapSoupNodesAsChildRules(_ nodes: [SwiftSoupElement]) -> [AnalyzeRule] {
         nodes.compactMap { node in
-            guard let html = try? node.innerHtml(), !html.isEmpty else {
+            guard let html = try? node.html(), !html.isEmpty else {
                 return nil
             }
             return childRule(for: node, contentClosure: { html })
@@ -740,12 +757,13 @@ extension AnalyzeRule {
 
     /// 子规则构造共用路径（wrap* 三族共享）：
     /// 复制父级上下文 → init(source:parent:) → 继承 book/baseUrl → setContent。
+    /// init source 为 BookSource?——泛型载荷经 as? 降取（wave-16）。
     static func childRule(
         for source: Any,
         contentClosure: () -> String
     ) -> AnalyzeRule? {
         let parent = sharedInstance()
-        let child = AnalyzeRule(source: source, parent: parent)
+        let child = AnalyzeRule(source: source as? BookSource, parent: parent)
         child.book = parent.book
         let content = contentClosure()
         guard !content.isEmpty else { return nil }
@@ -754,6 +772,7 @@ extension AnalyzeRule {
     }
 
     /// 事实 23 载体：searchResultLimitHint（伪代码 ivar + 标志字节）。
+    /// 存储域置于 AnalyzeRule 类体（extension 不可含存储属性，wave-16）。
     var searchResultLimitHint: Int {
         get { storedSearchResultLimitHint }
         set { storedSearchResultLimitHint = newValue }
@@ -763,4 +782,8 @@ extension AnalyzeRule {
         get { storedSearchResultLimitHintIsSet }
         set { storedSearchResultLimitHintIsSet = newValue }
     }
+
+    /// 事实 23 存储域（wave-16 补成员）。
+    var storedSearchResultLimitHint: Int = 0
+    var storedSearchResultLimitHintIsSet: Bool = false
 }

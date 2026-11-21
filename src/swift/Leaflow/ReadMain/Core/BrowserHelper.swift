@@ -65,8 +65,10 @@ final class JSBridgeBrowserContext {
 }
 
 /// 平台探测模式（AnalyzeRule.platformProbeMode 域确证）。
+/// probe：探测请求档（refreshPlatformProbeMethods 消费域确证，wave-16 补档）。
 enum JSBridgePlatformProbeMode: String {
     case none
     case web
     case native
+    case probe
 }

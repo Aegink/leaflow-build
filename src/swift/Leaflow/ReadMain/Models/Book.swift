@@ -334,6 +334,24 @@ struct Book: Codable, Identifiable, Equatable, Hashable {
         kind?.split(separator: ",").map(String.init) ?? []
     }
 
+    /// origin 桥（书源 URL——legado 域命名，JsStubs 消费域确证，
+    /// wave-16 补成员）。
+    var origin: String? {
+        get { bookSourceUrl }
+        set { bookSourceUrl = newValue }
+    }
+
+    /// tocUrl 桥（目录页 URL——JsStubs 消费域确证，wave-16 补成员；
+    /// 解码/入库域随 T-601 对齐——当前经 bigVariableMap 惰性承载）。
+    var tocUrl: String? {
+        get { bigVariableMap["tocUrl"] }
+        set {
+            var map = bigVariableMap
+            map["tocUrl"] = newValue
+            bigVariableMap = map
+        }
+    }
+
     /// displayLanguage getter（签名确证）。
     var displayLanguage: String {
         kindList.first { $0.contains("英文") || $0.contains("日语") } ?? "中文"

@@ -25,22 +25,20 @@ extension AnalyzeRule {
     /// 引擎 LRU 缓存 → readJsonPath → nil 记日志返回 nil；
     /// 数组 → legadoString 过滤空 joined("\n")；单值 → legadoString（空 → nil）。
     func executeJsonRule(_ rule: String) -> String? {
-        let engine = Self.jsonPathEngineCache.getOrPut(key: rule) {
+        let engine = Self.jsonPathEngineCache.getOrPut(rule) {
             Self.makeJsonPathEngine(for: rule)
         }
         if Self.debugMode {
             Logger.log(
                 "[JSON] 执行规则: \"\(rule)\" 内容长度=\(contentString.count)",
-                level: Self.executeRuleLogLevel,
-                anchor: 39
+                level: Self.executeRuleLogLevel
             )
         }
         guard let value = readJsonPath(contentString, rule: rule, engine: engine) else {
             if Self.debugMode {
                 Logger.log(
                     "[JSON] JsonPath返回nil, path=\"\(rule)\"",
-                    level: Self.executeRuleLogLevel,
-                    anchor: 44
+                    level: Self.executeRuleLogLevel
                 )
             }
             return nil
@@ -57,7 +55,7 @@ extension AnalyzeRule {
     /// 伪代码 0x100059498（L60-71）：JSONPath 列表执行。
     /// 数组 → [String]（空 → nil）；单值 → 单元素数组；nil → nil。
     func executeJsonRuleForList(_ rule: String) -> [String]? {
-        let engine = Self.jsonPathEngineCache.getOrPut(key: rule) {
+        let engine = Self.jsonPathEngineCache.getOrPut(rule) {
             Self.makeJsonPathEngine(for: rule)
         }
         guard let value = readJsonPath(contentString, rule: rule, engine: engine) else {
@@ -84,10 +82,16 @@ extension AnalyzeRule {
         let jsonObject = Self.jsonObjectForElementPipeline(source)
         guard jsonObject != nil else { return nil }
 
-        let segments = LegadoRuleAnalyzer
-            .innerRule(rule, markers: ["&&", "||", "%%"])
-            .split { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        // 拆段 Array 化（ArraySlice→String 消解，wave-16）。
+        let segments = Array(
+            LegadoRuleAnalyzer
+                .innerRule(rule, markers: ["&&", "||", "%%"])
+                .split {
+                    $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                })
+            .map {
+                $0.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
 
         if segments.count <= 1 {
             // 事实 7：单段 —— 内嵌规则优先。

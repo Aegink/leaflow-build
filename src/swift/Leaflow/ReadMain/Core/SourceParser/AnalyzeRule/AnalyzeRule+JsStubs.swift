@@ -80,9 +80,9 @@ extension AnalyzeRule {
             },
             "isVip": false,
         ]
-        context.setObject(bookObject, forKey: "book" as NSString)
+        context.setObject(bookObject, forKeyedSubscript: "book" as NSString)
         let signature = "book|\(book?.name ?? "")|\(book?.bookUrl ?? "")"
-        context.setObject(signature, forKey: "__bookObjectSignature" as NSString)
+        context.setObject(signature, forKeyedSubscript: "__bookObjectSignature" as NSString)
         return signature
     }
 
@@ -105,9 +105,9 @@ extension AnalyzeRule {
                 self?.putVariable(name, value: value)
             },
         ]
-        context.setObject(chapterObject, forKey: "chapter" as NSString)
+        context.setObject(chapterObject, forKeyedSubscript: "chapter" as NSString)
         let signature = "chapter|\(currentChapter?.url ?? "")|\(currentChapter?.index ?? -1)"
-        context.setObject(signature, forKey: "__chapterObjectSignature" as NSString)
+        context.setObject(signature, forKeyedSubscript: "__chapterObjectSignature" as NSString)
         return signature
     }
 
@@ -126,8 +126,8 @@ extension AnalyzeRule {
             }
         }
         let state = currentBookBridgeState()
-        context.setObject(state, forKey: "__bookState" as NSString)
-        context.setObject(signature, forKey: "__bookObjectSignature" as NSString)
+        context.setObject(state, forKeyedSubscript: "__bookState" as NSString)
+        context.setObject(signature, forKeyedSubscript: "__bookObjectSignature" as NSString)
     }
 
     /// 伪代码 0x10005ff48（L488-536）：chapter 状态同步（同构）。
@@ -143,8 +143,8 @@ extension AnalyzeRule {
             }
         }
         let state = currentChapterBridgeState()
-        context.setObject(state, forKey: "__chapterState" as NSString)
-        context.setObject(signature, forKey: "__chapterObjectSignature" as NSString)
+        context.setObject(state, forKeyedSubscript: "__chapterState" as NSString)
+        context.setObject(signature, forKeyedSubscript: "__chapterObjectSignature" as NSString)
     }
 
     /// 伪代码 0x10005cc44（L67-82）：book 桥状态字典。
@@ -182,35 +182,35 @@ extension AnalyzeRule {
 
         // 闭包 #1（L118-120）：AnalyzeRule 提供者。
         context.setObject({ [weak self] () -> AnalyzeRule? in self },
-                          forKey: "__currentAnalyzer" as NSString)
+                          forKeyedSubscript: "__currentAnalyzer" as NSString)
         // 闭包 #2（L122-124）：NSDictionary 状态。
         context.setObject({ [weak self] () -> NSDictionary in
             (self?.currentBookBridgeState() ?? [:]) as NSDictionary
-        }, forKey: "__bookState" as NSString)
+        }, forKeyedSubscript: "__bookState" as NSString)
         // 闭包 #3（L125-127）：getString 变换。
         context.setObject({ [weak self] (rule: String) -> String in
             self?.getString(rule: rule, isUrl: false) ?? ""
-        }, forKey: "_rawGetString" as NSString)
+        }, forKeyedSubscript: "_rawGetString" as NSString)
         // 闭包 #4（L128-130）：(String, JSValue) -> () put。
         context.setObject({ [weak self] (name: String, value: JSValue) in
             self?.putBookVariableFromJavaScript(name, value)
-        }, forKey: "_varPut" as NSString)
+        }, forKeyedSubscript: "_varPut" as NSString)
         // 闭包 #5（L131-133）：状态串。
         context.setObject({ [weak self] () -> String in
             self?.currentChapter?.title ?? ""
-        }, forKey: "__chapterTitle" as NSString)
+        }, forKeyedSubscript: "__chapterTitle" as NSString)
         // 闭包 #6（L134-136）：NSDictionary chapter 状态。
         context.setObject({ [weak self] () -> NSDictionary in
             (self?.currentChapterBridgeState() ?? [:]) as NSDictionary
-        }, forKey: "__chapterState" as NSString)
+        }, forKeyedSubscript: "__chapterState" as NSString)
         // 闭包 #7（L137-139）：(String, String) -> () putPair。
         context.setObject({ [weak self] (name: String, value: String) in
             self?.putVariable(name, value: value)
-        }, forKey: "putVariable" as NSString)
+        }, forKeyedSubscript: "putVariable" as NSString)
         // 闭包 #8（L140-142）：(String) -> String。
         context.setObject({ [weak self] (name: String) -> String in
             self?.getVariable(name) ?? ""
-        }, forKey: "getVariable" as NSString)
+        }, forKeyedSubscript: "getVariable" as NSString)
 
         syncBookObject(force: false)
         syncChapterObject(force: false)
@@ -231,26 +231,55 @@ extension AnalyzeRule {
 
     /// 伪代码（installCookieBridgeBindings 闭包 #1/#2，L564-569）：
     /// `cookie.get(key)` / `cookie.set(key, value)`（事实 8 的键族）。
+    /// CookieBridge 为 (url:name:) 域 API——JS 契约是整域读取/整串写入
+    /// （legado java.cookie 域，wave-16）。
     func installCookieBridgeBindings() {
         let context = Self.jsContextHandle()
         let cookieObject: [String: Any] = [
-            "getCookie": { (key: String) -> String in
-                CookieBridge.getCookie(key)
+            "getCookie": { (url: String) -> String in
+                guard let target = URL(string: url) else { return "" }
+                let cookies = HTTPCookieStorage.shared.cookies(for: target) ?? []
+                return cookies.map { "\($0.name)=\($0.value)" }
+                    .joined(separator: "; ")
             },
-            "setCookie": { (key: String, value: String) in
-                CookieBridge.setCookie(key, value: value)
+            "setCookie": { (url: String, value: String) in
+                for pair in value.split(separator: ";") {
+                    let kv = pair.split(separator: "=", maxSplits: 1)
+                    guard kv.count == 2 else { continue }
+                    CookieBridge.setCookie(
+                        url,
+                        name: kv[0].trimmingCharacters(in: .whitespaces),
+                        value: String(kv[1]))
+                }
             },
-            "removeCookie": { (key: String) in
-                CookieBridge.removeCookie(key)
+            "removeCookie": { (url: String) in
+                guard let target = URL(string: url) else { return }
+                for cookie in HTTPCookieStorage.shared.cookies(for: target) ?? [] {
+                    CookieBridge.removeCookie(url, name: cookie.name)
+                }
             },
-            "replaceCookie": { (key: String, value: String) in
-                CookieBridge.setCookie(key, value: value)
+            "replaceCookie": { (url: String, value: String) in
+                for pair in value.split(separator: ";") {
+                    let kv = pair.split(separator: "=", maxSplits: 1)
+                    guard kv.count == 2 else { continue }
+                    CookieBridge.setCookie(
+                        url,
+                        name: kv[0].trimmingCharacters(in: .whitespaces),
+                        value: String(kv[1]))
+                }
             },
-            "putCookie": { (key: String, value: String) in
-                CookieBridge.setCookie(key, value: value)
+            "putCookie": { (url: String, value: String) in
+                for pair in value.split(separator: ";") {
+                    let kv = pair.split(separator: "=", maxSplits: 1)
+                    guard kv.count == 2 else { continue }
+                    CookieBridge.setCookie(
+                        url,
+                        name: kv[0].trimmingCharacters(in: .whitespaces),
+                        value: String(kv[1]))
+                }
             },
         ]
-        context.setObject(cookieObject, forKey: "cookie" as NSString)
+        context.setObject(cookieObject, forKeyedSubscript: "cookie" as NSString)
     }
 
     // MARK: - 自桥刷新
@@ -263,25 +292,25 @@ extension AnalyzeRule {
         // 闭包 #1（L597-604）：getString。
         context.setObject({ [weak self] (rule: String) -> String in
             self?.getString(rule: rule, isUrl: false) ?? ""
-        }, forKey: "getString" as NSString)
+        }, forKeyedSubscript: "getString" as NSString)
         // 闭包 #2（L607-614）：get + 环境展开。
         context.setObject({ [weak self] (rule: String, content: String) -> String in
             self?.getString(rule: rule, isUrl: false) ?? content
-        }, forKey: "_rawGetStringWithContent" as NSString)
+        }, forKeyedSubscript: "_rawGetStringWithContent" as NSString)
         // 闭包 #3（L617-627）：getElements。
         context.setObject({ [weak self] (rule: String) -> [Any] in
             guard let self else { return [] }
             return self.getElementsSingle(rule: rule).map { $0.contentString }
-        }, forKey: "getElements" as NSString)
+        }, forKeyedSubscript: "getElements" as NSString)
         // 闭包 #5（L642-645）：setContent。
         context.setObject({ [weak self] (content: String, baseUrl: String) -> String in
             self?.setContent(content, baseUrl: baseUrl)
             return content
-        }, forKey: "setContent" as NSString)
+        }, forKeyedSubscript: "setContent" as NSString)
         // `put`（事实 21 键集）。
         context.setObject({ [weak self] (name: String, value: String) in
             self?.putVariable(name, value: value)
-        }, forKey: "put" as NSString)
+        }, forKeyedSubscript: "put" as NSString)
 
         ensureWrapRespFunctionInstalled()
         refreshSourceAndSelfMethods()
@@ -292,6 +321,6 @@ extension AnalyzeRule {
         let context = Self.jsContextHandle()
         context.setObject({ [weak self] () -> NSDictionary in
             (self?.currentBookBridgeState() ?? [:]) as NSDictionary
-        }, forKey: "java" as NSString)
+        }, forKeyedSubscript: "java" as NSString)
     }
 }

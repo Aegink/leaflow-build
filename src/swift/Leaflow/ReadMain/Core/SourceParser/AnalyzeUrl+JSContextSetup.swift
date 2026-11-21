@@ -56,7 +56,7 @@ extension AnalyzeUrl {
                 Logger.log("[java.log] \(message)", level: AnalyzeUrl.requestLogLevel)
             },
             "ruleUrl": { (rule: String) -> String in rule },
-            "clearTtsCache": { in },
+            "clearTtsCache": { (_: String) in },
             "androidId": { () -> String in "" },
             "HMacHex": { (input: String, key: String, mode: String) -> String in
                 CryptoBridge.hmacHex(input: input, key: key, mode: mode)
@@ -74,13 +74,38 @@ extension AnalyzeUrl {
             "__qireaderAsyncHttpRequest": { (url: String) in },
             "_startBrowserAwaitResponse": { (url: String, title: String, html: String, options: JSValue) in },
             "_startBrowserSideEffect": { (url: String, title: String, html: String, options: JSValue) in },
-            "_cookieGet": { (url: String) -> String in CookieBridge.getCookie(url) },
-            "_cookieSet": { (url: String, cookie: String) in
-                CookieBridge.setCookie(url, cookie: cookie)
+            // CookieBridge 为 name 域 API——桥接整域读取/整串写入（wave-16）。
+            "_cookieGet": { (url: String) -> String in
+                guard let target = URL(string: url) else { return "" }
+                let cookies = HTTPCookieStorage.shared.cookies(for: target) ?? []
+                return cookies.map { "\($0.name)=\($0.value)" }
+                    .joined(separator: "; ")
             },
-            "_cookieRemove": { (url: String) in CookieBridge.removeCookie(url) },
+            "_cookieSet": { (url: String, cookie: String) in
+                for pair in cookie.split(separator: ";") {
+                    let kv = pair.split(separator: "=", maxSplits: 1)
+                    guard kv.count == 2 else { continue }
+                    CookieBridge.setCookie(
+                        url,
+                        name: kv[0].trimmingCharacters(in: .whitespaces),
+                        value: String(kv[1]))
+                }
+            },
+            "_cookieRemove": { (url: String) in
+                guard let target = URL(string: url) else { return }
+                for cookie in HTTPCookieStorage.shared.cookies(for: target) ?? [] {
+                    CookieBridge.removeCookie(url, name: cookie.name)
+                }
+            },
             "_cookieReplace": { (url: String, cookie: String) in
-                CookieBridge.setCookie(url, cookie: cookie)
+                for pair in cookie.split(separator: ";") {
+                    let kv = pair.split(separator: "=", maxSplits: 1)
+                    guard kv.count == 2 else { continue }
+                    CookieBridge.setCookie(
+                        url,
+                        name: kv[0].trimmingCharacters(in: .whitespaces),
+                        value: String(kv[1]))
+                }
             },
         ]
         for (key, value) in javaNative {
@@ -91,12 +116,12 @@ extension AnalyzeUrl {
         context.setObject(true, forKeyedSubscript: "__javaNative" as NSString)
         context.evaluateScript(Self.javaShimScript)
         context.evaluateScript(Self.cookieShimScript)
-        context.evaluateScript(Self.sourceShimScript(context: self))
+        context.evaluateScript(sourceShimScript(context: self))
         context.evaluateScript(Self.browserShimScript)
 
         // 事实 11：绑定键。
         context.setObject(sourceKey, forKeyedSubscript: "key" as NSString)
-        context.setObject(page, forKeyedSubscript: "page" as NSNumber)
+        context.setObject(page, forKeyedSubscript: "page" as NSString)
         context.setObject(baseUrl, forKeyedSubscript: "baseUrl" as NSString)
     }
 

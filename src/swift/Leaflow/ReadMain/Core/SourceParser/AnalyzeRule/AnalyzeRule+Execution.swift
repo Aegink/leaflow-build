@@ -79,12 +79,13 @@ extension AnalyzeRule {
         previousResultIsCurrentContent: Bool
     ) -> String? {
         // 事实 13：makeUp 链。
+        // makeUpRule 返回生效规则结构体——取规则串域（wave-16）。
         let input = makeUpRuleInput(previousResult: previousResult)
-        let effectiveRule = rule.makeUpRule(result: input, context: self)
+        let effectiveRule = rule.makeUpRule(result: input, context: self).rule
 
         // 推断 6：LRU 命中只打调试日志，不改变控制流。
         if Self.ruleCache.contains(ruleKey(effectiveRule, isUrl: isUrl)) {
-            let mode = Self.isJsonContent() ? "json" : "text"
+            let mode = isJsonContent() ? "json" : "text"
             Logger.log(
                 "[executeRule] mode=\(mode) rule=\(effectiveRule) "
                     + "result=true isUrl=\(isUrl)",
@@ -183,7 +184,7 @@ extension AnalyzeRule {
         case .js:
             // 事实 17/推断 8：mode 3 —— 单值 JS 或列表 JS 取 indexExtract。
             if rule.prefersSingleValue {
-                return executeJsRule(trimmed, previousResult: previousResult)
+                return executeJsRule(trimmed, input: previousResult)
             }
             let list = executeJsRuleForListWithPreviousResult(trimmed, previousResult: previousResult)
             return Self.extractByIndex(list, index: rule.indexExtract)
@@ -364,7 +365,7 @@ extension AnalyzeRule {
         _ rule: String,
         previousResult: Any?
     ) -> [String]? {
-        guard let value = executeJsRule(rule, previousResult: previousResult) else {
+        guard let value = executeJsRule(rule, input: previousResult) else {
             return nil
         }
         return Self.stringListFromJsRuleResult(value)

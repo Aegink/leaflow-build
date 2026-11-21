@@ -143,13 +143,9 @@ extension AnalyzeRule {
                     result += value
                 }
             } else {
-                var binding: String?
-                prepareJavaScriptEvaluationContext(
-                    resultBinding: &binding,
-                    index: nil,
-                    idContent: nil,
-                    setId: nil
-                )
+                // prepareJavaScriptEvaluationContext 为无参域（签名确证，
+                // wave-16）。
+                prepareJavaScriptEvaluationContext()
                 let evaluated = safeEvaluateScript(
                     expression,
                     timeout: 15.0,

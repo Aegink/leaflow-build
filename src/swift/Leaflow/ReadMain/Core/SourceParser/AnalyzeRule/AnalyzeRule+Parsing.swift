@@ -163,16 +163,14 @@ extension AnalyzeRule {
         if Self.debugMode {
             Logger.log(
                 "[getString] rule=\"\(rule)\" isUrl=\(isUrl)",
-                level: Self.executeRuleLogLevel,
-                anchor: 131
+                level: Self.executeRuleLogLevel
             )
         }
         let rules = splitRules(rule, allInOne: true)
         if Self.debugMode {
             Logger.log(
                 "[getString] count=\(rules.count) rules=\(rules.map { "mode=\($0.mode) rule=\($0.rule)" })",
-                level: Self.executeRuleLogLevel,
-                anchor: 137
+                level: Self.executeRuleLogLevel
             )
         }
         let input = initialRuleEvaluationInput()
@@ -181,8 +179,7 @@ extension AnalyzeRule {
         if Self.debugMode {
             Logger.log(
                 "[getString] -> \(finalized ?? "nil")",
-                level: Self.executeRuleLogLevel,
-                anchor: 146
+                level: Self.executeRuleLogLevel
             )
         }
         return finalized

@@ -48,7 +48,7 @@ struct AboutSettingsView: View {
         settingsCardRow(topGap: 16) {
             HStack {
                 AppThemeSettingsLabel(
-                    title: "版本号", systemImage: "info.circle")
+                    "版本号", systemImage: "info.circle")
                 Spacer()
                 Text(appVersion)
                     .textSelection(.enabled)
@@ -58,20 +58,22 @@ struct AboutSettingsView: View {
     }
 
     /// 关于链接行（closure #2 Link 域确证）。
+    /// Link 作为 settingsCardRow 的内容闭包（行包裹域，wave-16）。
     private var aboutRow: some View {
         // closure #2 域确证：Link + appThemeAccent 着色。
-        Link(destination: URL(string: "https://www.qireader.app")!) {
-            HStack {
-                AppThemeSettingsLabel(
-                    title: "关于", systemImage: "safari")
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .appThemeAccent(opacity: 0.4)
+        settingsCardRow(topGap: 12) {
+            Link(destination: URL(string: "https://www.qireader.app")!) {
+                HStack {
+                    AppThemeSettingsLabel(
+                        "关于", systemImage: "safari")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.weight(.semibold))
+                        .appThemeAccent(opacity: 0.4)
+                }
             }
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
-        .settingsCardRow(topGap: 12)
     }
 
     private func loadVersion() {

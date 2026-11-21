@@ -14,12 +14,13 @@ import Foundation
 extension AnalyzeRule {
 
     /// 伪代码 0x10003912c（L26-92）：源级请求头解析。
+    /// headers 为书源 headerMap（BookSource.headerMap 消费域，wave-16）。
     func resolvedSourceHeaderString() -> String {
         var resolved: [String: String] = [:]
         if let loginHeader = getVariable("loginHeader") {
             resolved["loginHeader"] = loginHeader
         }
-        for (key, value) in headers {
+        for (key, value) in source?.headerMap ?? [:] {
             resolved[key] = value
         }
         Logger.log(

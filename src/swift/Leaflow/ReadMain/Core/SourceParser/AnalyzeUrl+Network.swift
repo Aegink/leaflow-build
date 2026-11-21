@@ -259,5 +259,30 @@ extension AnalyzeUrl {
             ?? String(data: data, encoding: .isoLatin1)
             ?? ""
     }
+
+    /// nativeHttpRequest(url:followRedirects:)（AnalyzeUrl+JSContextSetup
+    /// JS 桥消费域确证，wave-16 补桥）——JS 同步 HTTP GET；信号量桥接
+    /// 会话回调域（30s 超时，还原推断）。
+    static func nativeHttpRequest(_ url: String, followRedirects: Bool) -> String {
+        guard let target = URL(string: url) else { return "" }
+        var request = URLRequest(url: target)
+        request.httpMethod = "GET"
+        let semaphore = DispatchSemaphore(value: 0)
+        var body = ""
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.httpShouldSetCookies = followRedirects
+        let session = URLSession(configuration: configuration)
+        let task = session.dataTask(with: request) { data, response, error in
+            defer { semaphore.signal() }
+            guard error == nil else { return }
+            let contentType = (response as? HTTPURLResponse)?
+                .value(forHTTPHeaderField: "Content-Type")
+            body = decodeResponseData(data ?? Data(), contentType: contentType)
+        }
+        task.resume()
+        _ = semaphore.wait(timeout: .now() + 30)
+        session.invalidateAndCancel()
+        return body
+    }
 }
 

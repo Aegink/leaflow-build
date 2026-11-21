@@ -26,11 +26,9 @@ extension AnalyzeRule {
     /// 匹配 ≥2 组取组 1、==1 组取整匹配；可选变换过滤后空 → nil。
     func executeRegexRuleForList(_ rule: String) -> [String]? {
         guard !rule.isEmpty else { return nil }
-        let matches = AnalyzeByRegex.getElements(
-            contentString,
-            rule,
-            Self.isJsBlockRuleMarker
-        )
+        // AnalyzeByRegex.getElements 为 ([String], Int) 域——单规则数组化
+        //（wave-16）。
+        let matches = AnalyzeByRegex.getElements(contentString, [rule])
         var collected: [String] = []
         for match in matches {
             if match.count >= 2 {
@@ -135,8 +133,7 @@ extension AnalyzeRule {
         Logger.log(
             "[formatUrl] 解析结果与 baseUrl 不同域: url=\(absolute) baseUrl=\(baseUrl) "
                 + "ref=\(reference)",
-            level: Self.executeRuleLogLevel,
-            anchor: anchor
+            level: Self.executeRuleLogLevel
         )
     }
 }

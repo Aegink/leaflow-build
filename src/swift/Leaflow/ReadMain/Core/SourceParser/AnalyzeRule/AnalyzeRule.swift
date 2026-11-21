@@ -77,8 +77,9 @@ final class AnalyzeRule {
     var alternateEvaluationInput: Any?
 
     /// 事实 8：source 作用域变量与全书变量。
+    /// variableMap 访问域放宽（LegadoChain 扩展消费域，wave-16）。
     private var sourceScopedVariables: [String: String] = [:]
-    private var variableMap: [String: String] = [:]
+    var variableMap: [String: String] = [:]
     private var cachedBookVariables: [String: String] = [:]
 
     /// 事实 9：生命周期辅助。
@@ -88,10 +89,17 @@ final class AnalyzeRule {
     var currentChapter: BookChapter?
     var jsonObject: Any?
     static let isJsBlockRuleMarker: (String) -> Bool = { AnalyzeRule.isJsBlockRule($0) }
-    static let executeRuleLogLevel: Int = 2
+    /// executeRule 域日志档（Logger.Level——Logger.log 域对齐，wave-16）。
+    static let executeRuleLogLevel: Logger.Level = .warning
 
     let source: BookSource?
     let parent: AnalyzeRule?
+
+    /// sourceKey 桥（书源键——javaBridgeRefreshSignature/getSource 消费域
+    /// 确证，wave-16 补成员）。
+    var sourceKey: String? {
+        source?.bookSourceUrl
+    }
 
     /// 伪代码 0x1000113fc（L1544-1557）。
     init(source: BookSource?, parent: AnalyzeRule?) {
@@ -157,7 +165,8 @@ final class AnalyzeRule {
     /// 伪代码 0x100012380（L1711-1728）：SwiftSoup 文档。
     func getSoupDocument() -> SwiftSoupDocument? {
         guard !contentString.isEmpty else { return nil }
-        return try? SwiftSoupDocument.parse(contentString)
+        // parse 入口为 SwiftSoup 枚举域（Document 无静态 parse，wave-16）。
+        return try? SwiftSoup.parse(contentString)
     }
 
     // MARK: - 变量桥
@@ -250,13 +259,13 @@ final class AnalyzeRule {
         let started = ProcessInfo.processInfo.systemUptime
         let value = context.evaluateScript(script)
         let elapsed = ProcessInfo.processInfo.systemUptime - started
-        if elapsed > timeout, debugMode {
+        if elapsed > timeout, Self.debugMode {
             Logger.log(
                 "[safeEvaluateScript] 超时阈值 \(timeout)s，实际 \(elapsed)s",
-                level: executeRuleLogLevel
+                level: Self.executeRuleLogLevel
             )
         }
-        if let exception = context.exception, debugMode {
+        if let exception = context.exception, Self.debugMode {
             Logger.log("[JS-ERROR] 脚本异常 | 脚本: \(script) -> \(exception)", level: .info)
         }
         return value
@@ -268,24 +277,24 @@ final class AnalyzeRule {
         // closure #3（L597-616）：JSValue → String。
         context.setObject({ (value: JSValue) -> String in
             value.toString() ?? ""
-        }, forKeyedSubscript: "__swift_valueToString")
+        }, forKeyedSubscript: "__swift_valueToString" as NSString)
         // closure #4（L619-626）：String → [Int]。
         context.setObject({ (code: String) -> [Int] in
             code.unicodeScalars.map { Int($0.value) }
-        }, forKeyedSubscript: "__swift_stringToCodePoints")
+        }, forKeyedSubscript: "__swift_stringToCodePoints" as NSString)
         // closure #8（L673-677）：进度回调。
         context.setObject({ (progress: Double) in
             NotificationCenter.default.post(
                 name: .analyzeRuleProgress, object: nil, userInfo: ["progress": progress]
             )
-        }, forKeyedSubscript: "__swift_reportProgress")
+        }, forKeyedSubscript: "__swift_reportProgress" as NSString)
         // closure #11-#15（L700-746）：字符串变换族。
         context.setObject({ (text: String) -> String in
             text.trimmingCharacters(in: .whitespacesAndNewlines)
-        }, forKeyedSubscript: "__swift_trim")
+        }, forKeyedSubscript: "__swift_trim" as NSString)
         context.setObject({ (text: String) -> String in
             text.replacingOccurrences(of: "\r\n", with: "\n")
-        }, forKeyedSubscript: "__swift_normalizeNewlines")
+        }, forKeyedSubscript: "__swift_normalizeNewlines" as NSString)
         recordBaseGlobalKeysIfNeeded(context)
     }
 
@@ -294,7 +303,7 @@ final class AnalyzeRule {
     /// 伪代码 0x10000da48（L798-845）：记录基准键集。
     static func recordBaseGlobalKeysIfNeeded(_ context: JSContext) {
         guard context.objectForKeyedSubscript("__baseGlobalKeysRecorded") == nil else { return }
-        context.setObject(true, forKeyedSubscript: "__baseGlobalKeysRecorded")
+        context.setObject(true, forKeyedSubscript: "__baseGlobalKeysRecorded" as NSString)
     }
 
     /// 伪代码 0x100008dec（L847-926）：恢复被改写全局。

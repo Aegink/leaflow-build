@@ -100,23 +100,23 @@ extension AnalyzeUrl {
         // closure #1（L121-128）(JSValue)->String。
         context.setObject({ (value: JSValue) -> String in
             value.toString() ?? ""
-        }, forKeyedSubscript: "__packagesToString")
+        }, forKeyedSubscript: "__packagesToString" as NSString)
         // closure #2（L131-138）(String)->[Int]。
         context.setObject({ (input: String) -> [Int] in
             Array(input.utf8).map { Int($0) }
-        }, forKeyedSubscript: "__packagesStrToBytes")
+        }, forKeyedSubscript: "__packagesStrToBytes" as NSString)
         // closure #3（L141-147）五参+Bool->[Int]。
         context.setObject({ (input: String, key: String, iv: String, mode: String, isHex: Bool) -> [Int] in
             let output = CryptoBridge.cipherProcess(
                 input: input, key: key, iv: iv, mode: mode, hexOutput: isHex
             )
             return Array(output.utf8).map { Int($0) }
-        }, forKeyedSubscript: "__packagesCipher")
+        }, forKeyedSubscript: "__packagesCipher" as NSString)
         // closure #4（L150-162）(String,String)->[Int]。
         context.setObject({ (input: String, mode: String) -> [Int] in
             let output = CryptoBridge.digest(input, mode: mode)
             return Array(output.utf8).map { Int($0) }
-        }, forKeyedSubscript: "__packagesDigest")
+        }, forKeyedSubscript: "__packagesDigest" as NSString)
         // closure #5（L165-180）([Int],String)->String。
         context.setObject({ (bytes: [Int], charset: String) -> String in
             let data = Data(bytes.compactMap { UInt8(exactly: $0) })
@@ -124,14 +124,14 @@ extension AnalyzeUrl {
                 return String(data: data, encoding: .isoLatin1) ?? ""
             }
             return String(data: data, encoding: .utf8) ?? ""
-        }, forKeyedSubscript: "__packagesBytesToStr")
+        }, forKeyedSubscript: "__packagesBytesToStr" as NSString)
         // closure #6/#7（L183-187/L190-194）([Int])->[Int]。
         context.setObject({ (bytes: [Int]) -> [Int] in
             CryptoBridge.gzipBytes(bytes.map { UInt8(exactly: $0) ?? 0 }).map { Int($0) }
-        }, forKeyedSubscript: "__packagesGzip")
+        }, forKeyedSubscript: "__packagesGzip" as NSString)
         context.setObject({ (bytes: [Int]) -> [Int] in
             CryptoBridge.gunzipBytes(bytes.map { UInt8(exactly: $0) ?? 0 }).map { Int($0) }
-        }, forKeyedSubscript: "__packagesGunzip")
+        }, forKeyedSubscript: "__packagesGunzip" as NSString)
     }
 
     // MARK: - 远程脚本

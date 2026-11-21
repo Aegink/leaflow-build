@@ -9,6 +9,21 @@ import Kanna
 
 typealias SwiftSoupDocument = SwiftSoup.Document
 typealias SwiftSoupElement = SwiftSoup.Element
+// Kanna 5.3：XMLDocument/XMLElement 为协议（具体类 internal，经 Kanna.XML
+// 工厂构造）；XPathObject 为枚举结果域（wave-16 别名修正）。
 typealias KannaXMLDocument = Kanna.XMLDocument
 typealias KannaXMLElement = Kanna.XMLElement
-typealias KannaXPathObject = Kanna.XMLElement
+typealias KannaXPathObject = Kanna.XPathObject
+
+extension Kanna.XPathObject {
+    /// elements 数组桥（XPathObject 枚举无 Sequence 一致性——迭代取值，
+    /// wave-16 补桥）。
+    var leaflowElements: [any Kanna.XMLElement] {
+        var result: [any Kanna.XMLElement] = []
+        var iterator = makeIterator()
+        while let element = iterator.next() {
+            result.append(element)
+        }
+        return result
+    }
+}
