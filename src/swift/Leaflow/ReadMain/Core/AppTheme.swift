@@ -1019,7 +1019,7 @@ struct AppTheme: Codable, Identifiable, Equatable {
             || lhs.darkSplashImageFiles != rhs.darkSplashImageFiles {
             return false
         }
-        lhs.id == rhs.id
+        return lhs.id == rhs.id
             && lhs.accentColorHex == rhs.accentColorHex
             && lhs.darkAccentColorHex == rhs.darkAccentColorHex
             && lhs.primaryTextColorHex == rhs.primaryTextColorHex

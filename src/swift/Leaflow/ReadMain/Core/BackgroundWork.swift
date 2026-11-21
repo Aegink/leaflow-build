@@ -54,10 +54,11 @@ enum BackgroundWork {
     }
 
     /// 伪代码 0x1001a4c54（L50-54）：即发即忘（返回 Task 供取消）。
+    /// operation @escaping：Task 闭包捕获域（wave-16）。
     @discardableResult
     static func fireAndForget(
         priority: TaskPriority? = nil,
-        _ operation: @Sendable () -> Void
+        _ operation: @escaping @Sendable () -> Void
     ) -> Task<Void, Never> {
         Task(priority: priority) {
             operation()
@@ -68,7 +69,7 @@ enum BackgroundWork {
     @discardableResult
     static func fireAndForgetAsync(
         priority: TaskPriority? = nil,
-        _ operation: @Sendable () async -> Void
+        _ operation: @escaping @Sendable () async -> Void
     ) -> Task<Void, Never> {
         Task(priority: priority) {
             await operation()
