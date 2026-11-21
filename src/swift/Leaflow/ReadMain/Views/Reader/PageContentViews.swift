@@ -516,12 +516,13 @@ final class PageContentViewController: UIViewController, UIGestureRecognizerDele
         else { return false }
 
         // 图片上下文预取（BackgroundWork.fireAndForget + ReaderInlineImageContext
-        // 真实 init 域确证；闭包体未恢复，待真机对照）。
+        // 真实 init 域确证；闭包体未恢复，待真机对照）。contentWidth 经
+        // view.bounds（本类型无 containerSize 属性，wave-16）。
         if let page = pageData, let settings {
             let context = ReaderInlineImageContext(
                 sourceUrl: page.imageSourceUrl,
                 storageKind: page.imageSourceStorageKind,
-                contentWidth: containerSize.width,
+                contentWidth: view.bounds.width,
                 font: settings.widgetFont(size: settings.fontSize),
                 scale: UIScreen.main.scale)
             if context.sourceUrl != nil {

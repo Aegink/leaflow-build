@@ -74,7 +74,15 @@ struct PayActionWebView: UIViewRepresentable {
             if let data = stored.data(using: .utf8),
                let decoded = try? JSONDecoder().decode(
                    [[String: String]].self, from: data) {
-                let restored = decoded.compactMap { HTTPCookie(properties: $0) }
+                // properties 键域为 HTTPCookiePropertyKey——String 桥转换
+                // （wave-16）。
+                let restored = decoded.compactMap { props -> HTTPCookie? in
+                    let keyed = Dictionary(
+                        uniqueKeysWithValues: props.map {
+                            (HTTPCookiePropertyKey($0.key), $0.value)
+                        })
+                    return HTTPCookie(properties: keyed)
+                }
                 cookies.append(contentsOf: restored)
             }
         }

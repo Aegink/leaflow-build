@@ -15,13 +15,20 @@ import Foundation
 enum MemoryTrace {
 
     /// 伪代码 L7-17：进程驻留字节。
+    /// task_info 第三参为 integer_t 指针——重绑到 integer_t.self
+    /// （Mach 域确证，wave-16 修正重绑目标类型）。
     static func currentProcessFootprintBytes() -> UInt64? {
         var info = task_vm_info_data_t()
-        var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / 4)
+        var count = mach_msg_type_number_t(
+            MemoryLayout<task_vm_info_data_t>.size
+                / MemoryLayout<integer_t>.size)
         let result = withUnsafeMutablePointer(to: &info) { pointer in
-            // UnsafeMutablePointer 重绑 API 为 withMemoryRebound(to:capacity:)。
-            pointer.withMemoryRebound(to: task_info_t.self, capacity: 1) { infoPointer in
-                task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), infoPointer, &count)
+            pointer.withMemoryRebound(
+                to: integer_t.self, capacity: 1
+            ) { infoPointer in
+                task_info(
+                    mach_task_self_, task_flavor_t(TASK_VM_INFO),
+                    infoPointer, &count)
             }
         }
         guard result == KERN_SUCCESS else { return nil }

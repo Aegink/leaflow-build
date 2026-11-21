@@ -319,7 +319,8 @@ extension PageContentViewController {
                     return
                 }
                 guard rect.width > 0, rect.height > 0,
-                      rect.isFinite, !rect.isNull else { return }
+                      rect.width.isFinite, rect.height.isFinite,
+                      !rect.isNull else { return }
                 // ±3pt 外扩（伪代码 L1575 确证）。
                 let inflated = rect.insetBy(dx: -3.0, dy: -3.0)
                 self.cachedCommentRects.append((comment, inflated))
