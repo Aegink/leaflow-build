@@ -50,10 +50,10 @@ struct SettingsView: View {
 
     /// activeNavigationPath getter（签名域确证：外层优先）。
     private var activeNavigationPath: Binding<NavigationPath> {
-        if _navigationPath.wrappedValue != nil {
+        if let outer = _navigationPath.wrappedValue {
             return Binding(
-                get: { navigationPath ?? NavigationPath() },
-                set: { navigationPath = $0 })
+                get: { _navigationPath.wrappedValue ?? outer },
+                set: { _navigationPath.wrappedValue = $0 })
         }
         return $localNavigationPath
     }

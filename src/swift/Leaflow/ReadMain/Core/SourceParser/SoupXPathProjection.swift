@@ -71,11 +71,9 @@ final class SoupXPathProjection {
         // 节点路径桥（Kanna 5.3 xpath 为方法域非属性——祖先序拼接，
         // 真机核清项）。
         var segments: [String] = []
-        var cursor: Kanna.XMLNode? = node
+        var cursor: Kanna.XMLElement? = node
         while let current = cursor {
-            if let element = current as? XMLElement {
-                segments.insert(element.name ?? "*", at: 0)
-            }
+            segments.insert(current.name ?? "*", at: 0)
             cursor = current.parent
         }
         return "/" + segments.joined(separator: "/")
