@@ -1,0 +1,1 @@
+error: generic parameter 'R' could not be inferred

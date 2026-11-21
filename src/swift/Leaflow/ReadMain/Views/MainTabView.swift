@@ -77,11 +77,9 @@ struct MainTabView: View {
         Group {
             if AppThemeManager.shared.useClassicTabBar {
                 nativeClassicTabView
-            } else if #available(iOS 18.0, *) {
-                // tabBarMinimizeBehavior iOS 18+ 域（部署目标 17.0 门）。
-                nativeSearchTabView
-                    .tabBarMinimizeBehavior(.onScrollDown)
             } else {
+                // tabBarMinimizeBehavior iOS 26 域——iOS 18 SDK 无该
+                // API，修饰暂挂（真机核清项）。
                 nativeSearchTabView
             }
         }
