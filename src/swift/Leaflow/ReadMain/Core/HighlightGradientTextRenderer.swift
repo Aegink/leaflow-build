@@ -1573,6 +1573,20 @@ enum HighlightGradientTextRenderer {
         rects(for: range, layout: layout)
     }
 
+    /// backgroundRects(for:fallbackLayout:textLayoutManager:bounds:
+    /// configuration:)（drawBackgroundGradients 消费域确证——live manager
+    /// 直连域；fallbackLayout 未接线记入仍不清楚，wave-16 补桥）。
+    static func backgroundRects(
+        for range: NSRange, fallbackLayout: TextLayout?,
+        textLayoutManager: NSTextLayoutManager?, bounds: CGRect,
+        configuration: Configuration
+    ) -> [CGRect] {
+        guard let textLayoutManager else { return [] }
+        return rects(
+            for: range, textLayoutManager: textLayoutManager,
+            bounds: bounds, configuration: configuration)
+    }
+
     /// rects(for:textLayoutManager:bounds:configuration:)
     /// （0x1001c7700 L1612-1674 + closure 0x1001c9684 L1624-1672 域确证：
     /// enumerateTextSegmentsInRange(type=2) 逐段；行域内收：
@@ -1735,21 +1749,49 @@ enum HighlightGradientTextRenderer {
         else {
             return nil
         }
-        // NSRange → NSTextRange 桥走 NSTextContentStorage.textRange(for:)
-        // （storage 可用时；offset 校验经 characterRange 域，wave-16）。
-        guard let storage = textLayoutManager.textContentManager
-            as? NSTextContentStorage else {
+        // NSRange → NSTextRange 桥：经 enumerateTextLayoutFragments 定位
+        // 目标字符 offset 所在 fragment（NSTextContentManager.offset 域；
+        // 字符级定位无公开 API——fragment 粒度，还原推断；记入仍不清楚，
+        // wave-16）。
+        guard let contentManager = textLayoutManager.textContentManager,
+              let start = contentManager.documentRange.location else {
             return nil
         }
-        guard let mapped = storage.textRange(for: range) else {
+        let documentEnd = contentManager.documentRange.endLocation
+        let documentLength = contentManager.offset(
+            from: start, to: documentEnd)
+        guard range.location >= 0,
+              range.location + range.length <= documentLength else {
             return nil
         }
-        let characterRange = storage.characterRange(for: mapped)
-        guard characterRange.location != NSNotFound,
-              characterRange.length > 0 else {
+        var startLocation: (any NSTextLocation)?
+        var endLocation: (any NSTextLocation)?
+        var foundStart = false
+        textLayoutManager.enumerateTextLayoutFragments(
+            from: start, options: []) { fragment in
+            let fragmentStart = fragment.rangeInTextLocation.location
+            let fragmentEnd = fragment.rangeInTextLocation.endLocation
+            let fragmentOffset = contentManager.offset(
+                from: start, to: fragmentStart)
+            let fragmentLength = contentManager.offset(
+                from: fragmentStart, to: fragmentEnd)
+            // fragment 含目标起点 → 记录 start；
+            // fragment 含目标终点 → 记录 end 并停止。
+            if !foundStart, range.location <= fragmentOffset + fragmentLength {
+                startLocation = fragmentStart
+                foundStart = true
+            }
+            if foundStart,
+               range.location + range.length <= fragmentOffset + fragmentLength {
+                endLocation = fragmentEnd
+                return false
+            }
+            return true
+        }
+        guard let startLocation, let endLocation else {
             return nil
         }
-        return mapped
+        return NSTextRange(location: startLocation, endLocation: endLocation)
     }
 
     /// replaceCommentAttachmentsWithTransparentPlaceholders(in:)
@@ -2146,7 +2188,7 @@ final class HighlightGradientAttributedTextView: UIView {
     }
 
     required init?(coder: NSCoder) {
-        textConfiguration = HighlightGradientTextRenderer.Configuration()
+        attrConfiguration = HighlightGradientTextRenderer.Configuration()
         super.init(coder: coder)
         backgroundColor = .clear
     }

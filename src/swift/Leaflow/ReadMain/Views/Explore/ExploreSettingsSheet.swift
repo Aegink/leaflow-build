@@ -478,7 +478,7 @@ struct ExploreSettingsSheet: View {
                 Text("\(value)").tag(value)
             }
         } label: {
-            AppThemeSettingsLabel(title: title, systemImage: systemImage)
+            AppThemeSettingsLabel(title, systemImage: systemImage)
         }
     }
 
