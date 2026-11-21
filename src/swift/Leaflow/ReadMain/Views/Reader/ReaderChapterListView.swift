@@ -33,7 +33,7 @@ struct ReaderChapterListView: View {
     @Binding var currentChapterIndex: Int
     var onPickChapter: (Int) -> Void
     /// 主题管理（ivar 0x1004b9bf0 L8 确证：_themeManager）。
-    private var themeManager = ThemeManager.shared
+    var themeManager = ThemeManager.shared
     @State private var searchText = ""
 
     /// 伪代码 0x10078d2b8（L37-41）+ 过滤闭包（0x10078d5b8，L40）：

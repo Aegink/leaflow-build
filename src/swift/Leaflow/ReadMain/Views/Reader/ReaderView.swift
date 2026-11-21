@@ -44,7 +44,7 @@ struct ReaderView: View {
                 .ignoresSafeArea()
                 .modifier(CommentBrowserSheetPresentationModifier(isVisible: showCommentBrowser))
                 .toolbar(content: readerToolbarContent)
-                .readerPresentationSheets
+                .readerPresentationSheets()
         }
         .onAppear {
             Task {
