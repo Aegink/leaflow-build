@@ -313,6 +313,7 @@ final class AudioBookService: ObservableObject {
                 return
             }
             let type = AVAudioSession.InterruptionType(rawValue: typeRaw)
+            // rawValue 构造为可选域——nil 归零处理（wave-16）。
             switch type {
             case .began:
                 handleAudioInterruption(.began)
@@ -324,7 +325,7 @@ final class AudioBookService: ObservableObject {
                 handleAudioInterruption(
                     options.contains(.shouldResume)
                         ? .endedShouldResume : .endedShouldNotResume)
-            @unknown default:
+            case .none:
                 break
             }
         }

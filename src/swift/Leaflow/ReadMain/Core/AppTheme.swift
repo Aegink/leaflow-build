@@ -1187,30 +1187,19 @@ struct AppTheme: Codable, Identifiable, Equatable {
     func textColor(
         _ level: AppThemeTextLevel, colorScheme: ColorScheme
     ) -> Color {
-        // 档位 → 三色归一（normalizedLevel 域同映射）。
-        let normalized: AppThemeTextLevel
+        // 档位 → 三色归一（normalizedLevel 域同映射；七档穷举 + 三色
+        // 单 switch 消解二段穷举域，wave-16）。
+        let hex: String
         switch level {
         case .title, .headline, .body, .primary:
-            normalized = .primary
+            hex = colorScheme == .light
+                ? primaryTextColorHex : darkPrimaryTextColorHex
         case .subheadline, .secondary:
-            normalized = .secondary
-        case .caption, .tertiary:
-            normalized = .tertiary
-        }
-        let hex: String
-        switch (colorScheme, normalized) {
-        case (.light, .primary):
-            hex = primaryTextColorHex
-        case (.light, .secondary):
-            hex = secondaryTextColorHex
-        case (.light, .tertiary):
-            hex = tertiaryTextColorHex
-        case (_, .primary):
-            hex = darkPrimaryTextColorHex
-        case (_, .secondary):
-            hex = darkSecondaryTextColorHex
-        case (_, .tertiary):
-            hex = darkTertiaryTextColorHex
+            hex = colorScheme == .light
+                ? secondaryTextColorHex : darkSecondaryTextColorHex
+        case .caption, .footnote, .tertiary:
+            hex = colorScheme == .light
+                ? tertiaryTextColorHex : darkTertiaryTextColorHex
         }
         return leaflowColor(hex)
     }
