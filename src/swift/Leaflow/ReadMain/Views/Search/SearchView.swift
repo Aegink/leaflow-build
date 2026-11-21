@@ -118,7 +118,7 @@ struct SearchView: View {
     /// 单源选择 sheet（body 拆分域）。
     @ViewBuilder
     private func singleSourcePickerSheet(_ box: SingleSourceBox) -> some View {
-        SingleSourcePickerSheet(source: box.source) { picked in
+        SingleSourcePickerSheet(sources: [box.source]) { picked in
             if let picked {
                 Task {
                     let books = try? await SearchViewModel.searchSingleSource(

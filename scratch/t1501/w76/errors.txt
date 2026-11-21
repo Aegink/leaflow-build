@@ -1,0 +1,6 @@
+error: cannot convert return expression of type 'Binding<NavigationPath?>' to return type 'Binding<NavigationPath>'
+error: cannot convert value of type 'Binding<NavigationPath>' to expected argument type 'Binding<NavigationPath?>'
+error: cannot convert value of type 'BookSource' to expected argument type '[BookSource]'
+error: cannot find type 'XMLNode' in scope
+error: incorrect argument label in call (have 'forContentTypes:', expected 'forOpeningContentTypes:')
+error: incorrect argument label in call (have 'source:_:', expected 'sources:_:')

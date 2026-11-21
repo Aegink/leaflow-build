@@ -182,7 +182,7 @@ struct ReplaceRuleImportExportView: View {
     }
 
     private func importFromFile() {
-        let picker = UIDocumentPickerViewController(forContentTypes: [
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [
             UTType.json, UTType.plainText,
         ])
         picker.delegate = nil
