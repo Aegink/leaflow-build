@@ -227,6 +227,10 @@ final class ReadingSettings: Codable {
     var topInsetExtra: CGFloat = 0.0
     var bottomInsetExtra: CGFloat = 0.0
 
+    /// 段评浮层呈现态（ReaderSettingsView Binding 消费域确证，
+    /// wave-16 补成员；默认模态——还原推断）。
+    var paragraphCommentBrowser: ParagraphCommentBrowserPresentation = .modal
+
     // MARK: 非持久化缓存域（伪代码偏移语义映射）
 
     /// 编译规则缓存（offset 400，0x100216b40 写回域）。
@@ -1122,8 +1126,4 @@ extension ReadingSettings {
         case modal
         case inline
     }
-
-    /// 段评浮层呈现态（ReaderSettingsView Binding 消费域确证，
-    /// wave-16 补成员；默认模态——还原推断）。
-    var paragraphCommentBrowser: ParagraphCommentBrowserPresentation = .modal
 }
