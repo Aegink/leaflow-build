@@ -311,16 +311,22 @@ extension PageContentViewController {
                     let positionEnd = self.contentTextView.position(
                         from: positionStart, offset: range.length),
                     let textRange = self.contentTextView.textRange(
-                        from: positionStart, to: positionEnd),
-                    let rect = self.contentTextView.firstRect(for: textRange)
+                        from: positionStart, to: positionEnd)
                 else {
                     stopPointer.pointee = true
                     stop = true
                     return
                 }
-                guard rect.width > 0, rect.height > 0,
-                      rect.width.isFinite, rect.height.isFinite,
-                      !rect.isNull else { return }
+                // firstRect(for:) 返回非可选 CGRect——零域即未命中
+                //（UITextView 域，wave-16）。
+                let rect = self.contentTextView.firstRect(for: textRange)
+                guard rect != .zero, rect.width > 0, rect.height > 0,
+                      rect.width.isFinite, rect.height.isFinite
+                else {
+                    stopPointer.pointee = true
+                    stop = true
+                    return
+                }
                 // ±3pt 外扩（伪代码 L1575 确证）。
                 let inflated = rect.insetBy(dx: -3.0, dy: -3.0)
                 self.cachedCommentRects.append((comment, inflated))
