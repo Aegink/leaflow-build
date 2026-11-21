@@ -1,0 +1,1 @@
+error: conflicting arguments to generic parameter 'T' ('Binding<NavigationPath>' vs. 'Binding<NavigationPath?>')

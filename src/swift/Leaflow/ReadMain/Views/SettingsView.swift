@@ -44,9 +44,15 @@ struct SettingsView: View {
 
     /// init(navigationPath:)（签名域确证：外层可选路由绑定）。
     init(navigationPath: Binding<NavigationPath>?) {
-        let nilBinding = Binding<NavigationPath?>(
-            get: { nil }, set: { _ in })
-        _navigationPath = navigationPath ?? nilBinding
+        // 外层可选路由绑定桥：显式 Optional 值域两分支（wave-80）。
+        if let outer = navigationPath {
+            _navigationPath = Binding<NavigationPath?>(
+                get: { outer.wrappedValue },
+                set: { outer.wrappedValue = $0 })
+        } else {
+            _navigationPath = Binding<NavigationPath?>(
+                get: { nil }, set: { _ in })
+        }
     }
 
     /// activeNavigationPath getter（签名域确证：外层优先）。
