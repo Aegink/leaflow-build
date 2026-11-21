@@ -243,7 +243,7 @@ enum BrowserReadingModeExtractionError: LocalizedError {
 /// 浏览器 WebView 壳（makeCoordinator 0x100b534b4 / makeUIViewController
 /// 0x100b53614 / updateUIViewController 0x100b53e68 / dismantleUIViewController
 /// 0x100b54190 域；运行时主体在 ReaderBrowserWebView 分册）。
-struct BrowserWebView: UIViewControllerRepresentable {
+struct BrowserWebView: UIViewRepresentable {
 
     var url: URL
     var sourceStateKey: String = "browser"

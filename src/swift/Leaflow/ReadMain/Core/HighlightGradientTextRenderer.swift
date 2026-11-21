@@ -2107,7 +2107,7 @@ final class HighlightGradientAttributedTextView: UIView {
         }
     }
 
-    var textConfiguration: HighlightGradientTextRenderer.Configuration {
+    var attrConfiguration: HighlightGradientTextRenderer.Configuration {
         didSet {
             // configuration.didset 0x1001cc914 L2138-2141 域确证。
             setNeedsDisplay()
@@ -2115,7 +2115,7 @@ final class HighlightGradientAttributedTextView: UIView {
     }
 
     init(frame: CGRect) {
-        textConfiguration = HighlightGradientTextRenderer.Configuration()
+        attrConfiguration = HighlightGradientTextRenderer.Configuration()
         super.init(frame: frame)
         backgroundColor = .clear
     }

@@ -85,10 +85,3 @@ final class CopiedFileImportService {
     }
 }
 
-extension CopiedImportFile {
-
-    /// 伪代码 0x1003119f8（L5）：id varinit（Foundation.UUID 域确证）。
-    var id: UUID {
-        UUID()
-    }
-
