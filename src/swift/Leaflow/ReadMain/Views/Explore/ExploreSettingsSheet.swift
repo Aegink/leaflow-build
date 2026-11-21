@@ -173,7 +173,7 @@ struct ExploreSettingsSheet: View {
             Picker(selection: layoutBinding) {
                 ForEach(LayoutOption.allCases, id: \.self) { option in
                     AppThemeSettingsLabel(
-                        title: option.label, systemImage: option.icon)
+                        option.label, systemImage: option.icon)
                         .tag(option)
                 }
             } label: {

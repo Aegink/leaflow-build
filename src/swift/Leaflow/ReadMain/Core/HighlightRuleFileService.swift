@@ -145,6 +145,9 @@ enum HighlightRuleFileService {
 
     /// 伪代码 0x1001d8b74（L118-154）：归档导入主链
     ///（locatePackageDirectory → manifest 解码 → copyReferencedAssets → apply）。
+    /// @MainActor：apply 域为 ReadingSettings 隔离（调用方 HighlightRulesView
+    /// 为 MainActor 域，wave-16）。
+    @MainActor
     static func importArchive(
         from archiveURL: URL,
         assetManager: HighlightBackgroundImageAssetManager,

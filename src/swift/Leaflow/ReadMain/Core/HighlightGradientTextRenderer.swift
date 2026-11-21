@@ -1278,7 +1278,8 @@ enum HighlightGradientTextRenderer {
         if let textLayoutManager {
             let container = NSTextContainer(size: bounds.size)
             textLayoutManager.textContainer = container
-            textLayoutManager.ensureLayout(for: container)
+            textLayoutManager.ensureLayout(
+                for: textLayoutManager.documentRange)
         }
         attributedText.enumerateAttributes(
             in: NSRange(location: 0, length: attributedText.length)
@@ -1435,7 +1436,7 @@ enum HighlightGradientTextRenderer {
         // （textLayoutFragments(for:) 非 SDK 成员，wave-16）。
         var fragments: [NSTextLayoutFragment] = []
         layout.layoutManager.enumerateTextLayoutFragments(
-            from: textRange.location, options: [.immutable],
+            from: textRange.location, options: [],
             using: { fragment in
                 fragments.append(fragment)
                 return true
@@ -1463,7 +1464,7 @@ enum HighlightGradientTextRenderer {
             .foregroundColor, value: UIColor.white, range: range)
         let (layoutManager, container, _) = makeLayout(
             for: mutable, in: bounds, configuration: configuration)
-        layoutManager.ensureLayout(forTextContainer: container)
+        layoutManager.ensureLayout(for: container)
         let glyphRange = layoutManager.glyphRange(
             forCharacterRange: range, actualCharacterRange: nil)
         guard glyphRange.length > 0 else { return }
@@ -1481,9 +1482,9 @@ enum HighlightGradientTextRenderer {
         contentManager: NSTextContentManager?
     ) -> Bool {
         guard let contentManager else { return false }
-        guard let documentLocation = contentManager.documentRange.location
-        else { return false }
-        // endpoint 取 KeyPath 直取（NSTextRange.location 非可选域，wave-16）。
+        // documentRange.location 为非可选 any NSTextLocation（wave-16）。
+        let documentLocation = contentManager.documentRange.location
+        // endpoint 取 KeyPath 直取。
         func offset(
             of range: NSTextRange,
             endpoint: KeyPath<NSTextRange, any NSTextLocation>
@@ -1522,7 +1523,7 @@ enum HighlightGradientTextRenderer {
         textLayoutManager.ensureLayout(for: location)
         var found: NSTextLayoutFragment?
         textLayoutManager.enumerateTextLayoutFragments(
-            from: location.location, options: [.immutable],
+            from: location.location, options: [],
             using: { fragment in
                 found = fragment
                 return false
@@ -1734,15 +1735,21 @@ enum HighlightGradientTextRenderer {
         else {
             return nil
         }
-        // location(offset) 无 SDK 域——经 NSTextContentStorage.characterIndex
-        // 桥（storage 可用时）：字符索引 → NSTextLocation。
-        guard let storage = textLayoutManager.textContentManager as? NSTextContentStorage,
-              let start = storage.location(for: range.location),
-              let end = storage.location(for: range.location + range.length)
-        else {
+        // NSRange → NSTextRange 桥走 NSTextContentStorage.textRange(for:)
+        // （storage 可用时；offset 校验经 characterRange 域，wave-16）。
+        guard let storage = textLayoutManager.textContentManager
+            as? NSTextContentStorage else {
             return nil
         }
-        return NSTextRange(location: start, endLocation: end)
+        guard let mapped = storage.textRange(for: range) else {
+            return nil
+        }
+        let characterRange = storage.characterRange(for: mapped)
+        guard characterRange.location != NSNotFound,
+              characterRange.length > 0 else {
+            return nil
+        }
+        return mapped
     }
 
     /// replaceCommentAttachmentsWithTransparentPlaceholders(in:)
@@ -1799,7 +1806,7 @@ enum HighlightGradientTextRenderer {
         let bounds = CGRect(x: 0, y: 0, width: width, height: .greatestFiniteMagnitude)
         let (layoutManager, container, _) = makeLayout(
             for: attributedText, in: bounds, configuration: configuration)
-        layoutManager.ensureLayout(forTextContainer: container)
+        layoutManager.ensureLayout(for: container)
         let used = layoutManager.usedRect(for: container)
         return CGSize(
             width: ceil(width),
@@ -1897,7 +1904,7 @@ final class HighlightGradientBackgroundSnapshotService {
             let image = HighlightGradientTextRenderer
                 .renderBackgroundSnapshot(
                     attributedText, in: bounds,
-                    configuration: textConfiguration, scale: scale)
+                    configuration: configuration, scale: scale)
             self.storeSnapshot(image ?? UIImage(), for: key)
             await MainActor.run { completion(image) }
         }
@@ -2144,11 +2151,12 @@ final class HighlightGradientAttributedTextView: UIView {
         backgroundColor = .clear
     }
 
-    /// draw(_:)（0x1001ccb00 L2158-2165 域确证）。
+    /// draw(_:)（0x1001ccb00 L2158-2165 域确证）。configuration →
+    /// attrConfiguration（本类型属性名域，wave-16）。
     override func draw(_ rect: CGRect) {
         guard let attributedText, attributedText.length > 0 else { return }
         HighlightGradientTextRenderer.drawFullAttributedText(
-            attributedText, in: bounds, configuration: configuration)
+            attributedText, in: bounds, configuration: attrConfiguration)
     }
 
     /// intrinsicContentSize（init(frame:) 0x1001ccb30 L2144-2149 域确证：
@@ -2160,7 +2168,7 @@ final class HighlightGradientAttributedTextView: UIView {
         }
         return HighlightGradientTextRenderer.measuredSize(
             for: attributedText, width: bounds.width,
-            configuration: configuration)
+            configuration: attrConfiguration)
     }
 
     /// sizeThatFits(_:)（0x1001ccb30 域确证：宽度 ceil + 高度 maxY +
@@ -2172,7 +2180,7 @@ final class HighlightGradientAttributedTextView: UIView {
         }
         return HighlightGradientTextRenderer.measuredSize(
             for: attributedText, width: ceil(size.width),
-            configuration: configuration)
+            configuration: attrConfiguration)
     }
 }
 

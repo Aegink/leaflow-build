@@ -21,6 +21,9 @@
 import Foundation
 
 /// 朗读驱动工厂（init 三参 + makeDriver 签名域确证）。
+/// @MainActor：preferences 域为 ReadAloudPreferences MainActor 隔离——
+/// 消费方 ReadAloudCoordinator 亦然（wave-16）。
+@MainActor
 final class DefaultReadAloudDriverFactory {
 
     private let preferences: ReadAloudPreferences
