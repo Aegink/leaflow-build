@@ -258,9 +258,12 @@ final class ReadingStatisticsService {
     /// dailyStats(lastDays:)（0x10036a390 L162-199 确证）。
     func dailyStats(lastDays: Int) -> [DailyStat] {
         aggregate { dayKey in
-            guard let date = Self.date(from: dayKey) else { return false }
-            return date >= Calendar.current.date(
-                byAdding: .day, value: -lastDays, to: Date()) ?? false
+            // `date >= X ?? false` 会把 ?? 绑到比较右元——先解包再比较。
+            guard let date = Self.date(from: dayKey),
+                  let cutoff = Calendar.current.date(
+                      byAdding: .day, value: -lastDays, to: Date())
+            else { return false }
+            return date >= cutoff
         }
     }
 

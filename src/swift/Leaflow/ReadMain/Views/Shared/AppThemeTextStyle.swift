@@ -29,13 +29,30 @@ enum AppThemeTextLevel: String, Codable, CaseIterable {
     case primary
     case secondary
     case tertiary
+    // wave-16：SwiftUI 风格档（ReadingStatsView/ReplaceRuleCreationSheet
+    // 消费域确证）——映射：headline/body→primary、subheadline→secondary、
+    // caption→tertiary。
+    case headline
+    case body
+    case subheadline
+    case caption
+
+    /// 归一档（颜色域按三档分派）。
+    var normalizedLevel: AppThemeTextLevel {
+        switch self {
+        case .headline, .body: return .primary
+        case .subheadline: return .secondary
+        case .primary, .secondary, .tertiary, .caption: return self
+        }
+    }
 
     /// 视觉字号档（settings 标签域）。
     var font: Font {
         switch self {
-        case .primary: return .body
-        case .secondary: return .subheadline
-        case .tertiary: return .caption
+        case .primary, .body: return .body
+        case .secondary, .subheadline: return .subheadline
+        case .tertiary, .caption: return .caption
+        case .headline: return .headline
         }
     }
 }

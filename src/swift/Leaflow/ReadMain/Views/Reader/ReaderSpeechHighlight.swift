@@ -48,14 +48,16 @@ struct ReaderSpeechHighlight {
             return
         }
         let resolved = ReadAloudAnchorResolver.resolve(anchor, in: pages)
-        if let page = resolved.page {
+        if let resolvedAnchor = resolved {
             self.pageIndex = pages.firstIndex {
-                $0.chapterIndex == page.chapterIndex && $0.pageIndex == page.pageIndex
+                $0.chapterIndex == resolvedAnchor.location.chapterIndex
+                    && $0.pageIndex == resolvedAnchor.location.pageIndex
             }
+            self.range = resolvedAnchor.rangeInPage
         } else {
             self.pageIndex = nil
+            self.range = NSRange(location: NSNotFound, length: 0)
         }
-        self.range = resolved.rangeInPage
         self.highlightsChapterTitle = false
     }
 
@@ -73,6 +75,8 @@ enum ReaderSpeechHighlightRenderer {
     /// ReaderSpreadContentViewController → configure(highlightRange:...)；
     /// PageContentViewController → configure + updateHighlight
     /// （未命中 → (NSNotFound, 0) + false 确证）。
+    /// @MainActor：目标为 UI 视图控制器方法（wave-16）。
+    @MainActor
     static func apply(
         _ highlight: ReaderSpeechHighlight,
         to viewController: UIViewController,

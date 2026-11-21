@@ -57,8 +57,8 @@ extension ReaderViewModel {
 
     /// 持久化源状态摘要（伪代码 0x100878cfc，L227-246；closure 0x10087d920）。
     func debugPersistentSourceStateSummary() -> String {
-        let sourceName = currentBookSource?.sourceName ?? "-"
-        return "source=\\(sourceName) chapters=\\(chapterContents.count) pages=\\(pages.count)"
+        let sourceName = currentBookSource?.name ?? "-"
+        return "source=\(sourceName) chapters=\(chapterContents.count) pages=\(pages.count)"
     }
 
     /// 章节缓存日志（closure 0x10087f950，L260；BrowserHelper.canOpen 参与确证）。
@@ -84,9 +84,7 @@ extension ReaderViewModel {
         if hasContent {
             clearChapterLoadingIndicator(force: false)
         } else {
-            armAutoLoadSuppression(
-                for: index,
-                reason: "visiblePlaceholder." + reason)
+            armAutoLoadSuppression(reason: "visiblePlaceholder." + reason)
         }
         syncChapterLoadingIndicatorWithVisiblePage()
     }

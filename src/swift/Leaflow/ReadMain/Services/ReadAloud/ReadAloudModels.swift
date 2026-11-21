@@ -58,6 +58,17 @@ struct ReadAloudAnchor: Equatable {
         location: .init(pageIndex: 0), rangeInPage: NSRange(location: 0, length: 0),
         rangeInChapter: nil, startUTF16Offset: 0,
         isChapterTitle: false)
+
+    /// chapterIndex 桥（location.chapterIndex 直取——ReaderViewModel+Speech
+    /// 消费域确证；wave-16 补成员）。
+    var chapterIndex: Int? {
+        location.chapterIndex
+    }
+
+    /// pageIndex 桥（location.pageIndex 直取）。
+    var pageIndex: Int {
+        location.pageIndex
+    }
 }
 
 /// 朗读段（五 getter 签名域确证）。

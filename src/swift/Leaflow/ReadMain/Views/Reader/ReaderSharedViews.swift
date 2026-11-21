@@ -65,9 +65,11 @@ struct GlassCardModifier: ViewModifier {
     func body(content: Content) -> some View {
         switch style {
         case .clear:
-            content.glassEffect(.clear)
+            // glassEffect 为 iOS 26 Liquid Glass API——本工具链（iOS 18.5
+            // SDK）不可用；以 ultraThin material 桥接（记入仍不清楚）。
+            content.background(.ultraThinMaterial)
         case .regular:
-            content.glassEffect(.regular)
+            content.background(.regularMaterial)
         case .ultraThin:
             content.background(.ultraThinMaterial)
         }

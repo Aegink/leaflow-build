@@ -296,6 +296,12 @@ final class PageContentViewController: UIViewController, UIGestureRecognizerDele
         SelectableReaderTextView(isSelectable: isInteractive)
     }()
 
+    /// 活动选择处理器（ReaderTextSelectionHandling 协议注释域确证；
+    /// Spread/Pool 双消费域确证成员名——wave-16 补桥）。
+    var contentSelectionHandler: ReaderTextSelectionHandling? {
+        contentTextView
+    }
+
     init(isInteractive: Bool) {
         self.isInteractive = isInteractive
         super.init(nibName: nil, bundle: nil)

@@ -25,12 +25,14 @@ final class ReaderViewModel {
 
     // MARK: 页面状态
 
-    private(set) var pages: [PageData] = []
-    private(set) var chapterPages: [PageData] = []
-    private(set) var chapterContents: [String] = []
-    private(set) var chapterPageMeta: [ChapterPageMeta] = []
-    private(set) var currentChapterIndex = 0
-    private(set) var currentPageIndex = 0
+    // wave-16：跨分册扩展（+Loading/+Navigation/+Pagination）有写入，
+    // setter 由 private(set) 放宽到 internal（原始二进制无文件边界概念）。
+    var pages: [PageData] = []
+    var chapterPages: [PageData] = []
+    var chapterContents: [String] = []
+    var chapterPageMeta: [ChapterPageMeta] = []
+    var currentChapterIndex = 0
+    var currentPageIndex = 0
     private(set) var currentBookSource: BookSource?
     private(set) var bookName = ""
     private(set) var totalChapters = 0
@@ -52,12 +54,12 @@ final class ReaderViewModel {
 
     // MARK: 加载/界面状态
 
-    private(set) var isLoadingPage = false
-    private(set) var hasError = false
+    var isLoadingPage = false
+    var hasError = false
     var menuVisible = false
     private(set) var speechHighlight = ReaderSpeechHighlight.none
     private(set) var colorVersion = 0
-    private(set) var isRebuildPending = false
+    var isRebuildPending = false
     private(set) var pendingPageTurnCommand: ReaderPageTurnCommand?
     var containerSize: CGSize = .zero
 
@@ -67,6 +69,41 @@ final class ReaderViewModel {
 
     private(set) var activeReadAloudAnchor: ReadAloudAnchor?
     private var autoLoadSuppressionReason: String?
+
+    // MARK: - T-1401-05 逐域补齐（核心域）——状态成员归位（wave-16 修复：
+    // 原错位于 struct ChapterPageMeta 体内，导致类体被劈开）
+
+    /// 章节阅读访问 URL 集（0x100864a48 L87 varinit 域；块体含异步装配域
+    /// swift_task_alloc 确证——默认空表 + 异步回填）。
+    private(set) var chapterReaderAccessURLs: [Int: String] = [:]
+
+    /// 章节加载状态表（ChapterLoadState 五 getter 域消费；跨分册扩展
+    /// 有写入——setter 放宽到 internal）。
+    var chapterLoadStates: [Int: ChapterLoadState] = [:]
+
+    /// 语音会话准备标志（isSpeechPreparing 计算源；speech 分册联动域）。
+    var speechSessionPreparing: Bool = false
+
+    /// 在途章节加载集（loadChapterContent 去重域 ivar 确证）。
+    var inFlightChapterLoads: Set<Int> = []
+
+    /// 阅读设置引用（Navigation/Loading 分册消费域）。
+    weak var settings: ReadingSettings?
+
+    /// 初始重排请求（shouldConsumeInitialReaderRepaginationRequest 消费域）。
+    var needsRepagination: Bool = false
+
+    /// 章节状态存储（Loading/Pagination 分册共享域）。
+    let chapterStateStore = ChapterStateStore()
+
+    /// 初始加载任务句柄（initialLoad/runInitialLoadTask 去重域）。
+    private var initialLoadTask: Task<Void, Never>?
+
+    /// 书籍信息任务句柄（scheduleBookInfoIfNeeded/runBookInfoIfNeeded 去重域）。
+    private var bookInfoTask: Task<Void, Never>?
+
+    /// 章节加载层标题（showChapterLoadingIndicator 域）。
+    private(set) var chapterLoadingTitle: String = ""
 
     // MARK: 生命周期
 
@@ -149,36 +186,16 @@ final class ReaderViewModel {
 }
 
 /// 章节页元信息（chapterPageMeta 元素）。
+/// wave-16 修复：原 T-1401-05 批量成员错位于此 struct 体内（类体被劈开），
+/// 状态成员已归位 ReaderViewModel 类体，方法域归位 extension。
 struct ChapterPageMeta {
     let chapterIndex: Int
     let pageCount: Int
+}
 
-    // MARK: - T-1401-05 逐域补齐（核心域）
+// MARK: - T-1401-05 逐域补齐（行为域）——方法归位 extension
 
-    /// 章节阅读访问 URL 集（0x100864a48 L87 varinit 域；块体含异步装配域
-    /// swift_task_alloc 确证——默认空表 + 异步回填）。
-    private(set) var chapterReaderAccessURLs: [Int: String] = [:]
-
-    /// 章节加载状态表（ChapterLoadState 五 getter 域消费）。
-    private(set) var chapterLoadStates: [Int: ChapterLoadState] = [:]
-
-    /// 语音会话准备标志（isSpeechPreparing 计算源；speech 分册联动域）。
-    var speechSessionPreparing: Bool = false
-
-    /// 在途章节加载集（loadChapterContent 去重域 ivar 确证）。
-    var inFlightChapterLoads: Set<Int> = []
-    /// 阅读设置引用（Navigation/Loading 分册消费域）。
-    weak var settings: ReadingSettings?
-    /// 初始重排请求（shouldConsumeInitialReaderRepaginationRequest 消费域）。
-    var needsRepagination: Bool = false
-    /// 章节状态存储（Loading/Pagination 分册共享域）。
-    let chapterStateStore = ChapterStateStore()
-    /// 初始加载任务句柄（initialLoad/runInitialLoadTask 去重域）。
-    private var initialLoadTask: Task<Void, Never>?
-    /// 书籍信息任务句柄（scheduleBookInfoIfNeeded/runBookInfoIfNeeded 去重域）。
-    private var bookInfoTask: Task<Void, Never>?
-    /// 章节加载层标题（showChapterLoadingIndicator 域）。
-    private(set) var chapterLoadingTitle: String = ""
+extension ReaderViewModel {
 
     /// 伪代码 0x100886a8c（L128）：已加载章节索引集（计数器桩；
     /// 按 chapterContents 非空推导）。
@@ -297,9 +314,12 @@ struct ChapterPageMeta {
             return
         }
         let rule = AnalyzeRule(source: source, parent: nil)
-        rule.setContent(chapter.content, baseUrl: "")
+        // 正文内容注入：Chapter 无 content 成员——规则上下文正文随阅读
+        // 会话管线对齐（记入仍不清楚；暂以空串维持求值域结构）。
+        rule.setContent("", baseUrl: "")
         rule.putVariable("commentImage", value: comment.imageSource)
-        _ = rule.safeEvaluateScript(script)
+        _ = rule.safeEvaluateScript(
+            script, timeout: 15.0, convertLegadoTemplates: true)
     }
 
     /// 伪代码 0x1008639d4（L301-316）：段评点击处理——图片源 → 动作执行域；

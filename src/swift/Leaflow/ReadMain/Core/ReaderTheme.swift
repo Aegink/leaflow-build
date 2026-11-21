@@ -145,6 +145,9 @@ final class ThemeManager {
     // 0x100206dc4 调用域确证；本体无独立导出块，语义桥接）
 
     /// 归一化暗色章节标题配置：暗档缺省时从亮档继承（块名域确证）。
+    /// @MainActor：ReadingSettings/ReaderViewModel 状态域均为 MainActor
+    /// 隔离（wave-16）。
+    @MainActor
     func normalizedDarkChapterTitleConfig(from settings: ReadingSettings) {
         guard let light = settings.chapterTitleConfigLight,
             settings.chapterTitleConfigDark == nil else { return }
@@ -157,6 +160,8 @@ final class ThemeManager {
     // 0x100206dc4 调用域确证；本体无独立导出块，语义桥接）
 
     /// 界面设置应用：主题刷新 + 重排标志桥（forceRepagination 域）。
+    /// @MainActor：needsRepagination 属 @MainActor ReaderViewModel（wave-16）。
+    @MainActor
     func applyInterfaceSettings(
         from settings: ReadingSettings, to target: ReadingSettings,
         forceRepagination: Bool
@@ -277,6 +282,8 @@ extension ThemeManager {
     /// .updateCurrentReaderThemeBindingFromManualSelection(_:) 位 → 成功 →
     /// applyBackgroundImage；失败 → resolvedSystemUserInterfaceStyle
     /// （ColorScheme.dark == 2 域）比对 useDarkBackground 变化后应用。
+    /// @MainActor：AppThemeManager（@MainActor 单例）桥调用（wave-16）。
+    @MainActor
     func applyUserSelectedTheme(_ theme: ReaderTheme) {
         let bindingUpdated = AppThemeManager.shared
             .updateCurrentReaderThemeBindingFromManualSelection(theme)

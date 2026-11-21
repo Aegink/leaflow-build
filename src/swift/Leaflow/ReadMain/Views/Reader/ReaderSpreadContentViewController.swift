@@ -175,7 +175,11 @@ final class ReaderSpreadContentViewController: UIViewController {
     }
 
     private func makeWidgetContext(for page: PageData) -> ReaderDisplayContext {
-        ReaderDisplayContext(page: page, bookName: bookName, totalChapters: totalChapters)
+        // ReaderDisplayContext 无 page: 参——页身份映射到章节/页索引字段。
+        ReaderDisplayContext(
+            bookName: bookName, totalChapters: totalChapters,
+            currentChapterIndex: page.chapterIndex,
+            currentPageIndex: page.pageIndex)
     }
 
     private func updateDynamicRefreshRequirements() {

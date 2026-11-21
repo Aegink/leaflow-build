@@ -136,7 +136,7 @@ final class ReaderTwoPageRenderer {
     private func replaceViewController(_ viewController: UIViewController) -> UIViewController {
         viewController.willMove(toParent: nil)
         viewController.removeFromParent()
-        addChild(viewController)
+        parent?.addChild(viewController)
         viewController.view.frame = containerView.bounds
         viewController.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         containerView.addSubview(viewController.view)

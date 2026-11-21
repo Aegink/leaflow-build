@@ -208,6 +208,39 @@ enum ReaderPaginator {
         return pages
     }
 
+    /// 同步 settings 桥（调用域确证：ReaderViewModel+Pagination ×2 /
+    /// LocalReaderViewModel ×1；映射与 paginateAsync 同源确证——wave-16）。
+    static func paginate(
+        content: String,
+        chapterIndex: Int,
+        chapterTitle: String = "",
+        settings: ReadingSettings,
+        pageBounds: CGSize
+    ) throws -> [PageData] {
+        try paginate(
+            content: content,
+            chapterIndex: chapterIndex,
+            chapterTitle: chapterTitle,
+            font: UIFont.systemFont(ofSize: settings.fontSize),
+            lineSpacing: settings.lineSpacing,
+            paragraphSpacing: settings.paragraphSpacing,
+            contentSizeFirst: pageBounds,
+            contentSizeNormal: pageBounds,
+            textIndent: settings.textIndent,
+            letterSpacing: settings.letterSpacing,
+            textAlignment: settings.textAlignment,
+            verticalJustify: settings.verticalJustify,
+            paragraphSeparatorLines: settings.paragraphSeparatorLines,
+            imageContext: nil,
+            comments: [],
+            fontStrokeWidth: 0,
+            languageIdentifier: "",
+            highlightLayoutRules: [],
+            useDarkHighlightAttributes: false,
+            emptyContentText: "本章节暂无内容"
+        )
+    }
+
     /// 异步分页（伪代码 closure #1 paginateAsync）。
     static func paginateAsync(
         content: String,

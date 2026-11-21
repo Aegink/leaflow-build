@@ -171,12 +171,19 @@ final class LocalReaderViewModel {
     // MARK: 分页
 
     /// 伪代码 0x10074c4d8（L443-448）：单章分页（ReaderPaginator.paginate 确证）。
+    /// 错误传播路径待核清——记录并回退空页集（本地分页内存域，wave-16）。
     private func paginateChapterForBuild(
         content: String, chapterIndex: Int, chapterTitle: String
     ) -> [PageData] {
-        ReaderPaginator.paginate(
-            content: content, chapterIndex: chapterIndex,
-            settings: settings)
+        do {
+            return try ReaderPaginator.paginate(
+                content: content, chapterIndex: chapterIndex,
+                chapterTitle: chapterTitle,
+                settings: settings, pageBounds: containerSize)
+        } catch {
+            Logger.log("local paginate failure \(error)", level: 2)
+            return []
+        }
     }
 
     /// 伪代码 0x10074c99c（L454-475）：页集提交（chapterPageMeta.didset L48 确证）。

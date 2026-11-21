@@ -51,13 +51,15 @@ extension ReaderViewModel {
         startIndex: Int
     ) async throws -> [PageData] {
         var allPages: [PageData] = []
+        let bounds = containerSize
         try await withThrowingTaskGroup(of: (Int, [PageData]).self) { group in
             for (chapterIndex, content) in chapterContents.enumerated() {
                 group.addTask(priority: .userInitiated) {
-                    let pages = ReaderPaginator.paginate(
+                    let pages = try ReaderPaginator.paginate(
                         content: content,
                         chapterIndex: chapterIndex,
-                        settings: settings)
+                        settings: settings,
+                        pageBounds: bounds)
                     return (chapterIndex, pages)
                 }
             }
@@ -73,11 +75,14 @@ extension ReaderViewModel {
     }
 
     /// 章级分页（伪代码 0x100890d54，L306-311）。
-    private func paginateChapterForBuild(_ content: String, chapterIndex: Int) -> [PageData] {
-        ReaderPaginator.paginate(
+    private func paginateChapterForBuild(
+        _ content: String, chapterIndex: Int
+    ) throws -> [PageData] {
+        try ReaderPaginator.paginate(
             content: content,
             chapterIndex: chapterIndex,
-            settings: ReadingSettings.load())
+            settings: ReadingSettings.load(),
+            pageBounds: containerSize)
     }
 
     /// 章页回填（伪代码 0x10088fd68，L313-323，@MainActor）。
@@ -94,7 +99,12 @@ extension ReaderViewModel {
     ) {
         let preservedPageIndex = preservedPageIndex(in: newPages, centerChapter: centerChapter)
         pages = newPages
-        chapterPageMeta = ReaderPaginator.buildChapterPageMeta(from: newPages)
+        // buildChapterPageMeta 产出 (start,end,count) 字典——VM 域为
+        // [ChapterPageMeta] 数组（debugRenderSnapshot 消费域），此处换算。
+        let metaMap = ReaderPaginator.buildChapterPageMeta(from: newPages)
+        chapterPageMeta = metaMap
+            .map { ChapterPageMeta(chapterIndex: $0.key, pageCount: $0.value.count) }
+            .sorted { $0.chapterIndex < $1.chapterIndex }
         if preservePosition, let preserved = preservedPageIndex {
             currentPageIndex = preserved
         }

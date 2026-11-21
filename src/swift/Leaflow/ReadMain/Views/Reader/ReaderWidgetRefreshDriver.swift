@@ -23,6 +23,7 @@
 // 还原: 2026-11-19
 
 import Foundation
+import UIKit
 
 /// widget 刷新事件。
 struct ReaderWidgetRefreshEvent: Equatable {

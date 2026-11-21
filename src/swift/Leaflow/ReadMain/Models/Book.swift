@@ -117,6 +117,57 @@ struct Book: Codable, Identifiable, Equatable, Hashable {
             ?? ""
     }
 
+    /// init(bookUrl:bookname:…22 参)（签名域确证；id_ 不入参——经
+    /// resolvedBookId/save 链回填）。全参默认值——空 Book 构造（`Book()`）
+    /// 即本 init 退化调用；默认值取属性声明默认（还原推断）。
+    init(
+        bookUrl: String? = nil,
+        bookname name: String = "",
+        author: String? = nil,
+        coverUrl: String? = nil,
+        customCoverUrl: String? = nil,
+        intro: String? = nil,
+        kind: String? = nil,
+        wordCount: String? = nil,
+        lastChapter: String? = nil,
+        bookSourceUrl: String? = nil,
+        durChapterIndex: Int? = nil,
+        durChapterPos: Double? = nil,
+        durChapterTitle: String? = nil,
+        webViewScrollProgress: WebViewScrollProgress? = nil,
+        totalChapterCount: Int? = nil,
+        group: String? = nil,
+        useReplaceRule: Int? = nil,
+        variable: String? = nil,
+        bigVariableMap: [String: String] = [:],
+        sourceStorageKind: StorageKind? = nil,
+        bookType: Int = 0,
+        skipUpdate: Bool? = nil
+    ) {
+        self.bookUrl = bookUrl
+        self.name = name
+        self.author = author
+        self.coverUrl = coverUrl
+        self.customCoverUrl = customCoverUrl
+        self.intro = intro
+        self.kind = kind
+        self.wordCount = wordCount
+        self.lastChapter = lastChapter
+        self.bookSourceUrl = bookSourceUrl
+        self.durChapterIndex = durChapterIndex
+        self.durChapterPos = durChapterPos
+        self.durChapterTitle = durChapterTitle
+        self.webViewScrollProgress = webViewScrollProgress
+        self.totalChapterCount = totalChapterCount
+        self.group = group
+        self.useReplaceRule = useReplaceRule
+        self.variable = variable
+        self.bigVariableMap = bigVariableMap
+        self.sourceStorageKind = sourceStorageKind
+        self.bookType = bookType
+        self.skipUpdate = skipUpdate
+    }
+
     /// normalizedIdentifier（static ×4 ICF 副本签名确证）。
     static func normalizedIdentifier(_ value: String?) -> String? {
         guard let value, !value.isEmpty else { return nil }

@@ -753,7 +753,8 @@ final class ReadingSettings: Codable {
         case .bold: return .bold
         case .heavy: return .heavy
         case .black: return .black
-        @unknown default: return .regular
+        // UIFont.Weight 是 struct（非 enum）——表达式模式匹配需普通 default。
+        default: return .regular
         }
     }
 
@@ -773,7 +774,7 @@ final class ReadingSettings: Codable {
         case .bold: suffix = "Bold"
         case .heavy: suffix = "Heavy"
         case .black: suffix = "Black"
-        @unknown default: suffix = "Regular"
+        default: suffix = "Regular"
         }
         let family = prefersSimplifiedChinese ? "PingFangSC" : "PingFangTC"
         return "\(family)-\(suffix)"
@@ -962,6 +963,12 @@ final class ReadingSettings: Codable {
         ttsHighlightLightColorCache = nil
         ttsHighlightDarkColorCache = nil
         widgetFontCache = nil
+    }
+
+    /// invalidateTypographyCachesBridge（ReaderViewModel+WebViewVerticalScroll
+    /// 消费域确证——私有缓存失效域的跨域桥，wave-16）。
+    func invalidateTypographyCachesBridge() {
+        invalidateTypographyCaches()
     }
 }
 

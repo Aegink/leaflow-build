@@ -126,7 +126,7 @@ extension View {
     /// Cover 多挂点链（块体为计数器桩，按签名语义还原）。
     @ViewBuilder
     func readerAuxiliaryPresentations(
-        isPresented: Binding<Bool>, content: () -> some View
+        isPresented: Binding<Bool>, content: @escaping () -> some View
     ) -> some View {
         sheet(isPresented: isPresented, content: content)
     }
