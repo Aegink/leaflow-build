@@ -110,9 +110,13 @@ enum HighlightStyleCSSParser {
         UIGraphicsBeginImageContext(size)
         defer { UIGraphicsEndImageContext() }
         guard let context = UIGraphicsGetCurrentContext() else { return UIImage() }
-        HighlightLinearGradientPaint(
-            colors: paint.colors, locations: paint.locations, angle: paint.angle
-        ).draw(in: CGRect(origin: .zero, size: size), context: context)
+        let gradient = CAGradientLayer()
+        gradient.colors = paint.colors
+        gradient.locations = paint.locations as [NSNumber]
+        gradient.startPoint = CGPoint(x: 0, y: 0)
+        gradient.endPoint = CGPoint(x: 1, y: 1)
+        gradient.frame = CGRect(origin: .zero, size: size)
+        gradient.render(in: context)
         return UIGraphicsGetImageFromCurrentImageContext() ?? UIImage()
     }
 

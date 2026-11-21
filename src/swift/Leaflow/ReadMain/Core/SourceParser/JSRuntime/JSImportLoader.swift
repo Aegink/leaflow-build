@@ -22,13 +22,13 @@ enum JSImportLoader {
         downloadScript: (String) -> String?
     ) {
         guard let script = downloadScript(url) else {
-            Logger.log("远程脚本执行错误(" + url + ") 拉取失败", level: 2)
+            Logger.log("远程脚本执行错误(" + url + ") 拉取失败", level: .warning)
             return
         }
         do {
             _ = try target.evaluate(script, filename: url)
         } catch {
-            Logger.log("脚本执行错误(" + url + "): " + String(describing: error), level: 2)
+            Logger.log("脚本执行错误(" + url + "): " + String(describing: error), level: .warning)
         }
     }
 }

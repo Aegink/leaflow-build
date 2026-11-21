@@ -93,9 +93,9 @@ final class HttpTtsAudioDecoder: HttpTtsAudioDecoding {
         from source: AVAudioPCMBuffer, sourceOffset: Int,
         to target: AVAudioPCMBuffer, frameCount: Int
     ) {
-        let channels = min(
+        let channels = Swift.min(
             source.format.channelCount, target.format.channelCount)
-        let safeCount = min(
+        let safeCount = Swift.min(
             frameCount,
             source.frameLength - AVAudioFrameCount(sourceOffset))
         for channel in 0..<channels {
@@ -122,7 +122,7 @@ final class HttpTtsAudioDecoder: HttpTtsAudioDecoding {
             return [(ReadAloudAudioBuffer(buffer), anchors.last ?? .empty)]
         }
         let totalFrames = buffer.frameLength
-        let trimFrames = min(
+        let trimFrames = Swift.min(
             AVAudioFrameCount(
                 Double(tailTrimMilliseconds) / 1000.0
                     * buffer.format.sampleRate),

@@ -94,7 +94,7 @@ final class HttpTtsSynthesizer: HttpTtsSynthesizing {
             request: request, configuration: configuration)
         defer { connection.close() }
         for message in try configuration.outgoingMessages(
-            from: snapshot.bodyString) {
+            from: snapshot.body) {
             try await connection.send(message)
         }
         let reply = try await receive(

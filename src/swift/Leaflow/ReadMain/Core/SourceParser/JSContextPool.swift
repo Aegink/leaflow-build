@@ -108,7 +108,7 @@ final class JSContextPool {
             return ContextHandle(pool: self, context: state[index].context)
         }
         let context = JSContext()
-        context.setName("qireader-pool")
+        context.setValue("qireader-pool")
         state.append(CachedContext(context: context, ownerThread: threadID, inUse: true))
         checkedOut += 1
         maxInFlight = max(maxInFlight, checkedOut)
@@ -143,7 +143,7 @@ final class JSContextPool {
         lock.unlock()
         for _ in 0..<missing {
             let context = JSContext()
-            context.setName("qireader-pool")
+            context.setValue("qireader-pool")
             lock.lock()
             state.append(
                 CachedContext(context: context, ownerThread: Self.currentThreadID(), inUse: false)
@@ -373,7 +373,7 @@ func ruleEvaluationResult(from value: JSValue?) -> RuleEvaluationResult {
 /// 伪代码 0x1000fb2e0（L579-603）。
 func ruleEvaluationStructuredValue(from value: JSValue?) -> Any? {
     guard let value, !value.isUndefined, !value.isNull else { return nil }
-    if value.isBool { return value.toBool() }
+    if value.isBoolean { return value.toBool() }
     if value.isNumber { return value.toNumber() }
     if value.isString { return value.toString() }
     if value.isArray { return value.toArray() }

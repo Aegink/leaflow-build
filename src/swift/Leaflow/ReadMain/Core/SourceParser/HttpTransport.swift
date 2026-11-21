@@ -14,11 +14,11 @@ import Foundation
 /// HTTP 请求路由（proxy/DNS 覆盖的 URLRequest 附属属性）。
 enum HttpRequestRouting {
 
-    private static var proxyStore: [ObjectIdentifier: String] = [:]
+    private static var proxyStore: [String: String] = [:]
     private static let lock = NSLock()
 
     /// 伪代码 0x1000bb90c（L8-10）。
-    static func setProxy(_ proxy: String, on request: inout URLRequest) {
+    static func setProxy(_ proxy: String, forKey key: String) {
         lock.lock()
         defer { lock.unlock() }
         proxyStore[ObjectIdentifier(request)] = proxy

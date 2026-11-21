@@ -60,7 +60,7 @@ struct ImportSourceView: View {
             VStack(alignment: .leading, spacing: 12.0) {
                 if !statusText.isEmpty {
                     Text(statusText)
-                        .appThemeText(.caption, opacity: 0.6)
+                        .appThemeText(.footnote, opacity: 0.6)
                         .foregroundColor(isSuccess ? .green : .red)
                 }
                 // 0x100ba9970（L19-111）：文本编辑区。

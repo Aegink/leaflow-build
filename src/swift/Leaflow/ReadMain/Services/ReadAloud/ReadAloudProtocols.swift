@@ -23,6 +23,7 @@ import Foundation
 
 /// 驱动工厂错误（errorDescription 0x100299d2c L56-61 域；容器缺失还原）。
 enum ReadAloudDriverFactoryError: LocalizedError {
+        case outputPreparationFailed
     case engineUnavailable
     case voiceNotFound(String)
 
