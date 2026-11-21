@@ -44,13 +44,7 @@ import UIKit
 
 extension PageContentViewController {
 
-    /// widget 实例清单（ReaderWidgetConfiguration 输出 + 实例标识；
-    /// widgetLabels 的 [UUID: UILabel] 键由此而来）。
-    private var widgetInstances: [(id: UUID, widget: LayoutWidget)] {
-        get { _widgetInstances }
-        set { _widgetInstances = newValue }
-    }
-    // （_widgetInstances 移至 PageContentViewController 类体）
+    // widgetInstances 桥已置于类体（wave-16：跨文件访问域放宽到 internal）。
 
     // MARK: 动态刷新需求
 

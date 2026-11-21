@@ -265,13 +265,12 @@ final class ReadingDurationTracker {
 // MARK: - 阅读器布局计算器
 
 /// Widget 布局配置。
-/// refreshCadence：ReaderWidgetRefreshEvent.includes 消费域确证（时钟/电量
-/// 事件命中档；nil = 不参与自动刷新——装配域随 T-1401-02，还原推断）。
+/// refreshCadence 为计算推导（ReaderWidgetRefreshDriver 扩展域确证：
+/// 按类型映射节流档，wave-16 撤销误加的存储字段）。
 struct LayoutWidget: Codable {
     var type: String
     var alignment: WidgetTextAlignment
     var showOnFirstPage: Bool
-    var refreshCadence: ReaderWidgetRefreshCadence? = nil
 }
 
 /// 章节标题排版配置（Codable：T-1401-01 ChapterTitlePreset 双档解码桥）。
