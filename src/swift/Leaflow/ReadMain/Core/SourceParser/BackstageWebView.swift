@@ -67,9 +67,9 @@ final class WebViewPool {
     }
 
     /// release() 全量排空（LeaflowApp init 消费域确证——池域整体释放桥，
-    /// wave-16 补桥）。
-    func release() {
-        drain()
+    /// wave-16 补桥）。static：应用启动域类级调用。
+    static func release() {
+        shared.drain()
     }
 
     static let shared = WebViewPool()
