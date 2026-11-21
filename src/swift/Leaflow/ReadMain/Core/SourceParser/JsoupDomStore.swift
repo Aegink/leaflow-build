@@ -63,9 +63,10 @@ final class JsoupDomStore {
     }
 
     /// 伪代码 0x10010c218（L62-65）。
+    /// body()/text() 均为 throws 域（SwiftSoup API）——try? 桥。
     func documentText(_ handle: String) -> String {
         guard let record = record(for: handle) else { return "" }
-        return record.document.body()?.text() ?? ""
+        return (try? record.document.body()?.text()) ?? ""
     }
 
     /// 伪代码 0x10010c2f8（L67-70）。
@@ -123,9 +124,10 @@ extension JsoupDomStore {
     ) -> [String] {
         let elements: [SwiftSoupElement]
         if let element = node(for: nodeID) {
-            elements = (try? element.select(selector)) ?? []
+            // Elements 为类包装——.array() 转 [Element]（SwiftSoup API 域）。
+            elements = (try? element.select(selector))?.array() ?? []
         } else if let record = record(for: documentID) {
-            elements = (try? record.document.select(selector)) ?? []
+            elements = (try? record.document.select(selector))?.array() ?? []
         } else {
             elements = []
         }
@@ -138,7 +140,7 @@ extension JsoupDomStore {
     ) -> [String] {
         guard let record = record(for: documentID) else { return [] }
         let context = SoupDOMContext(handle: documentID, document: record.document)
-        guard let projection = context.cachedXPathProjection() else { return [] }
+        guard let projection = context.xpathProjection() else { return [] }
         let scoped = SoupXPathProjection.scopedXPath(xpath)
         return projection.evaluate(scoped)
     }
@@ -146,7 +148,7 @@ extension JsoupDomStore {
     /// 伪代码 0x10010d3ec（L137-140）：子元素句柄集。
     func children(of nodeID: String) -> [String] {
         guard let element = node(for: nodeID) else { return [] }
-        let kids = (try? element.children()) ?? []
+        let kids = (try? element.children())?.array() ?? []
         return kids.map { registerNode($0, documentID: nodeID) }
     }
 
@@ -256,7 +258,7 @@ extension JsoupDomStore {
 
     /// 投影失效路由（DocumentRecord.invalidateXPathProjection 消费域）。
     private func invalidateProjection(for nodeID: String) {
-        let documentID = nodeID.split("/").first ?? ""
+        let documentID = nodeID.split(separator: "/").first.map(String.init) ?? ""
         record(for: documentID)?.invalidateXPathProjection()
     }
 }

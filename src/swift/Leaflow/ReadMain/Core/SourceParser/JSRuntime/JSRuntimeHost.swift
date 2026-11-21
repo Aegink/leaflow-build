@@ -27,7 +27,8 @@ struct SanitizedJSCExecutionContextAdapter: JSExecutionContext {
     }
 
     func evaluate(_ script: String, filename: String) throws -> JSValue? {
-        context.setName(filename)
+        // setName 为 Android JSContext API——Swift 域为 name 属性。
+        context.name = filename
         let value = context.evaluateSanitized(script, convertLegadoTemplates: false)
         if let exception = context.exception {
             throw NSError(

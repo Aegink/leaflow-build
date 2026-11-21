@@ -304,7 +304,10 @@ final class AnalyzeRule {
     }
 
     /// 伪代码 0x100009500（L928-963）。
-    static func purgeUnexpectedGlobals(_ context: JSContext) {
+    /// context 默认 nil——AppDebugConfiguration.apply 启动期无上下文调用域
+    /// （wave-16；有上下文时行为不变）。
+    static func purgeUnexpectedGlobals(_ context: JSContext? = nil) {
+        guard let context else { return }
         // 基准键之外的新增全局由 restoreMutatedBaseGlobals 复位覆盖。
         restoreMutatedBaseGlobals(context)
     }

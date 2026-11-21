@@ -90,12 +90,13 @@ struct LeaflowApp: App {
 
     var body: some Scene {
         // 伪代码 0x100d3c410（L116-139）：根视图（Color 条件 + SplashOverlay + onOpenURL）。
+        // 根视图为 MainTabView（主 Tab 域确证；RootAppView 包装层未还原）。
         WindowGroup {
             Group {
                 if AppRuntime.isRunningUnitTests {
                     Color.clear
                 } else {
-                    RootAppView()
+                    MainTabView()
                         .onOpenURL { url in
                             handleOpenURL(url)
                         }
@@ -140,8 +141,8 @@ struct LeaflowApp: App {
                 handleCopiedFile(file)
             }
         } catch {
-            AppErrorPresenter.show(
-                error.localizedDescription, level: .error, duration: nil)
+            AppErrorPresenter.shared.show(
+                error.localizedDescription, level: .error, duration: 2.5)
         }
     }
 
@@ -175,8 +176,8 @@ struct LeaflowApp: App {
                 // 此处先完成文件读取与错误路径，服务调用占位注释，不冒充已实现）。
                 _ = data
             } catch {
-                AppErrorPresenter.show(
-                    error.localizedDescription, level: .error, duration: nil)
+                AppErrorPresenter.shared.show(
+                    error.localizedDescription, level: .error, duration: 2.5)
             }
         } else if ext == "json" {
             guard let json = try? String(contentsOf: file.url, encoding: .utf8) else { return }
@@ -216,8 +217,8 @@ struct LeaflowApp: App {
             _ = try await URLImportView.performImport(
                 jsonString: jsonString, targetRemote: targetRemote)
         } catch {
-            AppErrorPresenter.show(
-                error.localizedDescription, level: .error, duration: nil)
+            AppErrorPresenter.shared.show(
+                error.localizedDescription, level: .error, duration: 2.5)
         }
     }
 
@@ -236,7 +237,7 @@ struct LeaflowApp: App {
         guard let windowScene = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
             .first(where: { $0.activationState == .foregroundActive }),
-            let window = windowScene.windows.first(where: \\.isKeyWindow) else {
+            let window = windowScene.windows.first(where: \.isKeyWindow) else {
             return nil
         }
         return topViewController(from: window.rootViewController)
@@ -285,7 +286,7 @@ struct LeaflowApp: App {
             object: nil,
             queue: .main) { _ in
             Task { @MainActor in
-                AutoBackupCoordinator.triggerIfDue()
+                AutoBackupCoordinator.shared.triggerIfDue()
             }
         }
         NotificationCenter.default.addObserver(

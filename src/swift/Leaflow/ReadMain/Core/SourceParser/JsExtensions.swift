@@ -167,7 +167,8 @@ extension JsExtensions {
 
     /// 伪代码 0x1000ff9ac（L247-253）：瞬态脚本缓存清理（cacheScript 域）。
     func clearTransientScriptCaches() {
-        clearTransientScriptCache()
+        // clearTransientScriptCache 属 JsExtensionsSharedState（共享态域）。
+        JsExtensionsSharedState.shared.clearTransientScriptCache()
     }
 
     /// 伪代码 0x1001005d0（L257-259）：全 cookie 读取（HTTPCookieStorage 桥）。
@@ -299,7 +300,7 @@ extension JsExtensions {
 
     /// zip 解包路由（unzipFile 域；沙箱目标推断）。
     private func ZIP_ARCHIVE_PLACEHOLDER(_ zipPath: String) -> String {
-        guard let sourceKey = source else { return "" }
+        guard let sourceKey = sourceStorage else { return "" }
         guard let data = readFile(zipPath).map({ Data($0.utf8) }) else {
             return ""
         }

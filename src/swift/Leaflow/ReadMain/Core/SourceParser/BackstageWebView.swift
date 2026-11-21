@@ -66,6 +66,12 @@ final class WebViewPool {
         availableWebViews.removeAll()
     }
 
+    /// release() 全量排空（LeaflowApp init 消费域确证——池域整体释放桥，
+    /// wave-16 补桥）。
+    func release() {
+        drain()
+    }
+
     static let shared = WebViewPool()
 }
 

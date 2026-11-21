@@ -75,7 +75,7 @@ enum JsResourceLoader {
             },
             "_jsoupNodeAttr": { (handle: String, attr: String) -> String in
                 guard let payload = payload(for: handle) as? String,
-                    let document = try? SwiftSoupDocument.parse(payload)
+                    let document = try? SwiftSoup.parse(payload)
                 else { return "" }
                 return (try? document.select("[\(attr)]").first()?.attr(attr)) ?? ""
             },

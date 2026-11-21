@@ -77,3 +77,11 @@ enum SplashOverlayTheme {
         [] // 主题域实现待 T-701-01 分册落地。
     }
 }
+
+extension View {
+    /// splashOverlay()（LeaflowApp body 消费域确证，wave-16 补桥）——
+    /// SplashOverlayView 叠加层挂点。
+    func splashOverlay() -> some View {
+        overlay(SplashOverlayView())
+    }
+}

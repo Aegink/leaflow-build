@@ -103,4 +103,23 @@ final class CopiedImportFile {
         UUID()
     }
 
+    /// url 桥（LeaflowApp handleCopiedFile 消费域确证——sourceURL 别名，
+    /// wave-16 补桥）。
+    var url: URL {
+        sourceURL
+    }
+
+}
+
+/// 复制文件导入器（LeaflowApp handleOpenedFile 消费域确证：
+/// importCopiedFile(at:) → CopiedImportFile——暂存拷贝 + 载体包装，
+/// wave-16 补桥）。
+enum CopiedFileImporter {
+    static func importCopiedFile(at url: URL) throws -> CopiedImportFile {
+        let service = CopiedFileImportService(
+            stagingDirectory: FileManager.default.temporaryDirectory
+                .appendingPathComponent("copied_imports", isDirectory: true))
+        let copied = try service.copyFile(url)
+        return CopiedImportFile(pickerCopy: copied)
+    }
 }

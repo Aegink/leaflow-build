@@ -87,10 +87,12 @@ final class LegadoJSoupAnalyzer {
     // MARK: - 主入口
 
     /// 伪代码 0x100071ba0（L17-22）。
+    /// SwiftSoup Element 无 wholeText——text() 等价桥（jsoup wholeText 语义
+    /// 为保留原始空白；text() 归一空白——还原推断）。
     func getString(_ rule: String) -> String? {
         let elements = getElements(rule)
         let trimmed = resultLast(elements, rule: rule)
-        return trimAsciiControlAndSpace(trimmed?.wholeText() ?? "")
+        return trimAsciiControlAndSpace((try? trimmed?.text()) ?? "")
     }
 
     /// 伪代码 0x100071cac（L28-50）。
@@ -99,7 +101,7 @@ final class LegadoJSoupAnalyzer {
         let resolved = resolveIndexes([Int](repeating: 0, count: elements.count), count: elements.count)
         _ = resolved
         return elements.compactMap { element -> String? in
-            let text = trimAsciiControlAndSpace(element.wholeText() ?? "")
+            let text = trimAsciiControlAndSpace((try? element.text()) ?? "")
             return text.isEmpty ? nil : text
         }
     }
@@ -168,8 +170,9 @@ final class LegadoJSoupAnalyzer {
     }
 
     /// 伪代码 0x10007347c（L92-106）：初始元素集。
+    /// parse 入口为 SwiftSoup 枚举域（Document 无静态 parse）。
     private func defaultElements(_ content: String) -> [SwiftSoupElement] {
-        guard let document = try? SwiftSoupDocument.parse(content) else { return [] }
+        guard let document = try? SwiftSoup.parse(content) else { return [] }
         return (try? document.body()?.children())?.array() ?? []
     }
 
@@ -213,10 +216,15 @@ final class LegadoJSoupAnalyzer {
     }
 
     /// 伪代码 0x1000766c4（L294-300）：ASCII 控制字符与空白修剪。
+    /// trimmingWhitespace 为 SwiftSoup String 域——标量数组无此 API，
+    /// 以 Foundation trimmingCharacters 归一（wave-16）。
     func trimAsciiControlAndSpace(_ text: String) -> String {
-        text.unicodeScalars
-            .filter { !($0.value < 0x20 && $0 != "\t" && $0 != "\n") }
-            .trimmingWhitespace()
+        let filtered = String(
+            String.UnicodeScalarView(
+                text.unicodeScalars.filter {
+                    !($0.value < 0x20 && $0 != "\t" && $0 != "\n")
+                }))
+        return filtered.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// 伪代码 0x100072d90/0x100073034（L302-314）：结果合并（%% 同族）。

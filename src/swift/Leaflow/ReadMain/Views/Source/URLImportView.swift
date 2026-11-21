@@ -105,4 +105,17 @@ struct URLImportView: View {
             }
         }
     }
+
+    /// performImport(jsonString:targetRemote:)（LeaflowApp 复制导入链消费域
+    /// 确证，wave-16 补桥）：JSON 串直接入库——targetRemote 域随远程拉取
+    /// 管线对齐（当前恒走本地 SourceService 入库）。
+    static func performImport(
+        jsonString: String, targetRemote: Bool
+    ) async throws -> Int {
+        _ = targetRemote
+        let count = await MainActor.run {
+            SourceService.shared.importSources(from: jsonString)
+        }
+        return count
+    }
 }

@@ -44,11 +44,13 @@ extension JsExtensions {
 
     /// 伪代码 0x10010a878（L53-57）/0x10010ad9c（L59-63）：简繁转换（映射表驱动）。
     func convertToSimplified(_ text: String) -> String {
-        text.map { TraditionalToSimplified[$0] ?? $0 }.reduce("") { $0 + String($1) }
+        text.map { Self.TraditionalToSimplified[$0] ?? $0 }
+            .reduce("") { $0 + String($1) }
     }
 
     func convertToTraditional(_ text: String) -> String {
-        text.map { SimplifiedToTraditional[$0] ?? $0 }.reduce("") { $0 + String($1) }
+        text.map { Self.SimplifiedToTraditional[$0] ?? $0 }
+            .reduce("") { $0 + String($1) }
     }
 
     /// 伪代码 0x10010b200（L67-72）。
