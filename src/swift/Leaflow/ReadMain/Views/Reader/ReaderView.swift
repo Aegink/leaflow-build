@@ -43,25 +43,7 @@ struct ReaderView: View {
                 })
                 .ignoresSafeArea()
                 .modifier(CommentBrowserSheetPresentationModifier(isVisible: showCommentBrowser))
-                .toolbar {
-                    // ToolbarItemGroup 对 ToolbarContent/View 双重符合会触发
-                    // toolbar(content:) 重载歧义——改用三个独立 ToolbarItem。
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button(action: { showChapterList = true }) {
-                            Image(systemName: "list.bullet")
-                        }
-                    }
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button(action: { showSearch = true }) {
-                            Image(systemName: "magnifyingglass")
-                        }
-                    }
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button(action: { showSettings = true }) {
-                            Image(systemName: "textformat")
-                        }
-                    }
-                }
+                .toolbar(content: readerToolbarContent)
         }
         .onAppear {
             Task {
@@ -69,6 +51,28 @@ struct ReaderView: View {
                     bookId, needRefresh: false, targetChapterIndex: nil, targetPageOffset: nil)
             }
         }
+    }
+
+    /// readerToolbarContent（@ToolbarContentBuilder 显式域——
+    /// toolbar(content:) 重载歧义消解，wave-16）。
+    @ToolbarContentBuilder
+    private func readerToolbarContent() -> some ToolbarContent {
+        ToolbarItem(placement: .navigationBarTrailing) {
+            Button(action: { showChapterList = true }) {
+                Image(systemName: "list.bullet")
+            }
+        }
+        ToolbarItem(placement: .navigationBarTrailing) {
+            Button(action: { showSearch = true }) {
+                Image(systemName: "magnifyingglass")
+            }
+        }
+        ToolbarItem(placement: .navigationBarTrailing) {
+            Button(action: { showSettings = true }) {
+                Image(systemName: "textformat")
+            }
+        }
+    }
         .sheet(isPresented: $showChapterList) {
             ReaderChapterListView(
                 chapters: .constant([]),
