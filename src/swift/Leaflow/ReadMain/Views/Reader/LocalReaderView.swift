@@ -60,7 +60,7 @@ struct LocalReaderView: View {
                         .task {
                             let vm = LocalReaderViewModel(
                                 book: book, settings: settings,
-                                localBookService: LocalBookService())
+                                localBookService: LocalBookService.shared)
                             viewModel = vm
                             await vm.loadBook()
                         }
@@ -161,7 +161,6 @@ struct LocalReaderView: View {
     @ViewBuilder
     private var searchSheet: some View {
         LocalFullTextSearchView(
-            chapters: [],
             chapterContentProvider: { index in
                 viewModel?.chapterContents.indices.contains(index) == true
                     ? viewModel!.chapterContents[index] : ""
@@ -170,16 +169,18 @@ struct LocalReaderView: View {
                 Task {
                     await viewModel?.jumpToChapter(chapterIndex, coordinateReadAloud: false)
                 }
-            })
+            },
+            chapterCount: viewModel?.chapterContents.count ?? 0)
     }
 
     /// 章节列表 sheet。
     @ViewBuilder
     private var chapterListSheet: some View {
         ReaderChapterListView(
-            chapters: (viewModel?.chapterContents.enumerated() ?? []).map { index, content in
-                ReaderChapterListChapter(index: index, title: "第\(index + 1)章")
-            },
+            chapters: .constant(
+                (viewModel?.chapterContents ?? []).enumerated().map { index, content in
+                    ReaderChapterListChapter(index: index, title: "第\(index + 1)章")
+                }),
             currentChapterIndex: .constant(viewModel?.currentChapterIndex ?? 0),
             onPickChapter: { index in
                 Task {

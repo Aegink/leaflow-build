@@ -177,7 +177,9 @@ final class MangaImageCacheService {
         // PDF 页通道（pdf:// 前缀推断）。
         if url.hasPrefix("pdf://") {
             guard let request = PDFPageImageSource.parse(url),
-                  let bookURL = PDFPageImageSource.makeURL(bookId: request.bookId) else {
+                  let bookURL = PDFPageImageSource.makeURL(
+                    bookId: request.bookId,
+                    pageIndex: request.pageIndex) else {
                 return .failure("PDF 源无效")
             }
             if let image = renderPDFPage(request) {
@@ -234,7 +236,9 @@ final class MangaImageCacheService {
         if let cached = pdfDocuments[request.bookId] {
             document = cached
         } else {
-            guard let bookURL = PDFPageImageSource.makeURL(bookId: request.bookId),
+            guard let bookURL = PDFPageImageSource.makeURL(
+                    bookId: request.bookId,
+                    pageIndex: request.pageIndex),
                   let loaded = PDFDocument(url: bookURL) else { return nil }
             pdfDocuments[request.bookId] = loaded
             document = loaded

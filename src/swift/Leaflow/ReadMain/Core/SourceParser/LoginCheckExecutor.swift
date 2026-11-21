@@ -27,7 +27,7 @@ final class LoginCheckExecutor {
             }
         }
         let bridge: [String: Any] = [
-            "ruleUrl": analyzer.ruleUrl ?? "",
+            "ruleUrl": analyzer.baseUrl,
             "initUrl": analyzer.baseUrl,
             "_nativeGetStrResponse": { (url: String) -> String in
                 let request = SyncHTTPClient.makeRequest(
@@ -35,7 +35,8 @@ final class LoginCheckExecutor {
                     method: "GET", headers: [:], body: nil,
                     timeout: NetworkConstants.userTimeout
                 )
-                return SyncHTTPClient.execute(request: request, policy: .useCache).body
+                let responseBody = SyncHTTPClient.execute(request: request, policy: .useCache).body
+                return String(data: responseBody, encoding: .utf8) ?? ""
             },
         ]
         for (key, value) in bridge {
@@ -65,20 +66,19 @@ extension LoginCheckExecutor {
         guard !rule.isEmpty else { return true }
         let result = execute(rule)
         Logger.log(
-            "[tts-login] result=\(result) source=\(source.sourceName)",
+            "[tts-login] result=\(result) source=\(source.bookSourceName)",
             level: .verbose)
         return result
     }
 
     /// 伪代码 0x100160b88（L427-470）：TTS 登录 URL 动作——loginUrl 规则域。
+    /// @MainActor：BackstageWebView.load 域隔离对齐（wave-69）。
+    @MainActor
     func executeTTSLoginUrlAction(source: BookSource, loginUrl: String) async -> Bool {
         guard !loginUrl.isEmpty else { return true }
-        let body = await MainActor.run {
-            BackstageWebView().load(url: loginUrl, timeout: 30)
-        }
-        _ = body
+        _ = await BackstageWebView().load(url: loginUrl, timeout: 30)
         Logger.log(
-            "[tts-login] url action done source=\(source.sourceName)",
+            "[tts-login] url action done source=\(source.bookSourceName)",
             level: .verbose)
         return true
     }

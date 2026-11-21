@@ -177,7 +177,7 @@ struct MangaReaderView: View {
                 } label: {
                     Image(systemName: "chevron.down")
                 }
-                Text(book.title)
+                Text(book.name)
                     .appThemeText(.headline)
                 Spacer()
             }
@@ -345,7 +345,9 @@ struct MangaChapterListSheet: View {
             .navigationTitle("章节")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("刷新") { viewModel.refreshChapterList() }
+                    Button("刷新") {
+                        Task { await viewModel.refreshChapterList() }
+                    }
                 }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("完成") { dismiss() }
@@ -383,7 +385,7 @@ struct MangaBookDetailSheet: View {
         NavigationStack {
             List {
                 Section("书籍") {
-                    Text(viewModel.book.title)
+                    Text(viewModel.book.name)
                     Text(viewModel.book.author ?? "-")
                 }
                 Section {

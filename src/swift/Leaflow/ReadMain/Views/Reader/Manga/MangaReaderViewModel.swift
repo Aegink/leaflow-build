@@ -40,8 +40,10 @@ final class MangaReaderViewModel {
     var menuVisible = false
     var isWebtoonMode = false
 
+    /// currentBookSource 桥（BookService 无 source(for:)——
+    /// SourceService byUrl 域桥，wave-69）。
     var currentBookSource: BookSource? {
-        bookService.source(for: book)
+        sourceService.getSource(byUrl: book.bookSourceUrl ?? "")
     }
 
     init(book: Book, bookService: BookService, sourceService: SourceService) {
@@ -60,12 +62,16 @@ final class MangaReaderViewModel {
         isLoading = true
         defer { isLoading = false }
         do {
+            guard let source = currentBookSource else {
+                throw AppError.parsing("书源未找到")
+            }
             let chapters = try await sourceService.getChapterList(
-                source: currentBookSource!, book: book)
+                source: source, book: book, needRefresh: false)
             self.chapters = chapters.map { chapter in
                 LocalChapter(
-                    id: UUID(), title: chapter.title,
-                    pageIndex: 0, order: chapter.order, pageCount: 0)
+                    id: chapter.index, title: chapter.name,
+                    startPosition: chapter.index,
+                    endPosition: chapter.index + 1)
             }
             await loadChapterImages(currentChapterIndex)
         } catch {
@@ -80,11 +86,13 @@ final class MangaReaderViewModel {
         guard chapters.indices.contains(index),
               let source = currentBookSource else { return }
         do {
-            let content = try await sourceService.getContent(
-                source: source,
+            let content = try await sourceService.getChapterContent(
+                source: source, book: book,
                 chapter: Chapter(
-                    id: chapters[index].id, title: chapters[index].title,
-                    url: "", order: index))
+                    name: chapters[index].title, url: "",
+                    index: index, isRead: false, isPay: nil,
+                    resourceUrl: nil, isVip: false, isVolume: false,
+                    updateTime: nil, wordCount: nil, variable: nil))
             let urls = MangaImageParser.extractImageURLs(from: content.content)
             chapterImageURLs[index] = urls
         } catch {
@@ -134,18 +142,22 @@ final class MangaReaderViewModel {
 
     /// 伪代码 0x100634970（L356-361）：进度保存（BookService 域确证）。
     func saveProgress() {
-        _ = bookService.saveReadingProgress(
-            book: book, chapterIndex: currentChapterIndex, position: 0)
+        bookService.saveReadProgress(
+            book: book, chapterIndex: currentChapterIndex,
+            chapterTitle: "", position: 0)
     }
 
     /// 伪代码 0x100634b18（L365-368）：书架加入提示判定。
     func shouldPromptAddToBookshelf() -> Bool {
-        !book.isBookshelfBook
+        // isBookshelfBook 域桥（Book 无该成员——
+        // findBookInBookshelf 域桥，wave-69）。
+        bookService.findBookInBookshelf(
+            bookname: book.name, author: book.author) == nil
     }
 
     /// 伪代码 0x100634bf0（L370-372）：加入书架。
     func addBookToBookshelf() {
-        bookService.addBookToBookshelf(book)
+        bookService.addBook(book, useReplaceRule: false, preferredCoverUrl: nil)
     }
 
     /// 伪代码 0x100634ee4（L376-396）：当前章刷新。

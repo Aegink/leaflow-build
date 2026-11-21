@@ -33,7 +33,7 @@ struct LocalPDFReaderView: View {
         // 伪代码 0x10070e834（L20-87）。
         GeometryReader { geometry in
             ZStack {
-                readerContent
+                readerContent(geometry: geometry)
                 if isLoading {
                     ProgressView()
                 }
@@ -53,7 +53,7 @@ struct LocalPDFReaderView: View {
 
     /// 伪代码 0x10070f5a4（L90-113）：PDF 内容（横向滚动页列）。
     @ViewBuilder
-    private var readerContent: some View {
+    private func readerContent(geometry: GeometryProxy) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
             LazyHStack(spacing: 0) {
                 ForEach(pages.indices, id: \.self) { index in
@@ -103,7 +103,7 @@ struct LocalPDFReaderView: View {
         // 本地 PDF 路径（book.fileURL 域，T-601 交叉）。
         let candidates = [
             documents.appendingPathComponent("\(book.id).pdf"),
-            documents.appendingPathComponent(book.title + ".pdf"),
+            documents.appendingPathComponent(book.name + ".pdf"),
         ]
         guard let url = candidates.first(where: {
             FileManager.default.fileExists(atPath: $0.path)
@@ -119,7 +119,7 @@ struct LocalPDFReaderView: View {
             for: .documentDirectory, in: .userDomainMask).first else { return }
         let candidates = [
             documents.appendingPathComponent("\(book.id).pdf"),
-            documents.appendingPathComponent(book.title + ".pdf"),
+            documents.appendingPathComponent(book.name + ".pdf"),
         ]
         guard let url = candidates.first(where: {
             FileManager.default.fileExists(atPath: $0.path)

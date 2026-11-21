@@ -343,7 +343,7 @@ extension LoginService {
     func login(source: BookSource, formData: [String: String]) async -> Bool {
         guard let rule = source.loginUrl, !rule.isEmpty else { return true }
         Logger.log(
-            "[login] source=\(source.sourceName) fields=\(formData.count)",
+            "[login] source=\(source.bookSourceName) fields=\(formData.count)",
             level: .verbose)
         return await executeButtonAction(source: source, action: rule, formData: formData)
     }
@@ -353,7 +353,8 @@ extension LoginService {
         source: BookSource, action: String, formData: [String: String]
     ) async -> Bool {
         guard !action.isEmpty else { return true }
-        let executor = LoginCheckExecutor()
+        let executor = LoginCheckExecutor(
+            analyzer: AnalyzeRule.sharedInstance())
         return executor.execute(action)
     }
 
@@ -369,9 +370,7 @@ extension LoginService {
         for source: BookSource, additionalUrls: [String]
     ) -> [String] {
         var hosts: [String] = []
-        if let sourceUrl = source.bookSourceUrl {
-            hosts.append(sourceUrl)
-        }
+        hosts.append(source.bookSourceUrl)
         for url in additionalUrls {
             if let host = URL(string: url)?.host, !hosts.contains(host) {
                 hosts.append(host)

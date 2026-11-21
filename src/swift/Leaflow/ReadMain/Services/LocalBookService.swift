@@ -47,6 +47,7 @@
 // 还原: 2026-11-20
 
 import Foundation
+import PDFKit
 import UIKit
 /// 本地书服务（导入/解析/章节域）。
 final class LocalBookService: ObservableObject {
@@ -250,7 +251,7 @@ final class LocalBookService: ObservableObject {
         at url: URL, preferred: String.Encoding?
     ) -> String? {
         guard let data = try? Data(contentsOf: url) else { return nil }
-        let encodings: [String.Encoding] = [.utf8, .gb_18030_2000_4]
+        let encodings: [String.Encoding] = [.utf8, .gb18030]
         for encoding in encodings {
             if let text = String(data: data, encoding: encoding) {
                 return text
@@ -493,9 +494,8 @@ final class LocalBookService: ObservableObject {
     ) async -> LocalBook {
         var updated = book
         // SimpleEpubParser 交叉确证（T-901-03 域）。
-        let parser = SimpleEpubParser()
-        let parsed = try? await parser.parse(
-            url: fullTextURL(for: book))
+        let parsed = try? SimpleEpubParser.parse(
+            epubURL: fullTextURL(for: book))
         let payload = parsed.map { Self.makeEpubTextPayload(from: $0) }
         if let payload {
             let fullURL = fullTextURL(for: updated)
@@ -553,7 +553,7 @@ final class LocalBookService: ObservableObject {
     static func encodingFromNameStatic(_ name: String) -> String.Encoding? {
         switch name.lowercased() {
         case "utf-8", "utf8": return .utf8
-        case "gbk", "gb18030": return .gb_18030_2000_4
+        case "gbk", "gb18030": return .gb18030
         default: return nil
         }
     }
@@ -700,5 +700,14 @@ final class LocalBookService: ObservableObject {
                 try? FileManager.default.removeItem(at: file)
             }
         }
+    }
+}
+
+/// GB18030 编码桥（CFStringEncodings.GB_18030_2000 域——wave-69）。
+extension String.Encoding {
+    static var gb18030: String.Encoding {
+        String.Encoding(
+            rawValue: CFStringConvertEncodingToNSStringEncoding(
+                CFStringEncoding(CFStringEncodings.GB_18030_2000.rawValue)))
     }
 }

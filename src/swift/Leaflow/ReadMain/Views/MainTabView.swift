@@ -83,7 +83,7 @@ struct MainTabView: View {
             }
         }
         .id(tabAppearanceSignature)
-        .background(
+        .modifier(
             MainTabThemeLifecycleModifier()
         )
         .modifier(
@@ -151,7 +151,7 @@ struct MainTabView: View {
         case .statistics:
             ReadingStatsView()
         case .settings:
-            SettingsView()
+            SettingsView(navigationPath: nil)
         case .search:
             SearchView()
         }

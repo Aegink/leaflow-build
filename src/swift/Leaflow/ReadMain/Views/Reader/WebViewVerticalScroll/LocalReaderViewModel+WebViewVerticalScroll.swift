@@ -23,7 +23,7 @@ extension LocalReaderViewModel {
 
     /// 伪代码 0x10063fe5c（L8-10）：章数。
     var webViewChapterCount: Int {
-        chapters.count
+        chapterContents.count
     }
 
     /// 伪代码 0x10063ff90（L16-21）+ closure ×3：初始章。
@@ -53,7 +53,7 @@ extension LocalReaderViewModel {
 
     /// 伪代码 0x10064075c（L72-74）：章节标题。
     func webViewChapterTitle(at index: Int) -> String {
-        chapters.indices.contains(index) ? chapters[index].title : ""
+        chapterContents.indices.contains(index) ? chapterContents[index] : ""
     }
 
     /// 伪代码 0x100640800（L87-126）：章节载荷

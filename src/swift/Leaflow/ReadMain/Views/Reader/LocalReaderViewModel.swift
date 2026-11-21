@@ -60,7 +60,7 @@ final class LocalReaderViewModel {
     private(set) var pages: [PageData] = []
     private(set) var chapterContents: [String] = []
     private(set) var currentPageIndex = 0
-    private(set) var currentChapterIndex = 0
+    var currentChapterIndex = 0
     private(set) var isLoading = false
     private(set) var hasError = false
     private(set) var menuVisible = false
@@ -80,7 +80,7 @@ final class LocalReaderViewModel {
     var renderSnapshot: ReaderRenderSnapshot {
         storedRenderSnapshot ?? ReaderRenderSnapshot(
             pages: pages, currentPageIndex: currentPageIndex,
-            chapterPageMeta: [], currentChapterIndex: currentChapterIndex,
+            chapterPageMeta: [:], currentChapterIndex: currentChapterIndex,
             revision: 0)
     }
 
@@ -125,11 +125,14 @@ final class LocalReaderViewModel {
     func loadBook() async {
         isLoading = true
         defer { isLoading = false }
-        let chapters = localBookService.chapterList(for: book)
+        // LocalBookService.loadChapters 域桥（chapterList 无该成员——
+        // loadChapters(for:) 域桥，wave-69）。
+        let chapters = localBookService.loadChapters(
+            for: book.id.uuidString) ?? []
         for index in chapters.indices {
             await loadProcessedChapterText(index)
         }
-        rebuildPages(resyncSpeech: false)
+        await rebuildPages(resyncSpeech: false)
         saveProgress()
     }
 
@@ -141,14 +144,16 @@ final class LocalReaderViewModel {
     /// 伪代码 0x100749644（L251-258）：单章文本加载（规则后处理确证）。
     private func loadProcessedChapterText(_ index: Int) async {
         guard chapterContents.indices.contains(index) == false else { return }
-        let content = localBookService.chapterContent(for: book, chapterIndex: index)
+        // LocalBookService.getChapterContentAsync 域桥（wave-69）。
+        let content = await localBookService.getChapterContentAsync(
+            book: book, chapterIndex: index) ?? ""
         chapterContents.append(content)
     }
 
     /// 伪代码 0x100749934（L261-273）：当前章内容重载。
     func reloadCurrentChapterContent() async {
         await loadProcessedChapterText(currentChapterIndex)
-        rebuildPages(resyncSpeech: false)
+        await rebuildPages(resyncSpeech: false)
     }
 
     /// 伪代码 0x100749bdc（L275-287）：邻接章预载。
@@ -204,7 +209,7 @@ final class LocalReaderViewModel {
         for (index, content) in chapterContents.enumerated() {
             allPages.append(contentsOf: paginateChapterForBuild(
                 content: content, chapterIndex: index,
-                chapterTitle: book.title))
+                chapterTitle: book.name))
         }
         commitPages(newPages: allPages)
         if resyncSpeech {
@@ -228,7 +233,7 @@ final class LocalReaderViewModel {
             settings: settings, containerSize: containerSize,
             userInterfaceIdiom: UIDevice.current.userInterfaceIdiom,
             horizontalSizeClass: nil)
-            ? containerSize : nil
+            ? CGRect(origin: .zero, size: containerSize) : nil
     }
 
     /// 伪代码 0x10074d334（L558-586）：单章分页入口。
@@ -302,9 +307,9 @@ final class LocalReaderViewModel {
     /// ListeningDurationTracker.saveIncremental（L4926-4934 确证）+
     /// saveWebViewScrollProgressNow（L4842 确证）。
     func saveProgress() {
-        _ = LocalBookService.saveReadingProgress(
+        LocalBookService.shared.saveReadingProgress(
             book: book, chapterIndex: currentChapterIndex,
-            position: currentPageIndex)
+            position: Double(currentPageIndex))
         ReadingDurationTracker.shared.saveIncremental()
         ListeningDurationTracker.shared.saveIncremental()
         saveWebViewScrollProgressNow()
@@ -354,7 +359,12 @@ final class LocalReaderViewModel {
 
     /// 伪代码 0x100750108（L806-816）：朗读展示。
     func readAloudShow(location: ReadAloudLocation) {
-        activeReadAloudAnchor = location.anchor
+        // ReadAloudLocation 无 anchor 成员——pageIndex 定位域桥
+        // （ReaderSpeechHighlight(anchor:) 链对齐，wave-69）。
+        activeReadAloudAnchor = ReadAloudAnchor(
+            location: .init(pageIndex: location.pageIndex),
+            rangeInPage: NSRange(), rangeInChapter: nil,
+            startUTF16Offset: 0, isChapterTitle: false)
         updateHighlightForSpeech()
     }
 
@@ -386,9 +396,8 @@ final class LocalReaderViewModel {
 
     /// 伪代码 0x100750fd0（L903-949）：标题快照预热。
     func prewarmChapterTitleSnapshots(around index: Int, radius: Int) {
-        guard let chapterTitle = chapterContents.indices.contains(index)
-            ? nil : nil else { return }
-        _ = chapterTitle
+        guard chapterContents.indices.contains(index) == false
+        else { return }
     }
 
     // MARK: 失败

@@ -1,0 +1,53 @@
+error: 'async' call in a function that does not support concurrency
+error: 'LocalBookService' initializer is inaccessible due to 'private' protection level
+error: 'nil' requires a contextual type
+error: 'SimpleEpubParser' cannot be constructed because it has no accessible initializers
+error: cannot assign to property: 'currentChapterIndex' setter is inaccessible
+error: cannot convert return expression of type 'CGSize' to return type 'CGRect?'
+error: cannot convert value of type '[Any]' to expected argument type 'EnumeratedSequence<[String]>'
+error: cannot convert value of type '[ReaderChapterListChapter]' to expected argument type 'Binding<[ReaderChapterListChapter]>'
+error: cannot convert value of type 'Data' to closure result type 'String'
+error: cannot convert value of type 'Int' to expected argument type 'Double'
+error: cannot convert value of type 'UUID' to expected argument type 'Int'
+error: cannot find 'chapters' in scope
+error: cannot find 'dismiss' in scope
+error: cannot find 'geometry' in scope
+error: cannot find 'localBookService' in scope
+error: cannot find 'PDFKit' in scope
+error: cannot infer contextual base in reference to member 'utf8'
+error: cannot infer contextual base in reference to member 'whitespacesAndNewlines'
+error: cannot use optional chaining on non-optional value of type 'BookInfoRule'
+error: cannot use optional chaining on non-optional value of type 'TocRule'
+error: expression is 'async' but is not marked with 'await'
+error: extra argument 'chapters' in call
+error: extra argument 'pageCount' in call
+error: extra arguments at positions #1, #2, #3, #4 in call
+error: generic parameter 'R' could not be inferred
+error: initializer for conditional binding must have Optional type, not 'String'
+error: instance member 'saveReadingProgress' cannot be used on type 'LocalBookService'; did you mean to use a value of this type instead?
+error: instance method 'background(_:ignoresSafeAreaEdges:)' requires that 'MainTabThemeLifecycleModifier' conform to 'ShapeStyle'
+error: missing argument for parameter 'analyzer' in call
+error: missing argument for parameter 'chapterCount' in call
+error: missing argument for parameter 'from' in call
+error: missing argument for parameter 'navigationPath' in call
+error: missing argument for parameter 'needRefresh' in call
+error: missing argument for parameter 'pageIndex' in call
+error: type 'String.Encoding?' has no member 'gb_18030_2000_4'
+error: type 'String.Encoding' has no member 'gb_18030_2000_4'
+error: use [:] to get an empty dictionary literal
+error: value of optional type 'String?' must be unwrapped to refer to member 'isEmpty' of wrapped base type 'String'
+error: value of type 'AnalyzeRule' has no member 'ruleUrl'
+error: value of type 'Book' has no member 'getImageDecodeRule'
+error: value of type 'Book' has no member 'isBookshelfBook'
+error: value of type 'Book' has no member 'title'
+error: value of type 'BookService' has no member 'addBookToBookshelf'
+error: value of type 'BookService' has no member 'saveReadingProgress'
+error: value of type 'BookService' has no member 'source'
+error: value of type 'BookSource' has no member 'key'
+error: value of type 'BookSource' has no member 'sourceName'
+error: value of type 'ListeningDurationTracker' has no member 'saveIncremental'
+error: value of type 'LocalBook' has no member 'title'
+error: value of type 'LocalBookService' has no member 'chapterContent'
+error: value of type 'LocalBookService' has no member 'chapterList'
+error: value of type 'ReadAloudLocation' has no member 'anchor'
+error: value of type 'SourceService' has no member 'getContent'

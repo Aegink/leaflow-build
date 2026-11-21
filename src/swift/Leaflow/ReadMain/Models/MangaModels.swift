@@ -73,7 +73,10 @@ struct MangaImageRequestContext: Equatable {
     /// 取书的图片解码规则（whitespacesAndNewlines trim 确证；空串 → nil，
     /// L382-391 v10 == 0 → nil 确证）。
     var imageDecodeRule: String? {
-        guard let rule = book?.getImageDecodeRule() else { return nil }
+        // Book.getImageDecodeRule 域桥（Book 无该成员——
+        // variableMap "imageDecodeRule" 键域桥，真机核清项；
+        // trim/空→nil 语义对齐 L382-391）。
+        guard let rule = book?.variableMap["imageDecodeRule"] else { return nil }
         let trimmed = rule.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         return trimmed

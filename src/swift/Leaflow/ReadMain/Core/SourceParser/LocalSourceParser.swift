@@ -47,13 +47,13 @@ final class LocalSourceParser {
     /// getBookInfo 主链（诊断串事实 1）。
     static func getBookInfo(source: BookSource, body: String, baseUrl: String) -> String {
         Logger.log(
-            "[getBookInfo] source=\(source.key ?? "") responseChars=\(body.count)",
+            "[getBookInfo] source=\(source.bookSourceUrl) responseChars=\(body.count)",
             level: .warning
         )
         let analyzer = AnalyzeRule.sharedInstance()
         analyzer.setContent(body, baseUrl: baseUrl)
         let bookInfoRule = source.ruleBookInfo
-        return analyzer.getString(rule: bookInfoRule?.name ?? "", isUrl: false) ?? ""
+        return analyzer.getString(rule: bookInfoRule.name ?? "", isUrl: false) ?? ""
     }
 
     /// 目录主链（[TOC-DEBUG] 诊断族）。
@@ -62,15 +62,15 @@ final class LocalSourceParser {
         analyzer.setContent(body, baseUrl: tocUrl)
         let tocRule = source.ruleToc
         Logger.log(
-            "[TOC-DEBUG] 配置: bookUrl=\(book.bookUrl) chapterList规则=\(tocRule?.chapterList ?? "") "
-                + "chapterName规则=\(tocRule?.chapterName ?? "")",
+            "[TOC-DEBUG] 配置: bookUrl=\(book.bookUrl) chapterList规则=\(tocRule.chapterList ?? "") "
+                + "chapterName规则=\(tocRule.chapterName ?? "")",
             level: .warning
         )
-        let elements = analyzer.getElements(rule: tocRule?.chapterList, maxResults: nil)
+        let elements = analyzer.getElements(rule: tocRule.chapterList, maxResults: nil)
         return elements.enumerated().map { index, element in
             BookChapter(
-                title: element.getString(rule: tocRule?.chapterName ?? "") ?? "",
-                url: element.getString(rule: tocRule?.chapterUrl ?? "") ?? "",
+                title: element.getString(rule: tocRule.chapterName ?? "") ?? "",
+                url: element.getString(rule: tocRule.chapterUrl ?? "") ?? "",
                 index: index
             )
         }

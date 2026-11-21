@@ -275,7 +275,7 @@ struct LocalBookImportView: View {
     private func performSave() {
         isSaving = true
         Task {
-            let result = await localBookService.importBook(
+            let result = await LocalBookService.shared.importBook(
                 from: fileURL, title: title, author: author.isEmpty
                     ? nil : author, coverData: selectedCover?.pngData())
             await MainActor.run {
@@ -347,7 +347,9 @@ enum LocalBookFilenameMetadataParser {
         let tail = String(stem[stem.index(after: close)...])
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let author = tail.isEmpty ? nil : clean(tail)
-        return (title: title, author: author.isEmpty ? nil : author)
+        return (
+            title: title,
+            author: (author?.isEmpty ?? true) ? nil : author)
     }
 
     /// parseExplicitAuthor（0x100499dd0 L444-460 static 域确证）。
@@ -414,6 +416,8 @@ enum LocalBookFilenameMetadataParser {
 struct BingImageSearchView: View {
 
     let onSelect: (UIImage) -> Void
+
+    @Environment(\.dismiss) private var dismiss
 
     @State private var query: String = ""
     @State private var results: [BingImageResult] = []
