@@ -1,0 +1,1 @@
+error: property 'self.parent' not initialized at implicitly generated super.init call

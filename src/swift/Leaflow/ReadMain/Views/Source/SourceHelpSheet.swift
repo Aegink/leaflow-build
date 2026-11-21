@@ -120,7 +120,7 @@ struct HTMLHelpWebView: UIViewRepresentable {
     /// 协调器（load/applySearch/didFinish/didReceive 签名确证）。
     final class Coordinator: NSObject, WKNavigationDelegate,
         WKScriptMessageHandler {
-        var parent: HTMLHelpWebView
+        var parent: HTMLHelpWebView?
         private var loadedURL: URL?
         private var pendingSearch: String?
         let logPrefix: String
