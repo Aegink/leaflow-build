@@ -58,9 +58,10 @@ final class AVHttpTtsAudioOutput {
 
     /// schedule(_:completion:)（0x 域 L240-248 确证：
     /// scheduleBuffer:completionCallbackType:completionHandler:）。
+    /// completion @escaping：scheduleBuffer 回调捕获域（wave-16）。
     func schedule(
         _ buffer: ReadAloudAudioBuffer,
-        completion: @MainActor @Sendable () -> Void
+        completion: @escaping @MainActor @Sendable () -> Void
     ) {
         guard let format else {
             Task { @MainActor in completion() }
