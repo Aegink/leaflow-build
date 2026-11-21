@@ -198,7 +198,8 @@ struct BookshelfAppearanceSettingsView: View {
     }
 }
 
-private extension UIColor {
+/// wave-16：访问域放宽到 internal（CardBackgroundSettingsView 颜色绑定消费域）。
+extension UIColor {
     /// hex 分量桥（ColorPicker 写回桥）。
     func toHexComponents() -> String? {
         var red: CGFloat = 0

@@ -1233,9 +1233,10 @@ struct AppTheme: Codable, Identifiable, Equatable {
     }
 }
 
-/// wave-16：访问域放宽到 internal（CardBackgroundSettingsView 颜色绑定消费域）。
-extension UIColor {
+private extension UIColor {
     /// hex 分量桥（TabBackground hex 域还原桥）。
+    /// 注意：BookshelfAppearanceSettingsView 另有 internal 同名桥——本域
+    /// 保持 private 防重声明（wave-16）。
     func toHexComponents() -> String? {
         var red: CGFloat = 0
         var green: CGFloat = 0
