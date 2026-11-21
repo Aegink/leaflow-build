@@ -118,9 +118,10 @@ final class SystemReadAloudDriver: ReadAloudDriver {
     }
 
     /// enqueueMore（签名域确证：queueAhead 预入队域）。
+    /// 队列长度经 pendingCount 桥（queue 私有域，wave-16）。
     private func enqueueMore() {
         guard isPlaying, let output else { return }
-        let enqueued = output.queue.count
+        let enqueued = output.pendingCount
         let inFlight = activeRequest == nil ? 0 : 1
         let target = queueAhead - enqueued - inFlight
         for _ in 0..<max(target, 0) {
@@ -182,7 +183,7 @@ final class SystemReadAloudDriver: ReadAloudDriver {
             try? await Task.sleep(nanoseconds: self?
                 .startTimeoutNanoseconds ?? 8_000_000_000)
             guard !Task.isCancelled, let self, isPlaying,
-                  nextIndex > 0 == false else {
+                  nextIndex == 0 else {
                 return
             }
             // 启动超时：重绑输出域。

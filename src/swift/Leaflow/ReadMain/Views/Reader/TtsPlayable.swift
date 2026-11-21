@@ -43,7 +43,9 @@ protocol TtsPlayable: AnyObject {
 }
 
 // MARK: - 扩展域（0x1008b8064 L42 / 0x1008b8118 L43 域确证）
+// wave-16：@MainActor——ReadAloudPreferences 为 MainActor 隔离类。
 
+@MainActor
 extension TtsPlayable {
 
     /// readAloudPreferences getter（0x1008b8064 L42 域确证）。

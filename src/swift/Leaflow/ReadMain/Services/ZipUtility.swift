@@ -53,12 +53,14 @@ enum ZipUtility {
     }
 
     /// 中央目录条目（CentralDirectoryEntry 域还原桥）。
+    /// extraCount：extra+comment 长度和（游标推进域确证，wave-16 补字段）。
     struct CentralDirectoryEntry {
         let fileName: String
         let compressedSize: Int
         let uncompressedSize: Int
         let localHeaderOffset: Int
         let compressionMethod: UInt16
+        let extraCount: Int
     }
 
     /// 本地文件头（LocalFileHeader 域还原桥）。
@@ -83,8 +85,10 @@ enum ZipUtility {
         let files = (try? fileManager.contentsOfDirectory(
             at: directory, includingPropertiesForKeys: [
                 .fileSizeKey, .isDirectoryKey,
-            ]))?.filter { !($0.resourceValues(forKeys: [.isDirectoryKey])
-                .isDirectory ?? true) } ?? []
+            ]))?.filter {
+                !((try? $0.resourceValues(forKeys: [.isDirectoryKey]))?
+                    .isDirectory ?? true)
+            } ?? []
 
         var archive = Data()
         var central = Data()
@@ -129,7 +133,7 @@ enum ZipUtility {
             central.append(fromUInt16(0))
             central.append(fromUInt16(0))
             central.append(fromUInt32(0))
-            central.append(fromUInt32(offsets.last ?? 0))
+            central.append(fromUInt32(UInt32(offsets.last ?? 0)))
             central.append(contentsOf: nameBytes)
         }
 
@@ -310,15 +314,18 @@ enum ZipUtility {
                 mutating: raw.bindMemory(to: UInt8.self).baseAddress)
             stream.avail_in = uInt(input.count)
             repeat {
-                stream.next_out = &chunk
-                stream.avail_out = uInt(chunk.count)
-                status = inflate(&stream, Z_NO_FLUSH)
+                var produced = 0
+                chunk.withUnsafeMutableBufferPointer { buffer in
+                    stream.next_out = buffer.baseAddress
+                    stream.avail_out = uInt(buffer.count)
+                    status = inflate(&stream, Z_NO_FLUSH)
+                    produced = buffer.count - Int(stream.avail_out)
+                }
                 guard status != Z_STREAM_ERROR, status != Z_DATA_ERROR,
                       status != Z_MEM_ERROR else {
                     return
                 }
-                inflated.append(chunk, count: chunk.count
-                    - Int(stream.avail_out))
+                inflated.append(chunk, count: produced)
             } while stream.avail_out == 0
         }
         return status == Z_STREAM_ERROR ? nil : inflated

@@ -77,6 +77,8 @@ enum WebViewVerticalScrollPayloadFactory {
 
     /// 伪代码 0x1006448b8（L154-212）：章节载荷
     ///（highlightRanges/highlightStylePayloads 参与确证）。
+    /// @MainActor：ReadingSettings 状态域隔离（wave-16）。
+    @MainActor
     static func chapterPayload(
         chapterIndex: Int,
         title: String,
@@ -95,7 +97,8 @@ enum WebViewVerticalScrollPayloadFactory {
     }
 
     /// 伪代码 0x10064710c（L215-245）：设置载荷
-    ///（highlightCSSText/highlightFontCSS 确证）。
+    ///（highlightCSSText/highlightFontCSS 确证）。@MainActor（wave-16）。
+    @MainActor
     static func settingsPayload(from settings: ReadingSettings) -> WebViewVerticalScrollSettingsPayload {
         WebViewVerticalScrollSettingsPayload(
             fontSize: settings.fontSize,
@@ -106,23 +109,39 @@ enum WebViewVerticalScrollPayloadFactory {
     }
 
     /// 伪代码 0x100647b5c（L251-273）：样式载荷闭包（Int, HighlightRule） -> payload?。
+    /// 背景色经 attributes 域取值（CompiledHighlightRule 无直取成员，wave-16）。
+    @MainActor
     static func highlightStylePayloads(_ settings: ReadingSettings) -> [WebViewHighlightStylePayload] {
         settings.compiledHighlightRules.map { rule in
-            WebViewHighlightStylePayload(
-                backgroundCSS: cssEscaped(rule.backgroundColor ?? .yellow),
+            let attributes = rule.attributes(isDark: false)
+            let background = (attributes[.backgroundColor] as? UIColor) ?? .yellow
+            return WebViewHighlightStylePayload(
+                backgroundCSS: cssEscaped(background),
                 foregroundCSS: nil)
         }
     }
 
     /// 伪代码 0x10064beec（L279-317）：高亮区间
-    ///（ReaderRegexHighlightApplier.highlightRanges 确证）+ 排序闭包 ×4。
+    /// （ReaderRegexHighlightApplier.highlightRanges 为单正则域——逐规则
+    /// 收集，crossPageQuotes/noCrossParagraph 按规则域，wave-16）。
+    @MainActor
     static func highlightRanges(
         in content: String,
         rules: [CompiledHighlightRule],
         styles: [WebViewHighlightStylePayload]
     ) -> [WebViewHighlightRangePayload] {
-        let ranges = ReaderRegexHighlightApplier.highlightRanges(in: content, rules: rules)
-        return ranges
+        var collected: [(range: NSRange, styleIndex: Int)] = []
+        for (styleIndex, compiled) in rules.enumerated() {
+            guard let regex = compiled.regex else { continue }
+            let ruleRanges = ReaderRegexHighlightApplier.highlightRanges(
+                in: content, regex: regex,
+                crossPageQuotes: compiled.rule.crossPageQuotes,
+                noCrossParagraph: compiled.rule.noCrossParagraph)
+            for range in ruleRanges {
+                collected.append((range, styleIndex))
+            }
+        }
+        return collected
             .sorted { lhs, rhs in
                 lhs.range.location == rhs.range.location
                     ? lhs.range.length > rhs.range.length

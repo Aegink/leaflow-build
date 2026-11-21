@@ -58,6 +58,12 @@ final class AVSystemSpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
         }
     }
 
+    /// 在途队列长度（SystemReadAloudDriver.enqueueMore 消费域确证，
+    /// wave-16 补桥）。
+    var pendingCount: Int {
+        queue.count
+    }
+
     private func speakNext() {
         guard let request = queue.first else { return }
         activeRequest = request

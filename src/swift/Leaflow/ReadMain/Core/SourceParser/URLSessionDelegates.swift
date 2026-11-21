@@ -52,7 +52,10 @@ final class URLSessionDelegates: NSObject, URLSessionDataDelegate, URLSessionTas
             return .performDefaultHandling
         }
         let credential = URLCredential(trust: trust)
-        return .useCredential(credential)
+        // Foundation 域：disposition 无关联值——凭据经 challenge.sender 注入
+        // （wave-16）。
+        challenge.sender?.use(credential, for: challenge)
+        return .useCredential
     }
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {

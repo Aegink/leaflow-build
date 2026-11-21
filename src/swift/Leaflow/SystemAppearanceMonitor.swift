@@ -59,8 +59,11 @@ final class SystemAppearanceDispatcher {
         if allowed {
             let name = effective == .dark ? "dark" : "light"
             Logger.log("\(name) source \(source)", level: .info)
-            _ = AppThemeManager.applyObservedSystemAppearance(effective, source: source)
-            _ = ThemeManager.applyObservedSystemAppearance(effective, source: source)
+            // applyObservedSystemAppearance 为实例域——经单例调用（wave-16）。
+            _ = AppThemeManager.shared.applyObservedSystemAppearance(
+                effective, source: source)
+            _ = ThemeManager.shared.applyObservedSystemAppearance(
+                effective, source: source)
         } else {
             Logger.log("外观未指定，使所有设置生效。", level: .info)
         }
@@ -79,7 +82,7 @@ final class SystemAppearanceDispatcher {
             .filter { $0.activationState == .foregroundActive }
             .compactMap { $0 as? UIWindowScene }
         for scene in activeScenes {
-            if let window = scene.windows.first(where: \\.isKeyWindow) {
+            if let window = scene.windows.first(where: \.isKeyWindow) {
                 return window.traitCollection.userInterfaceStyle
             }
         }

@@ -30,7 +30,8 @@ import UIKit
 /// 音量变化解释器（伪代码 0x1008de328，L10-12：noiseThreshold 确证）。
 struct VolumeButtonPageTurnInterpreter {
     let noiseThreshold: Float
-    private(set) var lastVolume: Float = -1
+    // wave-16：setter 放宽（Monitor 校准域——interpreter.lastVolume 写回）。
+    var lastVolume: Float = -1
 
     init(noiseThreshold: Float) {
         self.noiseThreshold = noiseThreshold
@@ -127,8 +128,11 @@ final class VolumeButtonPageTurnMonitor {
         guard hiddenVolumeView == nil,
               let windowScene = UIApplication.shared.connectedScenes
                   .compactMap({ $0 as? UIWindowScene })
-                  .first(where: { $0.windows.contains(where: \\.isKeyWindow) }),
-              let keyWindow = windowScene.windows.first(where: \\.isKeyWindow) else { return }
+                  .first(where: { scene in
+                      scene.windows.contains { $0.isKeyWindow }
+                  }),
+              let keyWindow = windowScene.windows.first(where: \.isKeyWindow)
+        else { return }
         keyWindow.layoutIfNeeded()
         let wrapper = UIView(frame: CGRect(x: -100, y: -100, width: 1, height: 1))
         wrapper.alpha = 0.0

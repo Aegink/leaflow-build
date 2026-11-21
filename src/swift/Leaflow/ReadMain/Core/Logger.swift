@@ -72,6 +72,7 @@ enum Logger {
         case tts
         case sync
         case js
+        case network
         case general
     }
 

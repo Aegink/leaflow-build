@@ -199,7 +199,7 @@ struct TtsSkinClassic: View {
                 Image(systemName: "play.fill")
                     .font(.title)
                     .padding(16)
-                    .background(Circle().fill(.accentColor))
+                    .background(Circle().fill(Color.accentColor))
                     .foregroundStyle(.white)
             }
             Button {
@@ -475,19 +475,36 @@ struct ReaderTtsQuickSettingsPanel: View {
 }
 
 // MARK: - 倍速/进度/定时桥（ttsUserSpeed 三桥 + ttsProgress 域确证）
+// wave-16：桥族 @MainActor——readAloudPreferences/服务域均为 MainActor 隔离。
 
 /// ttsUserSpeed<A: TtsPlayable>(vm:)（0x 域 L1010-1024 确证：按引擎
 /// 读取倍速）。
+@MainActor
 func ttsUserSpeed<A: TtsPlayable>(vm: A) -> Float {
     vm.readAloudPreferences.systemRate
 }
 
 /// ttsSetUserSpeed<A: TtsPlayable>(vm:speed:)（0x 域确证）。
+@MainActor
 func ttsSetUserSpeed<A: TtsPlayable>(vm: A, speed: Float) {
     vm.readAloudPreferences.setSystemRate(speed)
 }
 
+/// ttsSetUserSpeed(_:)（视图滑杆无 vm 域——本地速度态写入，wave-16 补桥）。
+@MainActor
+func ttsSetUserSpeed(_ speed: Float) {
+    TtsPlayerSpeedState.shared.speed = speed
+}
+
+/// 视图速度态（滑杆桥共享载体，还原推断）。
+@MainActor
+final class TtsPlayerSpeedState {
+    static let shared = TtsPlayerSpeedState()
+    var speed: Float = 1.0
+}
+
 /// ttsUserSpeedRange<A: TtsPlayable>(vm:)（0x 域确证）。
+@MainActor
 func ttsUserSpeedRange<A: TtsPlayable>(vm: A) -> ClosedRange<Float> {
     0.5...3.0
 }
@@ -503,7 +520,8 @@ struct TtsProgress {
     }
 }
 
-/// ttsTogglePlayPause（0x 域 L1061-1071 确证）。
+/// ttsTogglePlayPause（0x 域 L1061-1071 确证）。@MainActor（服务域，wave-16）。
+@MainActor
 func ttsTogglePlayPause() {
     AudioBookService.shared.togglePlayPause()
 }
@@ -518,7 +536,8 @@ func ttsPrevChapter() {
     // 章节回退桥（ReaderViewModel 联动域还原桥）。
 }
 
-/// ttsStopSpeech（'停止朗读' L9205 域桥）。
+/// ttsStopSpeech（'停止朗读' L9205 域桥）。@MainActor（服务域，wave-16）。
+@MainActor
 func ttsStopSpeech() {
     AudioBookService.shared.stop()
 }

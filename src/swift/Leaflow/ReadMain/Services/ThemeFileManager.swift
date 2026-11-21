@@ -27,6 +27,9 @@
 import UIKit
 
 /// 主题文件管理器（themesBaseDir 0x 域确证）。
+/// @MainActor：消费方（BackupService/设置视图）均为 MainActor 域，绑定
+/// 阅读主题域调用 AppThemeManager（@MainActor 单例）——wave-16。
+@MainActor
 enum ThemeFileManager {
 
     /// 文件错误（ThemeFileError.errorDescription 签名域确证）。

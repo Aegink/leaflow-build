@@ -17,10 +17,12 @@ extension View {
 
     /// pgo_only（×3 共体实例）：沉浸式系统覆盖层。
     /// hidden = true → 隐藏状态栏/底部 home 指示。
+    /// preferredScreenEdgesDeferringSystemGestures 属 UIViewController 域
+    /// （非 SwiftUI 修饰）——覆盖意图由 persistentSystemOverlays 承载
+    /// （wave-16）。
     func immersiveSystemOverlays(hidden: Bool) -> some View {
         self
             .statusBarHidden(hidden)
             .persistentSystemOverlays(hidden ? .hidden : .automatic)
-            .preferredScreenEdgesDeferringSystemGestures(hidden ? .all : [])
     }
 }

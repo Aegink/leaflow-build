@@ -70,7 +70,7 @@ struct TabIconSettingsView: View {
         settingsCardRow(topGap: 16) {
             Toggle(isOn: $useClassicTabBar) {
                 AppThemeSettingsLabel(
-                    title: "经典底栏", systemImage: "menubar.rectangle")
+                    "经典底栏", systemImage: "menubar.rectangle")
             }
             .onChange(of: useClassicTabBar) { _ in
                 applyEdit()

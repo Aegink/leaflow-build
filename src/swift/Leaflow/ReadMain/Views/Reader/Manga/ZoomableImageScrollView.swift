@@ -17,7 +17,9 @@
 import UIKit
 
 /// 可缩放图片滚动容器。
-final class ZoomableImageScrollView: UIScrollView {
+/// UIScrollViewDelegate：delegate = self 装配域（viewForZooming 消费域，
+/// wave-16 补一致）。
+final class ZoomableImageScrollView: UIScrollView, UIScrollViewDelegate {
 
     private let imageView = UIImageView()
     private lazy var doubleTapGesture: UITapGestureRecognizer = {

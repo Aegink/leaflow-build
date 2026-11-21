@@ -186,10 +186,13 @@ enum TTSHighlightDiagnostics {
     }
 
     /// textFingerprint(String)（签名域确证：内容指纹域）。
+    /// UInt32(bitPattern:) 接 Int32——截断域桥（wave-16）。
     static func textFingerprint(_ text: String) -> String {
         var hasher = Hasher()
         hasher.combine(text)
-        return String(format: "%08x", UInt32(bitPattern: hasher.finalize()))
+        return String(
+            format: "%08x",
+            UInt32(truncatingIfNeeded: hasher.finalize()))
     }
 
     /// textPreview(_:range:limit:)（签名域确证：片段预览域）。

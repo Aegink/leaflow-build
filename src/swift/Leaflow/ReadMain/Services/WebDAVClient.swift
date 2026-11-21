@@ -28,6 +28,7 @@
 // 还原: 2026-11-20
 
 import Foundation
+import Kanna
 
 /// WebDAV 客户端（init(config:)/listTree/upload/download 签名域确证）。
 final class WebDAVClient {
@@ -124,7 +125,8 @@ final class WebDAVClient {
         guard let http = response as? HTTPURLResponse else {
             throw WebDAVError.parseFailed
         }
-        let accepted = [200, 201, 204, 207].union(acceptableExtra)
+        // Set 域 union（数组无 union 成员，wave-16）。
+        let accepted = Set([200, 201, 204, 207]).union(acceptableExtra)
         guard accepted.contains(http.statusCode) else {
             throw WebDAVError.requestFailed(http.statusCode)
         }
@@ -157,9 +159,9 @@ final class WebDAVClient {
     }
 
     /// parsePropfind(Data)（签名域确证：response XML 域）。
+    /// 构造走 Kanna.XML 工厂（5.3 域：XMLDocument 为协议，wave-16）。
     private func parsePropfind(_ data: Data) throws -> [RemoteEntry] {
-        guard let doc = try? XMLDocument(
-            data: data, options: []) else {
+        guard let doc = try? Kanna.XML(xml: data, encoding: .utf8) else {
             throw WebDAVError.parseFailed
         }
         var entries: [RemoteEntry] = []

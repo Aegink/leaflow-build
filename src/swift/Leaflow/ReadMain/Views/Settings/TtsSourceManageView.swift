@@ -292,9 +292,11 @@ struct TtsSourceManageView: View {
         isParsing = true
         statusMessage = "解析配置..."
         Task {
-            let (data, _) = try? await URLSession.shared.data(from: url)
+            // 解构元组显式类型（wave-16：可选元组解构域）。
+            let result: (Data, URLResponse)? = try? await URLSession.shared
+                .data(from: url)
             isParsing = false
-            guard let data else {
+            guard let data = result?.0 else {
                 statusMessage = "解析失败: 下载失败"
                 return
             }
@@ -315,7 +317,7 @@ struct TtsSourceManageView: View {
     /// importFromFile(_: URL)（签名域确证）。
     private func importFromFile(_ url: URL) {
         let picker = UIDocumentPickerViewController(
-            forContentTypes: [.json, .plainText])
+            forOpeningContentTypes: [.json, .plainText])
         UIApplication.shared.connectedScenes
             .compactMap {
                 ($0 as? UIWindowScene)?.keyWindow?.rootViewController
@@ -362,7 +364,8 @@ enum TtsSourceStore {
     static var currentSourceID: Int64? {
         let raw = UserDefaults.standard.double(
             forKey: "reader_tts_current")
-        return raw == 0 ? nil : raw
+        // double 键 → Int64 归一（Int64? 返回域，wave-16）。
+        return raw == 0 ? nil : Int64(raw)
     }
 
     static func setCurrent(_ id: Int64?) {

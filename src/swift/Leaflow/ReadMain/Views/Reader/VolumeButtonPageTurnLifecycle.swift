@@ -59,7 +59,12 @@ struct VolumeButtonPageTurnLifecycleModifier: ViewModifier {
         content
             .onChange(of: isMonitoringAllowed, initial: true) { _, allowed in
                 // closure #1（0x1008dd5f0，L42-44）：资格变化。
-                VolumeButtonPageTurnMonitor.shared.setEnabled(allowed)
+                // setEnabled 无独立域——资格启停经 start/stop 对（wave-16）。
+                if allowed {
+                    VolumeButtonPageTurnMonitor.shared.start(onTurn: { _ in })
+                } else {
+                    VolumeButtonPageTurnMonitor.shared.stop(restoreVolume: true)
+                }
             }
             .onReceive(
                 NotificationCenter.default.publisher(
