@@ -420,3 +420,38 @@ extension BookSource {
 
     /// 手工 ==（Equatable 合成对 `init` 反引号/backtick 成员不稳定——构建域桥）。
 }
+
+extension BookSource {
+
+    /// 手工 ==（Equatable 合成异常桥——initRule 重命名后合成域待 macOS 核）。
+    static func == (lhs: BookSource, rhs: BookSource) -> Bool {
+        lhs.bookSourceUrl == rhs.bookSourceUrl
+            && lhs.bookSourceName == rhs.bookSourceName
+            && lhs.enabled == rhs.enabled
+            && lhs.enabledExplore == rhs.enabledExplore
+            && lhs.enabledCookieJar == rhs.enabledCookieJar
+            && lhs.enabledBookInfo == rhs.enabledBookInfo
+            && lhs.enabledToc == rhs.enabledToc
+            && lhs.enabledContent == rhs.enabledContent
+            && lhs.enabledReview == rhs.enabledReview
+            && lhs.header == rhs.header
+            && lhs.loginUrl == rhs.loginUrl
+            && lhs.bookUrlPattern == rhs.bookUrlPattern
+            && lhs.loginUi == rhs.loginUi
+            && lhs.concurrentRate == rhs.concurrentRate
+            && lhs.coverDecodeUrl == rhs.coverDecodeUrl
+            && lhs.lastUpdateTime == rhs.lastUpdateTime
+            && lhs.customOrder == rhs.customOrder
+            && lhs.weight == rhs.weight
+            && lhs.expireTime == rhs.expireTime
+            && lhs.respondTime == rhs.respondTime
+            && lhs.storageKind == rhs.storageKind
+            && lhs.id == rhs.id
+            && lhs.ruleSearch == rhs.ruleSearch
+            && lhs.ruleToc == rhs.ruleToc
+            && lhs.ruleContent == rhs.ruleContent
+            && lhs.ruleBookInfo == rhs.ruleBookInfo
+            && lhs.ruleExplore == rhs.ruleExplore
+            && lhs.initRule == rhs.initRule
+    }
+}

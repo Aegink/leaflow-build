@@ -2114,7 +2114,7 @@ final class HighlightGradientAttributedTextView: UIView {
         }
     }
 
-    init(frame: CGRect) {
+    override init(frame: CGRect) {
         attrConfiguration = HighlightGradientTextRenderer.Configuration()
         super.init(frame: frame)
         backgroundColor = .clear
