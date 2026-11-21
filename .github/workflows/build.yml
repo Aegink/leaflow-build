@@ -1,0 +1,52 @@
+name: ios-build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build (iOS Simulator, generic destination)
+        run: |
+          set +e
+          xcodebuild \
+            -project Leaflow.xcodeproj \
+            -scheme Leaflow \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build 2>&1 | tee build.log
+          echo "xcodebuild exit: $?" >> build.log
+
+      - name: Extract unique errors
+        run: |
+          grep -E "error:" build.log | sed 's/^.*error:/error:/' | sort -u > errors.txt || true
+          grep -cE "error:" build.log > error_count.txt || true
+          echo "---- unique errors ----"
+          cat errors.txt || true
+          echo "---- total error lines ----"
+          cat error_count.txt || true
+
+      - name: Upload build log
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: |
+            build.log
+            errors.txt
+            error_count.txt
+          if-no-files-found: warn

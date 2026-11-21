@@ -1,0 +1,31 @@
+name: Leaflow
+options:
+  bundleIdPrefix: com.leaflow
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+packages:
+  SwiftSoup:
+    url: https://github.com/scinfu/SwiftSoup
+    from: 2.7.6
+  Kanna:
+    url: https://github.com/tid-kijyu/Kanna
+    from: 5.3.0
+targets:
+  Leaflow:
+    type: application
+    platform: iOS
+    sources:
+      - path: src/swift/Leaflow
+    dependencies:
+      - package: SwiftSoup
+      - package: Kanna
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.leaflow.app
+        PRODUCT_NAME: Leaflow
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
