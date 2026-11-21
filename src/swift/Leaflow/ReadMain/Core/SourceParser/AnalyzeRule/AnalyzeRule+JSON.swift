@@ -82,16 +82,12 @@ extension AnalyzeRule {
         let jsonObject = Self.jsonObjectForElementPipeline(source)
         guard jsonObject != nil else { return nil }
 
-        // 拆段 Array 化（ArraySlice→String 消解，wave-16）。
+        // 拆段 Array 化 + 元素 String 化（ArraySlice→String 消解，wave-16）。
         let segments = Array(
             LegadoRuleAnalyzer
                 .innerRule(rule, markers: ["&&", "||", "%%"])
-                .split {
-                    $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                })
-            .map {
-                $0.trimmingCharacters(in: .whitespacesAndNewlines)
-            }
+                .split { $0.isEmpty }
+        ).map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
 
         if segments.count <= 1 {
             // 事实 7：单段 —— 内嵌规则优先。

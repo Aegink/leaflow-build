@@ -47,6 +47,31 @@ final class WebViewGate {
     }
 }
 
+/// WebViewRuntime 命名空间桥（AnalyzeUrl+JSContextSetup 消费域确证——
+/// 实例 Runner 的静态转发域，wave-16 补桥）。
+enum WebViewRuntime {
+    static func load(
+        url: String, headers: [String: String]?, javaScript: String
+    ) async -> String? {
+        await WKWebViewBridgeRunner().load(
+            url: url, headers: headers, javaScript: javaScript)
+    }
+
+    static func loadHTML(
+        url: String, html: String, webJs: String
+    ) async -> String? {
+        await WKWebViewBridgeRunner().loadHTML(
+            url: url, html: html, webJs: webJs)
+    }
+
+    static func sourceURL(
+        html: String?, url: String, javaScript: String
+    ) async -> String? {
+        await WKWebViewBridgeRunner().sourceURL(
+            html: html, url: url, javaScript: javaScript)
+    }
+}
+
 /// WKWebView 桥接执行器（事实 14）。
 final class WKWebViewBridgeRunner {
     /// 伪代码 L62-65：加载 URL 并等待桥接。

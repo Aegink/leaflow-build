@@ -196,7 +196,15 @@ extension AnalyzeRule {
         return true
     }
 
-    // MARK: - JS 代码校验
+    /// executeJsRuleWithValue(rule:previousResult:)（ElementExtraction 管道
+    /// JS 步骤消费域确证——executeJsRule 桥 + 原值透传，wave-16 补桥）。
+    func executeJsRuleWithValue(
+        _ rule: String, previousResult: Any?
+    ) -> Any? {
+        executeJsRule(rule, input: previousResult)
+    }
+
+    /// 伪代码 0x100053110（L1071-1116 区段）：JS 代码嗅探正则族（事实 16）。
 
     /// 伪代码 0x100053110（L1071-1116 区段）：JS 代码嗅探正则族（事实 16）。
     private static let jsPathRegex = try? NSRegularExpression(
@@ -291,7 +299,7 @@ extension AnalyzeRule {
         if let binding = resultBinding {
             binding.store(text)
         }
-        return stringValueForJavaScriptRuleResult(text)
+        return Self.stringValueForJavaScriptRuleResult(text)
     }
 
     // MARK: - 列表 JS 执行
@@ -418,7 +426,7 @@ extension AnalyzeRule {
             return
         }
         loadJsLibPublic()
-        context.setObject(true, forKeyedSubscript: marker)
+        context.setObject(true, forKeyedSubscript: marker as NSString)
     }
 
     /// 伪代码 0x1000557b8（L1184-1188）：公共库装载——沙箱 jslib 目录
@@ -440,10 +448,10 @@ extension AnalyzeRule {
 
 /// JS 求值结果绑定（evaluateJS 族参数域确证；最小载体，字段随消费域补齐）。
 /// store(text:)——executeJsRule 结果写回域（wave-16 补桥）。
-struct AnalyzeRuleJavaScriptResultBinding {
+final class AnalyzeRuleJavaScriptResultBinding {
     var elementValues: [String] = []
 
-    mutating func store(_ text: String) {
+    func store(_ text: String) {
         elementValues.append(text)
     }
 }

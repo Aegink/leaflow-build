@@ -59,7 +59,7 @@ extension AnalyzeUrl {
             "clearTtsCache": { (_: String) in },
             "androidId": { () -> String in "" },
             "HMacHex": { (input: String, key: String, mode: String) -> String in
-                CryptoBridge.hmacHex(input: input, key: key, mode: mode)
+                CryptoBridge.hmacHex(input, key: key, mode: mode)
             },
             "_nativeHttpRequest": { (url: String) -> String in
                 AnalyzeUrl.nativeHttpRequest(url, followRedirects: false)

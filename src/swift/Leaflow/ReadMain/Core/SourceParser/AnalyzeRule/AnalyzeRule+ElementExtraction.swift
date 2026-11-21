@@ -92,7 +92,7 @@ extension AnalyzeRule {
         let segments = Array(
             LegadoRuleAnalyzer
                 .innerRule(trimmed, markers: ["&&", "||", "%%"])
-                .split { $0.isEmpty })
+                .split { $0.isEmpty }.map { String($0) })
         if segments.count <= 1 {
             return collectElementsByMode(rules: splitRules(trimmed, allInOne: true), limit: limit)
         }
@@ -203,7 +203,7 @@ extension AnalyzeRule {
                 // 节点装箱走 childRule 路径（wrapNodesAsChildRules 同域，wave-16）。
                 let nodes = executeXPathRuleForNodes(effective.rule)
                 let wrapped = nodes.map { node in
-                    wrapNodesAsChildRules([node])
+                    AnalyzeRule.wrapNodesAsChildRules([node])
                 } ?? []
                 appendCapped(Array(wrapped.joined()), to: &result, limit: limit)
             case .json:
@@ -291,7 +291,7 @@ extension AnalyzeRule {
             case .json:
                 // 事实 29：mode 2 —— 下一级是 JS 时走 pipeline JSON，否则直接 readJsonPath。
                 if nextIsJs {
-                    guard let value = executeElementPipelineJson(
+                    guard let value = AnalyzeRule.executeElementPipelineJson(
                         effective.rule,
                         currentResult: context.map { $0 as Any } ?? contentString,
                         nextMode: .js,
@@ -337,7 +337,7 @@ extension AnalyzeRule {
             LegadoRuleAnalyzer
                 .innerRule(rule.trimmingCharacters(in: .whitespacesAndNewlines),
                            markers: ["&&", "||", "%%"])
-                .split { $0.isEmpty })
+                .split { $0.isEmpty }.map { String($0) })
         if segments.count > 1 {
             switch LegadoRuleAnalyzer.lastCombiner {
             case "||":
@@ -378,7 +378,8 @@ extension AnalyzeRule {
         for analyzer in AnalyzeRule.analyzersForElementPipeline(currentResult) {
             let nodes = executeXPathRuleForNodes(rule)
             // 节点装箱走 wrapNodesAsChildRules（childRule 域，wave-16）。
-            result.append(contentsOf: nodes.map { wrapNodesAsChildRules($0) } ?? [])
+            result.append(
+                contentsOf: nodes.map { AnalyzeRule.wrapNodesAsChildRules($0) } ?? [])
         }
         return result
     }
@@ -404,7 +405,7 @@ extension AnalyzeRule {
             // 事实 30：每步 makeUp 后执行。
             // contentOf 为实例闭包域——经 sharedInstance 取用（wave-16）。
             let effective = sourceRule.makeUpRule(
-                result: contentOf(current), context: sharedInstance())
+                result: sharedInstance().contentOf(current), context: sharedInstance())
             let nextMode: RuleMode? = offset + 1 < rules.count ? rules[offset + 1].mode : nil
             guard !effective.rule.isEmpty else {
                 break
@@ -443,7 +444,7 @@ extension AnalyzeRule {
             return sharedInstance().pipelineXPathClosure(rule.rule, currentResult)
         case .json:
             // 事实 31：executeElementPipelineJson。
-            return executeElementPipelineJson(
+            return AnalyzeRule.executeElementPipelineJson(
                 rule.rule,
                 currentResult: currentResult,
                 nextMode: nextMode,
@@ -649,9 +650,10 @@ extension AnalyzeRule {
 
     /// 别名 `wrapRegexGroupListsAsChildRules`（@0x10001b044 L575-585）：
     /// `[[String]]` → 每个内层组包成子 AnalyzeRule（配合 $N 组引用）。
+    /// 经 childRule 构造（无 groupContent init，wave-16）。
     static func wrapRegexGroupListsAsChildRules(_ lists: [[String]]) -> [AnalyzeRule] {
-        lists.map { group in
-            AnalyzeRule(groupContent: group)
+        lists.compactMap { group in
+            childRule(for: group as Any, contentClosure: { group.joined(separator: "\n") })
         }
     }
 

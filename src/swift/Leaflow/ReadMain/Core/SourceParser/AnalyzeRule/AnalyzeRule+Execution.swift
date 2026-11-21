@@ -130,7 +130,7 @@ extension AnalyzeRule {
         // 事实 16：常规执行（计时 + shouldExecute 门 + ParseDiagnostic）。
         let start = CFAbsoluteTimeGetCurrent()
         var result: String?
-        if shouldExecuteAgainstPreviousResult(rule.mode, previousResult) {
+        if shouldExecuteAgainstPreviousResult(rule.mode, previousResult: previousResult) {
             result = executeRuleBody(
                 effectiveRule,
                 rule,
@@ -234,7 +234,7 @@ extension AnalyzeRule {
             return [single]
         }
 
-        guard shouldExecuteAgainstPreviousResult(rule.mode, previousResult) else {
+        guard shouldExecuteAgainstPreviousResult(rule.mode, previousResult: previousResult) else {
             return nil
         }
         return executeRuleForListBody(

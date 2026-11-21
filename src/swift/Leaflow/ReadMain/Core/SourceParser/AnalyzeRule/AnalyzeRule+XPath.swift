@@ -127,7 +127,7 @@ extension AnalyzeRule {
     /// 伪代码 0x10006e658（L191-207）：Kanna 文档构造（stderr 抑制）。
     /// 构造走 Kanna.XML 工厂（5.3 域：XMLDocument 为协议，wave-16）。
     func getXPathDocument(from source: String) -> KannaXMLDocument? {
-        withLibxmlStderrSuppressed {
+        AnalyzeRule.withLibxmlStderrSuppressed {
             let prepared = preparedXPathSource(source)
             return try Kanna.XML(xml: prepared, encoding: .utf8)
         }
@@ -136,7 +136,7 @@ extension AnalyzeRule {
     /// 伪代码 0x10006eb14（L221-240）：XPath 求值。
     func xpathObjects(_ xpath: String, document: KannaXMLDocument?) -> KannaXPathObject? {
         guard let document else { return nil }
-        return withLibxmlStderrSuppressed {
+        return AnalyzeRule.withLibxmlStderrSuppressed {
             try? document.xpath(xpath)
         }
     }
@@ -163,14 +163,14 @@ extension AnalyzeRule {
     func executeXPathRule(_ rule: String) -> String? {
         let document = getXPathDocument(from: contentString)
         let objects = xpathObjects(rule, document: document)
-        return xpathObjectStrings(objects).first
+        return AnalyzeRule.xpathObjectStrings(objects).first
     }
 
     /// 伪代码 0x10006fee8（L281-298）：XPath 单规则列表执行。
     func executeXPathSingleRuleForList(_ rule: String) -> [String] {
         let document = getXPathDocument(from: contentString)
         let objects = xpathObjects(rule, document: document)
-        return xpathObjectStrings(objects)
+        return AnalyzeRule.xpathObjectStrings(objects)
     }
 
     /// 伪代码 0x100070230（L300-313）：XPath 单规则节点执行。
@@ -206,7 +206,7 @@ extension AnalyzeRule {
         var result: [String] = []
         for segment in segments {
             guard let objects = xpathObjects(segment, document: document) else { continue }
-            result.append(contentsOf: xpathObjectStrings(objects))
+            result.append(contentsOf: AnalyzeRule.xpathObjectStrings(objects))
         }
         return result.isEmpty ? nil : result
     }

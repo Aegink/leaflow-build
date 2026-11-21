@@ -324,3 +324,15 @@ extension AnalyzeRule {
         }, forKeyedSubscript: "java" as NSString)
     }
 }
+
+// MARK: - 自桥刷新去重（wave-16 补桥）
+
+extension AnalyzeRule {
+
+    /// currentJavaBridgeRefreshSignatureUnchanged()（syncBookObject/
+    /// syncChapterObject 去重域确证）。刷新签名缓存域未还原——恒 false
+    /// （每次全量重建桥对象），记入仍不清楚。
+    static func currentJavaBridgeRefreshSignatureUnchanged() -> Bool {
+        false
+    }
+}

@@ -152,4 +152,10 @@ final class LRUCache<A: Hashable, B> {
         storage.head = nil
         storage.tail = nil
     }
+
+    /// removeAll()（AnalyzeRule.clearAllSearchCaches 消费域确证，
+    /// wave-16 补桥——clear 同义别名）。
+    func removeAll() {
+        clear()
+    }
 }

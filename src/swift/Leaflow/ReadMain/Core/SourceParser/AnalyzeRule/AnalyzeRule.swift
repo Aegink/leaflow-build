@@ -360,13 +360,14 @@ final class AnalyzeRule {
     // MARK: - 网络观测
 
     /// 伪代码 0x10000e2f0（L1254-1268）。
+    /// debugMode/executeRuleLogLevel 为静态域——Self 限定（wave-16）。
     func recordObservedNetworkRequest(requestURL: String?, responseURL: String?) {
         redirectUrl = responseURL ?? redirectUrl
-        if debugMode {
+        if Self.debugMode {
             Logger.log(
                 "[recordObservedNetworkRequest] request=\(requestURL ?? "nil") "
                     + "response=\(responseURL ?? "nil")",
-                level: executeRuleLogLevel
+                level: Self.executeRuleLogLevel
             )
         }
     }
@@ -420,7 +421,7 @@ extension AnalyzeRule {
     }
 
     /// jsonPath 引擎静态槽（JSON 分册使用）。
-    static let jsonPathEngineCache = LRUCache<String, Any>(maxSize: 16)
+    static let jsonPathEngineCache = LRUCache<String, AnyObject>(maxSize: 16)
 
     static func makeJsonPathEngine(for rule: String) -> AnyObject {
         LegadoJsonPathBridge.makeEngine(for: rule)

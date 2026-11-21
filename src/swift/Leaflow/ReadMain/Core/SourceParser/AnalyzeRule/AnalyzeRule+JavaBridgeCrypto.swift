@@ -50,10 +50,10 @@ extension AnalyzeRule {
                 CryptoBridge.cipherProcess(input: input, key: key, iv: iv, mode: mode)
             },
             "HMacHex": { (input: String, key: String, mode: String) -> String in
-                CryptoBridge.hmacHex(input: input, key: key, mode: mode)
+                CryptoBridge.hmacHex(input, key: key, mode: mode)
             },
             "HMacBase64": { (input: String, key: String, mode: String) -> String in
-                CryptoBridge.hmacBase64(input: input, key: key, mode: mode)
+                CryptoBridge.hmacBase64(input, key: key, mode: mode)
             },
             "desDecodeToString": { (input: String, key: String, iv: String, mode: String) -> String in
                 CryptoBridge.cipherProcess(input: input, key: key, iv: iv, mode: mode)
