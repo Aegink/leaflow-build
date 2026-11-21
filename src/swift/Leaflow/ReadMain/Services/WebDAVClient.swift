@@ -165,18 +165,16 @@ final class WebDAVClient {
             throw WebDAVError.parseFailed
         }
         var entries: [RemoteEntry] = []
-        for node in doc.nodes(forXPath: "//*[local-name()='response']") {
-            let href = node
-                .nodes(forXPath: "*[local-name()='href']").first?
-                .stringValue ?? ""
+        // Searchable 域：xpath 返回 XPathObject（可迭代 XMLElement），
+        // 子检索经 node.xpath —— nodes(forXPath:) 非 Kanna 成员（wave-16）。
+        for node in doc.xpath("//*[local-name()='response']") {
+            let href = node.xpath("*[local-name()='href']").first?.text ?? ""
             let isDirectory = node
-                .nodes(forXPath: "//*[local-name()='collection']").count > 0
+                .xpath("//*[local-name()='collection']").count > 0
             let sizeString = node
-                .nodes(forXPath: "//*[local-name()='getcontentlength']")
-                .first?.stringValue
+                .xpath("//*[local-name()='getcontentlength']").first?.text
             let modified = node
-                .nodes(forXPath: "//*[local-name()='getlastmodified']")
-                .first?.stringValue
+                .xpath("//*[local-name()='getlastmodified']").first?.text
             let formatter = DateFormatter()
             formatter.locale = Locale(identifier: "en_US_POSIX")
             formatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss zzz"

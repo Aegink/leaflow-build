@@ -44,6 +44,9 @@ enum SystemAppearanceEventGate {
 }
 
 /// 系统外观分发器。
+/// @MainActor：双管理器 applyObservedSystemAppearance 为 MainActor 域——
+/// 调用方（探针/通知回调）亦然（wave-16）。
+@MainActor
 final class SystemAppearanceDispatcher {
 
     /// 伪代码 0x100d44000（L31-44）：
