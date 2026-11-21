@@ -197,7 +197,7 @@ struct JSBrowserNavigationRequest {
     let url: URL
     let method: String
     let headers: [String: String]
-    let body: Data?
+    var body: Data?
 
     /// init(request:)（签名确证）。
     init?(request: URLRequest) {
@@ -363,7 +363,7 @@ struct InteractiveBrowserWebView: UIViewRepresentable {
         view.allowsBackForwardNavigationGestures = true
         Coordinator.applyBackground(to: view)
         if let request = request, let url = URL(string: request.url) {
-            view.load(Coordinator.buildURLRequest(url: url, source: source))
+            view.load(Self.buildURLRequest(url: url, source: source))
         } else {
             view.load(URLRequest(url: targetURL))
         }

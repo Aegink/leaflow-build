@@ -192,7 +192,9 @@ struct SourceRow: View {
                     .foregroundColor(.secondary)
                     .frame(width: 24.0)
                 VStack(alignment: .leading, spacing: 2.0) {
-                    Text(indexed.book.bookSourceName)
+                    // Book 无 bookSourceName——bookSourceUrl 域桥
+                    //（源名以 URL 代显，真机核清项）。
+                    Text(indexed.book.bookSourceUrl ?? "")
                         .lineLimit(1)
                     if let latest = indexed.book.latestChapter {
                         Text(latest)

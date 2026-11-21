@@ -111,7 +111,7 @@ extension SourceService {
         }
         return ChapterContent(
             content: content, nextUrl: nil, isPay: false,
-            comments: nil, readerAccessURL: nil)
+            comments: nil, readerAccessURL: nil, chapterTitle: nil)
     }
 
     /// 伪代码 0x1003c1fb4（L548-565）：书评。

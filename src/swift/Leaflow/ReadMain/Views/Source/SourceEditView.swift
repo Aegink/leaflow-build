@@ -934,7 +934,7 @@ struct SourceEditView: View {
             ].filter { !$0.isEmpty }.count
         case "bookInfo":
             return [
-                draft.ruleBookInfo.init, draft.ruleBookInfo.name,
+                draft.ruleBookInfo.initRule, draft.ruleBookInfo.name,
                 draft.ruleBookInfo.author, draft.ruleBookInfo.kind,
                 draft.ruleBookInfo.wordCount, draft.ruleBookInfo.lastChapter,
                 draft.ruleBookInfo.intro, draft.ruleBookInfo.coverUrl,
@@ -1161,7 +1161,7 @@ struct SourceEditView: View {
         Group {
             CodeTextField(
                 "预处理", key: "init",
-                text: ruleBinding(\.ruleBookInfo, \.init))
+                text: ruleBinding(\.ruleBookInfo, \.initRule))
             RuleTextField(
                 "书名提取规则", key: "name",
                 text: ruleBinding(\.ruleBookInfo, \.name))
@@ -1350,24 +1350,28 @@ extension SourceEditView {
     }
 
     /// 伪代码 0x100bc6368（L1846-1861）：详情规则代理（ruleBookInfo 桥）。
+    /// bookList 域桥（BookInfoRule 无 bookList——initRule 代理域桥，
+    /// 真机核清项）。
     var bookInfoRuleProxy: Binding<String> {
         Binding(
-            get: { draft.ruleBookInfo.bookList },
-            set: { value in draft.ruleBookInfo.bookList = value })
+            get: { draft.ruleBookInfo.initRule },
+            set: { value in draft.ruleBookInfo.initRule = value })
     }
 
     /// 伪代码 0x100bc7000（L1880-1893）：目录规则代理（ruleToc 桥）。
+    /// bookList 域桥（TocRule 无 bookList——chapterList 代理域桥）。
     var tocRuleProxy: Binding<String> {
         Binding(
-            get: { draft.ruleToc.bookList },
-            set: { value in draft.ruleToc.bookList = value })
+            get: { draft.ruleToc.chapterList },
+            set: { value in draft.ruleToc.chapterList = value })
     }
 
     /// 伪代码 0x100bc7e00（L1913-1927）：正文规则代理（ruleContent 桥）。
+    /// bookList 域桥（ContentRule 无 bookList——content 代理域桥）。
     var contentRuleProxy: Binding<String> {
         Binding(
-            get: { draft.ruleContent.bookList },
-            set: { value in draft.ruleContent.bookList = value })
+            get: { draft.ruleContent.content },
+            set: { value in draft.ruleContent.content = value })
     }
 }
 

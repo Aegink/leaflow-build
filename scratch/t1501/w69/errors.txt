@@ -1,0 +1,30 @@
+error: 'init' is a member of the type; use 'type(of: ...)' to initialize a new object of the same dynamic type
+error: 'legacySourcesCacheKey' is inaccessible due to 'private' protection level
+error: 'let' property 'body' may not be initialized directly; use "self.init(...)" or "self = ..." instead
+error: 'localSaveCompletedRevision' is inaccessible due to 'private' protection level
+error: 'NSUserDefaults' has been renamed to 'UserDefaults'
+error: cannot assign to property: 'bookSources' setter is inaccessible
+error: cannot assign to property: 'isLoading' setter is inaccessible
+error: cannot convert value of type '[ParseDiagnostic]' to expected argument type '[ParseStepResult]'
+error: cannot convert value of type 'ParseStepResult' to closure result type 'ParseDiagnostic'
+error: cannot use mutating member on immutable value: 'bookSources' setter is inaccessible
+error: expression is 'async' but is not marked with 'await'
+error: extraneous argument label 'title:' in call
+error: for-in loop requires 'URL' to conform to 'Sequence'
+error: instance method 'ruleBinding' requires that 'ReviewRule' conform to 'Equatable'
+error: left side of mutating operator isn't mutable: 'localSaveRequestedRevision' setter is inaccessible
+error: missing argument for parameter 'chapterTitle' in call
+error: missing argument label 'bytes:' in call
+error: missing argument label 'for:' in call
+error: no exact matches in call to initializer 
+error: the compiler is unable to type-check this expression in reasonable time; try breaking up the expression into distinct sub-expressions
+error: type 'InteractiveBrowserWebView.Coordinator' has no member 'buildURLRequest'
+error: type of expression is ambiguous without a type annotation
+error: value of optional type 'String?' must be unwrapped to a value of type 'String'
+error: value of optional type 'String?' must be unwrapped to refer to member 'isEmpty' of wrapped base type 'String'
+error: value of type 'Book' has no member 'bookSourceName'
+error: value of type 'BookInfoRule' has no member 'bookList'
+error: value of type 'Chapter' has no member 'title'
+error: value of type 'ContentRule' has no member 'bookList'
+error: value of type 'ParseDiagnostic' has no member 'result'
+error: value of type 'TocRule' has no member 'bookList'

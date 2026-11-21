@@ -73,7 +73,7 @@ struct SplashSettingsView: View {
         settingsCardRow(topGap: 16) {
             Toggle(isOn: $splashEnabled) {
                 AppThemeSettingsLabel(
-                    title: "启用启动图", systemImage: "sparkles")
+                    "启用启动图", systemImage: "sparkles")
             }
             .onChange(of: splashEnabled) { _ in
                 applyEdit()
@@ -151,7 +151,7 @@ struct SplashSettingsView: View {
             } label: {
                 HStack {
                     AppThemeSettingsLabel(
-                        title: "选择图片", systemImage: "plus.circle")
+                        "选择图片", systemImage: "plus.circle")
                     Spacer()
                 }
                 .contentShape(Rectangle())

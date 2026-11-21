@@ -21,9 +21,11 @@ enum _StringRenderMetrics {
     /// 逐字节映射渲染（closure (UInt8) -> UInt8 确证）；掩码参与（第二个参数）。
     /// 语义推断：字节表按掩码取反/偏移后拼成调试串。
     static func _r(_ bytes: [UInt8], _ mask: UInt8) -> String {
-        String(bytes.map { byte -> UInt8 in
-            byte ^ mask
-        }, encoding: .utf8) ?? ""
+        String(
+            bytes: bytes.map { byte -> UInt8 in
+                byte ^ mask
+            },
+            encoding: .utf8) ?? ""
     }
 
     /// 伪代码签名：_h(String) -> UInt64。

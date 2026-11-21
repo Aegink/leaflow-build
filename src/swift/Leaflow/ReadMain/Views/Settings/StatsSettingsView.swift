@@ -139,7 +139,7 @@ struct StatsSettingsView: View {
         _ title: String, value: String, systemImage: String
     ) -> some View {
         HStack {
-            AppThemeSettingsLabel(title: title, systemImage: systemImage)
+            AppThemeSettingsLabel(title, systemImage: systemImage)
             Spacer()
             Text(value)
                 .foregroundStyle(.secondary)

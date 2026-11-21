@@ -293,7 +293,7 @@ struct ExploreRule: Codable, Equatable {
 
 
 
-struct ReviewRule: Codable {
+struct ReviewRule: Codable, Equatable {
     var reviewList: String = ""
     var content: String = ""
     var author: String = ""

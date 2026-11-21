@@ -34,13 +34,17 @@
 import Foundation
 
 /// 登录 UI 项（宽松解码确证）。
-struct LoginUiItem: Codable {
+struct LoginUiItem: Codable, Identifiable, Hashable {
     var name: String
     var type: String?
     var label: String?
     var defaultValue: String?
     var values: [String]?
     var viewName: String?
+
+    /// id 桥（ForEach 域——name+type 组合键，登录 UI 项唯一化，
+    /// 真机核清项）。
+    var id: String { name + "/" + (type ?? "") + "/" + (viewName ?? "") }
 
     /// 伪代码 0x10034cde8（L30-36）：默认值归一。
     var resolvedDefaultValue: String {

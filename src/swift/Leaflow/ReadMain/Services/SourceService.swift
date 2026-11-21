@@ -97,7 +97,7 @@ final class ParserConcurrencyLimiter {
 
     /// 伪代码 0x1003aaeb4（L61-63）：AsyncPermitGate 域获取许可。
     func acquirePermit() async throws -> AsyncPermitGate.Permit {
-        gate.acquire()
+        await gate.acquire()
     }
 
     /// pgo_only（签名确证）：快照。AsyncPermitGate.Snapshot 随 T-208 分册交叉。
@@ -113,20 +113,20 @@ final class SourceService: SourceServiceProtocol, ObservableObject {
     static let shared = SourceService()
 
     /// 伪代码 0x1003acd54（L79）：初值表达式（ObservationRegistrar 域确证）。
-    @Published private(set) var bookSources: [BookSource] = []
+    @Published var bookSources: [BookSource] = []
 
     /// PGO rssSources 变量确证。
     @Published private(set) var rssSources: [RssSource] = []
 
     /// PGO isLoading / isLoadingSources / hasLoadedOnce 变量确证。
-    private(set) var isLoading = false
+    var isLoading = false
     private(set) var isLoadingSources = false
     private var hasLoadedOnce = false
 
     /// 本地保存版本对（PGO 变量确证；registerPendingLocalSave/
     /// finishPendingLocalSave 消费，实现见 +Storage 扩展）。
-    private(set) var localSaveRequestedRevision = 0
-    private var localSaveCompletedRevision = 0
+    var localSaveRequestedRevision = 0
+    var localSaveCompletedRevision = 0
 
     /// 待持久化快照（registerPendingLocalSave 登记、finishPendingLocalSave 消费）。
     var pendingLocalSaveSnapshot: (sources: [BookSource], revision: Int)?
@@ -150,7 +150,7 @@ final class SourceService: SourceServiceProtocol, ObservableObject {
     /// "booksources.json"；键 "LocalBookSources" / "BackupActiveDestination"）。
     private let sourcesFileName = "BookSources.json"
     private let sourcesBackupName = "booksources.json"
-    private let legacySourcesCacheKey = "LocalBookSources"
+    let legacySourcesCacheKey = "LocalBookSources"
 
     /// 通知名（字符串池 "sourcesDidChange" 确证；post 点待 +Storage 交叉）。
     static let sourcesDidChangeNotification =
@@ -185,7 +185,7 @@ final class SourceService: SourceServiceProtocol, ObservableObject {
     ///（addObserverForName:object:queue:usingBlock: 选择子确证）。
     init() {
         NotificationCenter.default.addObserver(
-            forName: NSUserDefaults.didChangeNotification,
+            forName: UserDefaults.didChangeNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in

@@ -219,7 +219,7 @@ struct SourceFullTestView: View {
     @State private var showingExplorePicker = false
     @State private var jsConsoleLogs: [String] = []
     @State private var systemLogs: [String] = []
-    @State private var diagnostics: [ParseDiagnostic] = []
+    @State private var diagnostics: [ParseStepResult] = []
 
     // 服务
     private let sourceService = SourceService()
@@ -821,7 +821,7 @@ struct SourceFullTestView: View {
                 updateTest(
                     testIndex,
                     status: list.isEmpty ? .failed("目录解析完成但为空") : .passed,
-                    details: "\(list.count) 章  最新章: \(list.last?.title ?? "")",
+                    details: "\(list.count) 章  最新章: \(list.last?.name ?? "")",
                     duration: elapsed)
                 log(
                     "目录页解析完成，共 \(list.count) 章",
@@ -1183,7 +1183,9 @@ struct DebugBookPreviewRow: View {
     /// metaItems getter（pgo_only）。
     private var metaItems: [String] {
         var items: [String] = []
-        if !book.author.isEmpty { items.append(book.author) }
+        if let author = book.author, !author.isEmpty {
+            items.append(author)
+        }
         if let category = book.kind, !category.isEmpty {
             items.append(category)
         }
@@ -1618,7 +1620,7 @@ struct DiagnosticsSheet: View {
     }
 
     /// stepIcon（pgo_only）。
-    private func stepIcon(_ step: ParseDiagnostic) -> String {
+    private func stepIcon(_ step: ParseStepResult) -> String {
         switch step.result {
         case .success: return "checkmark.circle.fill"
         case .failure: return "xmark.circle.fill"
@@ -1658,18 +1660,12 @@ struct DiagnosticsSheet: View {
                 }
                 Section("时间线") {
                     ForEach(steps) { step in
-                        HStack(spacing: 8.0) {
-                            Image(systemName: stepIcon(step))
-                                .foregroundColor(resultColor(step.result))
-                            VStack(alignment: .leading, spacing: 1.0) {
-                                Text(step.name)
-                                Text(resultText(step.result))
-                                    .appThemeText(.caption, opacity: 0.6)
-                            }
-                            Spacer()
-                            Text(formatDuration(step.duration))
-                                .font(.system(.caption, design: .monospaced))
-                        }
+                        DiagnosticsStepRow(
+                            step: step,
+                            icon: stepIcon(step),
+                            color: resultColor(step),
+                            text: resultText(step),
+                            durationText: formatDuration(step.duration))
                     }
                 }
             }
@@ -1680,6 +1676,31 @@ struct DiagnosticsSheet: View {
                     Button("关闭") { dismiss() }
                 }
             }
+        }
+    }
+}
+
+/// 诊断行（DiagnosticsSheet.body 拆分子视图——类型检查超时消解，
+/// wave-70）。
+private struct DiagnosticsStepRow: View {
+    let step: ParseStepResult
+    let icon: String
+    let color: Color
+    let text: String
+    let durationText: String
+
+    var body: some View {
+        HStack(spacing: 8.0) {
+            Image(systemName: icon)
+                .foregroundColor(color)
+            VStack(alignment: .leading, spacing: 1.0) {
+                Text(step.name)
+                Text(text)
+                    .appThemeText(.caption, opacity: 0.6)
+            }
+            Spacer()
+            Text(durationText)
+                .font(.system(.caption, design: .monospaced))
         }
     }
 }

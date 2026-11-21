@@ -125,13 +125,12 @@ struct SourceParserSettingsView: View {
             isPresented: $showImporter,
             allowedContentTypes: [.json, .plainText]
         ) { result in
-            // closure #3 (Result<[URL]>)（签名确证）。
+            // closure #3 (Result<URL>)——copiedFileImporter 单选域
+            // （onCompletion Result<URL> 签名对齐，wave-70）。
             switch result {
-            case .success(let urls):
+            case .success(let url):
                 Task {
-                    for url in urls {
-                        await importFile(url)
-                    }
+                    await importFile(url)
                 }
             case .failure(let error):
                 Logger.log(
