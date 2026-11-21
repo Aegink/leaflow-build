@@ -47,7 +47,9 @@ struct ReaderChapterListView: View {
 
     /// 伪代码 0x10078dca8（L43-45）：主题色方案。
     private var themeColorScheme: ColorScheme {
-        themeManager.isDark ? .dark : .light
+        // ThemeManager 无 isDark 成员——经 currentTheme.useDarkBackground
+        // 桥（ReaderTheme 域，wave-16）。
+        themeManager.currentTheme.useDarkBackground
     }
 
     var body: some View {
@@ -65,7 +67,7 @@ struct ReaderChapterListView: View {
                     }
                     ToolbarItemGroup(placement: .topBarTrailing) {
                         Button("完成") { dismiss() }
-                            .appThemeText(.body, weight: .semibold)
+                            .appThemeText(.body).weight(.semibold)
                     }
                 }
                 .toolbarTitleDisplayMode(.inline)
@@ -121,7 +123,7 @@ struct ReaderChapterListView: View {
                 .font(.system(size: 15, weight: .semibold))
                 .frame(alignment: .center)
         }
-        .buttonStyle(.glass)
+        .buttonStyle(.bordered)
     }
 }
 

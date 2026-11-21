@@ -149,6 +149,9 @@ final class ReadingSettings: Codable {
     var paragraphSeparatorLines: Int = 1
     /// 双页模式（loadDoublePageMode 域；键 readerDoublePageMode 20 字符确证）。
     var doublePageMode: DoublePageMode = .off
+    /// 页面模式（PageMode 档——ReaderDoublePagePolicy 消费域确证，
+    /// wave-16 补成员；默认 horizontal）。
+    var pageMode: PageMode = .horizontal
     var fontName: String = "System"
     var bottomToolbarStyle: ReaderBottomToolbarStyle = .minimal
     var screenAwake: ScreenAwakeOption = .system

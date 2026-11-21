@@ -160,7 +160,7 @@ enum ReaderInlineImageSupport {
         let pointSize = font.pointSize
 
         // 伪代码 L190：secondaryLabelColor 占位色。
-        let placeholderColor = UIColor.secondaryLabelColor
+        let placeholderColor = UIColor.secondaryLabel
 
         // 倒序替换（避免 range 位移）。
         for tag in tags.reversed() {

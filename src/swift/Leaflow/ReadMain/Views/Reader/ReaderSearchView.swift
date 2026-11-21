@@ -41,33 +41,37 @@ struct FullTextSearchView: View {
     }
 
     var body: some View {
-        // 伪代码 0x1007c82a0（L26-87）。
+        // 伪代码 0x1007c82a0（L26-87）。body 拆分结果组子视图
+        // （类型检查超时消解，wave-63）。
         NavigationStack {
-            Group {
-                if results.isEmpty {
-                    ContentUnavailableView.search
-                } else {
-                    List(results) { result in
-                        Button {
-                            onPickResult(result.chapterIndex, result.pageIndex)
-                            dismiss()
-                        } label: {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(result.snippet)
-                                    .font(.readerUI(.body, weight: .medium))
-                                    .padding(.vertical, 2)
-                            }
-                        }
+            searchResultsGroup
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("完成") { dismiss() }
                     }
                 }
-            }
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("完成") { dismiss() }
+                .navigationTitle("全文搜索")
+        }
+        .searchable(text: $keyword, prompt: "搜索正文")
+        .onChange(of: keyword, initial: false) { _, newValue in
+            performSearch(keyword: newValue)
+        }
+    }
+
+    /// 结果组（body 拆分域：空态 ContentUnavailableView / 结果列表）。
+    @ViewBuilder
+    private var searchResultsGroup: some View {
+        if results.isEmpty {
+            ContentUnavailableView.search
+        } else {
+            List(results) { result in
+                SearchResultRow(result: result) {
+                    onPickResult(result.chapterIndex, result.pageIndex)
+                    dismiss()
                 }
             }
-            .navigationTitle("全文搜索")
         }
+    }
         .searchable(text: $keyword, prompt: "搜索正文")
         .onChange(of: keyword, initial: false) { _, newValue in
             performSearch(keyword: newValue)
@@ -111,6 +115,21 @@ struct FullTextSearchView: View {
             await MainActor.run {
                 self.results = found
                 self.isSearching = false
+            }
+        }
+    }
+}
+/// 结果行（body 拆分子视图——原 Button + label 域）。
+private struct SearchResultRow: View {
+    let result: FullTextSearchView.SearchResult
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(result.snippet)
+                    .font(.readerUI(.body).weight(.medium))
+                    .padding(.vertical, 2)
             }
         }
     }

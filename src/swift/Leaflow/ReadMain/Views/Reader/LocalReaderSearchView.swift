@@ -46,7 +46,7 @@ struct LocalFullTextSearchView: View {
                         } label: {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(result.snippet)
-                                    .font(.readerUI(.body, weight: .medium))
+                                    .font(.readerUI(.body).weight(.medium))
                             }
                         }
                     }

@@ -24,6 +24,8 @@
 import SwiftUI
 
 /// 恢复默认排版设置（伪代码 0x1007a02f8，L9-23）。
+/// @MainActor：ReadingSettings 域隔离对齐（Button action 域调用，wave-63）。
+@MainActor
 private func restoreDefaultLayoutSettings(_ settings: inout ReadingSettings) {
     let defaults = ReadingSettings.load()
     settings.fontSize = defaults.fontSize
@@ -120,29 +122,40 @@ struct LayoutSettingsSection: View {
 }
 
 /// 显示条目栅格（伪代码 0x1007a3180，L133-149）。
+/// body 拆分为单分组子视图（类型检查超时消解，wave-63）。
 struct DisplayItemGrid: View {
     var groups: [(String, [ReaderDisplayItem])]
 
     var body: some View {
         // ForEach [(String, [ReaderDisplayItem])]（L134-148 确证）。
-        ForEach(groups, id: \\.0) { title, items in
-            VStack(alignment: .leading, spacing: 12) {
-                Text(title)
-                    .appThemeText(.subheadline, opacity: 0.9)
-                    .font(.system(size: 14, weight: .regular))
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 84))], spacing: 12) {
-                    ForEach(Array(items.enumerated()), id: \\.offset) { _, item in
-                        Text(item.displayName)
-                            .font(.readerUI(.body))
-                            .frame(height: 40)
-                            .frame(maxWidth: .infinity)
-                            .background(Color.secondary.opacity(0.12))
-                            .cornerRadius(8)
-                    }
+        ForEach(groups, id: \.0) { title, items in
+            DisplayItemGridGroup(title: title, items: items)
+        }
+    }
+}
+
+/// 单分组栅格（DisplayItemGrid.body L133-149 域搬移）。
+private struct DisplayItemGridGroup: View {
+    let title: String
+    let items: [ReaderDisplayItem]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .appThemeText(.subheadline, opacity: 0.9)
+                .font(.system(size: 14, weight: .regular))
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 84))], spacing: 12) {
+                ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                    Text(item.displayName)
+                        .font(.readerUI(.body))
+                        .frame(height: 40)
+                        .frame(maxWidth: .infinity)
+                        .background(Color.secondary.opacity(0.12))
+                        .cornerRadius(8)
                 }
             }
-            .padding(.vertical, 6)
         }
+        .padding(.vertical, 6)
     }
 }
 

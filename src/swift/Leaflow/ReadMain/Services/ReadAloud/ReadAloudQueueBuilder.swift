@@ -38,7 +38,10 @@ enum ReadAloudQueueBuilder {
                                              [ParagraphFragment]) in
             (page, paragraphFragments(in: page.content))
         }
-        return fragments.compactMap { page, fragments in
+        // 显式 Optional 返回 + 索引取元组（tuple 解构域桥，wave-63）。
+        return fragments.compactMap { entry -> ReadAloudSegment? in
+            let page = entry.0
+            let fragments = entry.1
             guard !fragments.isEmpty else { return nil }
             var anchors: [ReadAloudAnchor] = []
             if includeChapterTitle && page.isFirstPageOfChapter {

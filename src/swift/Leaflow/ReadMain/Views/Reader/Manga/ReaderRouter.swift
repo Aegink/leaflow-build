@@ -21,6 +21,7 @@ struct ReaderRouter: View {
 
     var body: some View {
         // 伪代码 0x10063cd00（L21-29）：四分派。
+        // ReaderView 域桥：Book(String id)→bookId(Int) 恒等桥——真机核清项。
         if Self.isAudioSource(book) {
             AudioPlayerView(book: book)
         } else if Self.isMangaSource(book) {
@@ -28,7 +29,7 @@ struct ReaderRouter: View {
         } else if Self.isTextBook(book) {
             LocalReaderView(book: LocalBook(from: book), settings: .constant(settings))
         } else {
-            ReaderView(book: book)
+            ReaderView(settings: .constant(settings), bookId: 0)
         }
     }
 }
@@ -36,25 +37,30 @@ struct ReaderRouter: View {
 extension ReaderRouter {
 
     /// 伪代码 0x10043fad8（L31-33）：纯文本判定。
+    /// bookType 域桥（Book 无 bookSourceType 成员——类型分档桥，真机核清项）。
     static func isTextBook(_ book: Book) -> Bool {
-        book.bookSourceType == nil
+        book.bookType == 0
     }
 
     /// 伪代码 0x10063d128（L35-58）：音频源判定（bookSourceType == audio 域确证）。
     static func isAudioSource(_ book: Book) -> Bool {
-        book.bookSourceType == 2
+        book.bookType == 2
     }
 
     /// 伪代码 0x10063d5f4（L60-83）：漫画源判定。
     static func isMangaSource(_ book: Book) -> Bool {
-        book.bookSourceType == 1
+        book.bookType == 1
     }
 }
 
 /// 本地书桥（LocalBook(from: Book) 转换，T-601-01 签名域）。
 private extension LocalBook {
     init(from book: Book) {
-        self.init(id: UUID(), title: book.title, fileURL: URL(fileURLWithPath: "/dev/null"))
-        _ = book
+        self.init(
+            id: UUID(),
+            name: book.name,
+            author: book.author,
+            filePath: book.bookUrl ?? "",
+            format: "txt")
     }
 }

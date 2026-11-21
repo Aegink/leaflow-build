@@ -88,7 +88,7 @@ struct ReaderContentSurface: View {
                     VStack(spacing: 8) {
                         Image(systemName: "arrow.clockwise")
                         Text("加载失败，点击重试")
-                            .appThemeText(.body, weight: .medium)
+                            .appThemeText(.body)
                     }
                 }
                 .cornerRadius(8, antialiased: true)
@@ -129,7 +129,6 @@ struct ReaderContentBackground: View {
 
     var body: some View {
         settings.textUIColor
-            .ignoresSafeArea()
     }
 }
 
@@ -148,7 +147,7 @@ struct ReaderRetryButton: View {
     var body: some View {
         Button(action: action) {
             Label("重试", systemImage: "arrow.clockwise")
-                .appThemeText(.body, weight: .medium)
+                .appThemeText(.body)
         }
         .buttonStyle(.borderedProminent)
     }

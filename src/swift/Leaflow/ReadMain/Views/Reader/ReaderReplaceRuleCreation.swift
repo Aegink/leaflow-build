@@ -18,15 +18,14 @@ import Foundation
 enum ReaderReplaceRuleCreation {
 
     /// 伪代码 0x1007c6934（L9-17）：按 pattern/replacement 构造规则。
+    /// 字段对齐 ReplaceRule 真实 init（enable: Bool? 域，wave-16）。
     static func makeRule(pattern: String, replacement: String) -> ReplaceRule {
         ReplaceRule(
             name: pattern,
-            group: "",
             pattern: pattern,
             replacement: replacement,
-            replacementType: .normal,
-            enable: true,
-            order: nil)
+            enabled: true,
+            group: "")
     }
 
     /// 伪代码 0x1007c6730（L20-24）：未启用时置默认序（返回是否启用）。

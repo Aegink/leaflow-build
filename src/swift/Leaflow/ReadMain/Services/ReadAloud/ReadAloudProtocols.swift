@@ -29,6 +29,8 @@ enum ReadAloudDriverFactoryError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
+        case .outputPreparationFailed:
+            return "朗读输出准备失败"
         case .engineUnavailable:
             return "朗读引擎不可用"
         case .voiceNotFound(let identifier):

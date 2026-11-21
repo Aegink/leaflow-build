@@ -57,13 +57,14 @@ struct ReaderBrowserWebView: UIViewRepresentable {
     func makeUIView(context: Context) -> WKWebView {
         // 伪代码 0x1007820f0（L40-121）。
         let configuration = WKWebViewConfiguration()
-        configuration.allowsContentJavaScript = true
-        let preferences = WKWebpagePreferences()
-        preferences.allowsContentJavaScript = true
-        configuration.defaultWebpagePreferences = preferences
+        // JS 启用走 WKWebpagePreferences.allowsContentJavaScript（iOS 14+
+        // 域——PayActionWebView 同构确证，wave-16）。
+        let webpagePreferences = WKWebpagePreferences()
+        webpagePreferences.allowsContentJavaScript = true
+        configuration.defaultWebpagePreferences = webpagePreferences
 
         let userContentController = configuration.userContentController
-        userContentController.addScriptMessageHandler(
+        userContentController.add(
             context.coordinator, name: "leafflowBridge")
         userContentController.addUserScript(
             WKUserScript(
@@ -99,7 +100,8 @@ struct ReaderBrowserWebView: UIViewRepresentable {
 
         if url.isFileURL {
             let baseURL = Self.localDocumentBaseURL(sourceStateKey: sourceStateKey)
-            webView.loadHTMLString(try? String(contentsOf: url), baseURL: baseURL)
+            let html = try? String(contentsOf: url)
+            webView.loadHTMLString(html ?? "", baseURL: baseURL)
         } else {
             webView.load(URLRequest(url: url))
         }
@@ -133,7 +135,8 @@ struct ReaderBrowserWebView: UIViewRepresentable {
             return nil
         }
         let merged = CookiePersistenceService.mergeCookieStrings([stored])
-        return merged.split(separator: ";").compactMap { piece in
+        // 闭包显式 HTTPCookie? 返回域（guard nil 分支合法化，wave-16）。
+        return merged.split(separator: ";").compactMap { piece -> HTTPCookie? in
             let trimmed = piece.trimmingCharacters(in: .whitespaces)
             let parts = trimmed.split(separator: "=", maxSplits: 1)
             guard parts.count == 2 else { return nil }

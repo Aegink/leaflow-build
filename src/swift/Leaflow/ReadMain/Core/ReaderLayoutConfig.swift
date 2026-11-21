@@ -460,10 +460,9 @@ final class ReaderLayoutCalculator {
     private static func buildTitleFont(_ config: ChapterTitleConfig) -> UIFont {
         let baseFont = UIFont.systemFont(ofSize: config.fontSize)
         if config.useBold {
-            if let descriptor = baseFont.fontDescriptor.withSymbolicTraits(.traitBold),
-                let boldFont = UIFont(descriptor: descriptor, size: config.fontSize)
-            {
-                return boldFont
+            // UIFont(descriptor:size:) 非可失败——单层绑定（wave-63）。
+            if let descriptor = baseFont.fontDescriptor.withSymbolicTraits(.traitBold) {
+                return UIFont(descriptor: descriptor, size: config.fontSize)
             }
         }
         return baseFont
@@ -710,6 +709,20 @@ enum ReaderDisplayItem: String, CaseIterable {
     case chapterTitle
     case bookName
     case progress
+
+    /// 展示项名称（DisplayItemGrid 域引用；档位文案推断——枚举本体
+    /// 计数器桩/空串默认域，真机核清项）。
+    var displayName: String {
+        switch self {
+        case .time: return "时间"
+        case .battery: return "电量"
+        case .readingDuration: return "阅读时长"
+        case .remainingDuration: return "剩余时长"
+        case .chapterTitle: return "章节名"
+        case .bookName: return "书名"
+        case .progress: return "进度"
+        }
+    }
 
     /// 伪代码 0x100766880（L285-294）：随时间/状态变化的展示项。
     var isDynamic: Bool {

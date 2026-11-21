@@ -58,7 +58,7 @@ enum ReaderDoublePagePolicy {
         horizontalSizeClass: UIUserInterfaceSizeClass?
     ) -> Bool {
         isEffective(
-            mode: settings.doublePage,
+            mode: settings.doublePageMode,
             pageMode: settings.pageMode,
             containerSize: containerSize,
             userInterfaceIdiom: userInterfaceIdiom,
@@ -103,7 +103,7 @@ enum ReaderDoublePagePolicy {
     ) -> CGRect? {
         logicalPageBounds(
             for: renderBoundsIn,
-            mode: settings.doublePage,
+            mode: settings.doublePageMode,
             pageMode: settings.pageMode,
             userInterfaceIdiom: userInterfaceIdiom,
             horizontalSizeClass: horizontalSizeClass,
@@ -179,7 +179,7 @@ enum ReaderDoublePagePolicy {
     ) -> CGRect {
         logicalPageBounds(
             for: renderBounds,
-            mode: settings.doublePage,
+            mode: settings.doublePageMode,
             pageMode: settings.pageMode,
             userInterfaceIdiom: userInterfaceIdiom,
             horizontalSizeClass: horizontalSizeClass,

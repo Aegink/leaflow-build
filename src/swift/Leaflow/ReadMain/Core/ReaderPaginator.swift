@@ -50,7 +50,7 @@ enum ReaderPaginator {
     static func separatorContainsVisibleText(_ text: String) -> Bool {
         let visible = text.unicodeScalars.filter { scalar in
             !CharacterSet.whitespacesAndNewlines.contains(scalar)
-            && scalar.properties.category != "Cf" // 格式字符
+            && scalar.properties.generalCategory != .format // 格式字符
             && scalar.value != 0x200B // 零宽空格
             && scalar.value != 0xFEFF // BOM
         }
@@ -170,8 +170,10 @@ enum ReaderPaginator {
             options: [.ensuresLayout, .estimatesSize]
         ) { fragment in
             let fragmentRange = fragment.rangeInElement
-            guard let substring = contentStorage.textStorage?.attributedSubstring(
-                from: fragmentRange
+            // NSTextRange→NSAttributedString 桥：textContentStorage 域
+            // attributedSubstring(for:)（TextKit 2 原生桥，wave-63）。
+            guard let substring = contentStorage.attributedSubstring(
+                for: fragmentRange
             ) else { return true }
 
             let rawText = substring.string
@@ -183,11 +185,29 @@ enum ReaderPaginator {
                 substring, paragraphCommentMarker: ""
             )
 
+            // PageData 全参装配（init 20 参签名域；解析器评论→模型评论
+            // 转换桥待真机核清——先置空）。
             let page = PageData(
                 chapterIndex: chapterIndex,
                 pageIndex: pageIndexCounter,
                 content: normalizedText,
-                attributedContent: substring
+                contentRangeInChapter: nil,
+                imageSourceUrl: nil,
+                imageSourceStorageKind: nil,
+                imageBaseUrl: nil,
+                imageStyle: nil,
+                chapterTitle: chapterTitle,
+                isFirstPageOfChapter: pageIndexCounter == 0,
+                continuesParagraphOnNextPage: false,
+                chapterTotalPages: 0,
+                isLoadingPlaceholder: false,
+                isErrorPlaceholder: false,
+                extraLineSpacing: 0,
+                continuationLineFillRatio: 0,
+                continuationTailPreview: "",
+                bodyHeight: 0,
+                charCount: normalizedText.count,
+                comments: []
             )
             pages.append(page)
             pageIndexCounter += 1
@@ -201,7 +221,26 @@ enum ReaderPaginator {
         // 7. 空结果 → 填充 emptyContentText。
         if pages.isEmpty, !emptyContentText.isEmpty {
             pages.append(PageData(
-                chapterIndex: chapterIndex, pageIndex: 0, content: emptyContentText
+                chapterIndex: chapterIndex,
+                pageIndex: 0,
+                content: emptyContentText,
+                contentRangeInChapter: nil,
+                imageSourceUrl: nil,
+                imageSourceStorageKind: nil,
+                imageBaseUrl: nil,
+                imageStyle: nil,
+                chapterTitle: chapterTitle,
+                isFirstPageOfChapter: true,
+                continuesParagraphOnNextPage: false,
+                chapterTotalPages: 1,
+                isLoadingPlaceholder: false,
+                isErrorPlaceholder: false,
+                extraLineSpacing: 0,
+                continuationLineFillRatio: 0,
+                continuationTailPreview: "",
+                bodyHeight: 0,
+                charCount: emptyContentText.count,
+                comments: []
             ))
         }
 
@@ -210,6 +249,8 @@ enum ReaderPaginator {
 
     /// 同步 settings 桥（调用域确证：ReaderViewModel+Pagination ×2 /
     /// LocalReaderViewModel ×1；映射与 paginateAsync 同源确证——wave-16）。
+    /// @MainActor：ReadingSettings 域隔离对齐（wave-63）。
+    @MainActor
     static func paginate(
         content: String,
         chapterIndex: Int,
@@ -242,6 +283,8 @@ enum ReaderPaginator {
     }
 
     /// 异步分页（伪代码 closure #1 paginateAsync）。
+    /// @MainActor：ReadingSettings 域隔离对齐（wave-63）。
+    @MainActor
     static func paginateAsync(
         content: String,
         chapterIndex: Int,

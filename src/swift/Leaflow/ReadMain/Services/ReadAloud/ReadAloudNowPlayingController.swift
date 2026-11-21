@@ -25,7 +25,9 @@ import UIKit
 final class ReadAloudNowPlayingController: AppAudioNowPlayingControlling {
 
     private var currentMetadata = ReadAloudMetadata()
-    private var registeredCommands: [MPRemoteCommand] = []
+    /// (command, target) 对存储——removeTarget(_:) 需 target token
+    /// （MPRemoteCommand 无 removeTargets 域桥，wave-63）。
+    private var registeredCommands: [(command: MPRemoteCommand, target: Any)] = []
 
     init() {}
 
@@ -124,14 +126,13 @@ final class ReadAloudNowPlayingController: AppAudioNowPlayingControlling {
             action()
             return .success
         }
-        registeredCommands.append(command)
-        _ = handler
+        registeredCommands.append((command, handler))
     }
 
     /// removeCommandTargets（签名域确证）。
     private func removeCommandTargets() {
-        for command in registeredCommands {
-            command.removeTargets()
+        for entry in registeredCommands {
+            entry.command.removeTarget(entry.target)
         }
         registeredCommands.removeAll()
     }
