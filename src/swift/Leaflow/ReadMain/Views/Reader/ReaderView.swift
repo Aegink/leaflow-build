@@ -44,7 +44,12 @@ struct ReaderView: View {
                 .ignoresSafeArea()
                 .modifier(CommentBrowserSheetPresentationModifier(isVisible: showCommentBrowser))
                 .toolbar(content: readerToolbarContent)
-                .readerPresentationSheets()
+                .modifier(ReaderPresentationSheetsModifier(
+                    showChapterList: $showChapterList,
+                    showSearch: $showSearch,
+                    showSettings: $showSettings,
+                    settings: $settings,
+                    viewModel: viewModel))
         }
         .onAppear {
             Task {
@@ -75,10 +80,26 @@ struct ReaderView: View {
         }
     }
 
-    /// 呈现层链（sheet ×3）。
-    private func readerPresentationSheets() -> some View {
-        Group {
-            sheet(isPresented: $showChapterList) {
+
+    /// 伪代码 0x10084b8cc（L230-249）：任一呈现层可见判定。
+    private var isAnyReaderPresentationVisible: Bool {
+        showChapterList || showSearch || showSettings || showCommentBrowser
+            || viewModel.menuVisible
+    }
+}
+
+/// 呈现层链修饰（原 readerPresentationSheets 方法域——some View 链上
+/// 实例方法不可达，ViewModifier 化，wave-64）。
+private struct ReaderPresentationSheetsModifier: ViewModifier {
+    @Binding var showChapterList: Bool
+    @Binding var showSearch: Bool
+    @Binding var showSettings: Bool
+    var settings: Binding<ReadingSettings>
+    let viewModel: ReaderViewModel
+
+    func body(content: Content) -> some View {
+        content
+            .sheet(isPresented: $showChapterList) {
                 ReaderChapterListView(
                     chapters: .constant([]),
                     currentChapterIndex: .constant(viewModel.currentChapterIndex),
@@ -86,22 +107,15 @@ struct ReaderView: View {
                         viewModel.activateCurrentVisiblePages([index], reason: "chapterPick")
                     })
             }
-            sheet(isPresented: $showSearch) {
+            .sheet(isPresented: $showSearch) {
                 FullTextSearchView(
                     chapters: .constant([]),
                     chapterContentProvider: { _ in "" },
                     onPickResult: { _, _ in })
             }
-            sheet(isPresented: $showSettings) {
-                ReaderSettingsView(settings: $settings, onDismiss: { showSettings = false })
+            .sheet(isPresented: $showSettings) {
+                ReaderSettingsView(settings: settings, onDismiss: { showSettings = false })
             }
-        }
-    }
-
-    /// 伪代码 0x10084b8cc（L230-249）：任一呈现层可见判定。
-    private var isAnyReaderPresentationVisible: Bool {
-        showChapterList || showSearch || showSettings || showCommentBrowser
-            || viewModel.menuVisible
     }
 }
 

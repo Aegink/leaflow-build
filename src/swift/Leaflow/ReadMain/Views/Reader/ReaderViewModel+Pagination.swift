@@ -55,11 +55,15 @@ extension ReaderViewModel {
         try await withThrowingTaskGroup(of: (Int, [PageData]).self) { group in
             for (chapterIndex, content) in chapterContents.enumerated() {
                 group.addTask(priority: .userInitiated) {
-                    let pages = try ReaderPaginator.paginate(
-                        content: content,
-                        chapterIndex: chapterIndex,
-                        settings: settings,
-                        pageBounds: bounds)
+                    // @MainActor 域桥：paginate(settings:) 主演员隔离
+                    // ——MainActor.run 跳转（wave-64）。
+                    let pages = try await MainActor.run {
+                        try ReaderPaginator.paginate(
+                            content: content,
+                            chapterIndex: chapterIndex,
+                            settings: settings,
+                            pageBounds: bounds)
+                    }
                     return (chapterIndex, pages)
                 }
             }
