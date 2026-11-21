@@ -178,7 +178,7 @@ struct ContentRule: Codable, Equatable {
 }
 
 struct BookInfoRule: Codable, Equatable {
-    var `init`: String = ""
+    var initRule: String = ""
     var name: String = ""
     var author: String = ""
     var kind: String = ""
@@ -350,6 +350,7 @@ struct BookSource: Codable, Identifiable, Equatable {
         respondTime = try container.decodeIfPresent(Int64.self, forKey: .respondTime) ?? 180000
 
         // 6 个规则对象：对象/JSON 字符串双路径（0x10023205c 族确证）。
+        initRule = try container.decodeStringIfPresent(forKey: .initRule) ?? ""
         ruleSearch = try container.decodeObjectOrJSONStringIfPresent(SearchRule.self, forKey: .ruleSearch) ?? SearchRule()
         ruleToc = try container.decodeObjectOrJSONStringIfPresent(TocRule.self, forKey: .ruleToc) ?? TocRule()
         ruleContent = try container.decodeObjectOrJSONStringIfPresent(ContentRule.self, forKey: .ruleContent) ?? ContentRule()

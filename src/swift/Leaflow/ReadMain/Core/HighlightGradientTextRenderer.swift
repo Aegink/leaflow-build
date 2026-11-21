@@ -2121,7 +2121,7 @@ final class HighlightGradientAttributedTextView: UIView {
     }
 
     required init?(coder: NSCoder) {
-        configuration = HighlightGradientTextRenderer.Configuration()
+        textConfiguration = HighlightGradientTextRenderer.Configuration()
         super.init(coder: coder)
         backgroundColor = .clear
     }

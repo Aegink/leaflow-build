@@ -92,8 +92,3 @@ extension CopiedImportFile {
         UUID()
     }
 
-    /// 伪代码 0x100311cbc（L20-22）：deinit——临时副本清理域。
-    deinit {
-        // 临时副本生命周期由 pickerCopy 域管理（清理域随文件会话）。
-    }
-}
