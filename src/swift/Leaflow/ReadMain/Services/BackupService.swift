@@ -197,14 +197,17 @@ final class BackupService {
                 to: directory, counts: &counts, incremental: incremental)
             try exportReaderBackgrounds(
                 to: directory, incremental: incremental)
-            try exportFontResources(to: directory, counts: &counts)
-            try exportChapterTitleAssets(to: directory, counts: &counts)
+            try exportFontResources(
+                to: directory, counts: &counts, incremental: incremental)
+            try exportChapterTitleAssets(
+                to: directory, counts: &counts, incremental: incremental)
         }
         if categories.contains(.settings) {
             exportReadingSettings()
             try exportReadingSettingsFile(to: directory)
             try exportReadingStatistics(to: directory)
-            try exportTtsSources(to: directory, counts: &counts)
+            try exportTtsSources(
+                to: directory, counts: &counts, incremental: incremental)
         }
         try writeManifest(to: directory, counts: counts)
     }
@@ -297,7 +300,8 @@ final class BackupService {
 
     /// exportFontResources(to:counts:)（签名域确证）。
     private func exportFontResources(
-        to directory: URL, counts: inout [String: Int]
+        to directory: URL, counts: inout [String: Int],
+        incremental: Bool
     ) throws {
         let fonts = appSupportDir.appendingPathComponent("Fonts")
         guard fileManager.fileExists(atPath: fonts.path) else { return }
@@ -308,7 +312,8 @@ final class BackupService {
 
     /// exportChapterTitleAssets(to:counts:)（签名域确证）。
     private func exportChapterTitleAssets(
-        to directory: URL, counts: inout [String: Int]
+        to directory: URL, counts: inout [String: Int],
+        incremental: Bool
     ) throws {
         let assets = appSupportDir.appendingPathComponent(
             "ChapterTitleAssets")
@@ -341,7 +346,8 @@ final class BackupService {
 
     /// exportTtsSources(to:counts:)（签名域确证）。
     private func exportTtsSources(
-        to directory: URL, counts: inout [String: Int]
+        to directory: URL, counts: inout [String: Int],
+        incremental: Bool
     ) throws {
         let raw = UserDefaults.standard.data(
             forKey: "reader_tts_sources")

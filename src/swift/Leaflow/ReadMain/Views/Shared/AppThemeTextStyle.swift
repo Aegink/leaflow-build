@@ -38,12 +38,13 @@ enum AppThemeTextLevel: String, Codable, CaseIterable {
     case subheadline
     case caption
 
-    /// 归一档（颜色域按三档分派）。
+    /// 归一档（颜色域按三档分派；caption → tertiary，wave-16 补归一）。
     var normalizedLevel: AppThemeTextLevel {
         switch self {
         case .title, .headline, .body: return .primary
         case .subheadline: return .secondary
-        case .primary, .secondary, .tertiary, .caption: return self
+        case .caption: return .tertiary
+        case .primary, .secondary, .tertiary: return self
         }
     }
 
