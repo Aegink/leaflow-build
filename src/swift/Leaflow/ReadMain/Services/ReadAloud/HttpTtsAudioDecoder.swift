@@ -100,7 +100,7 @@ final class HttpTtsAudioDecoder: HttpTtsAudioDecoding {
         let channels = min(countA, countB)
         let safeCount = Swift.min(
             frameCount,
-            source.frameLength - AVAudioFrameCount(sourceOffset))
+            Int(source.frameLength) - sourceOffset)
         for channel in 0..<channels {
             guard let src = source.floatChannelData?[channel],
                   let dst = target.floatChannelData?[channel] else {
