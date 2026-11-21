@@ -84,6 +84,24 @@ struct HighlightRulesView: View {
     @State private var showImporter = false
     @State private var shareURL: URL?
 
+    /// 编辑域规则绑定（settings.highlightRules 按 id 直改——sheet 内
+    /// rule 为本地副本不可回写，wave-16）。
+    private func ruleBinding(
+        _ rule: HighlightRule, keyPath: WritableKeyPath<HighlightRule, String>
+    ) -> Binding<String> {
+        Binding(
+            get: {
+                (settings.highlightRules.first { $0.id == rule.id })?[keyPath: keyPath]
+                    ?? rule[keyPath: keyPath]
+            },
+            set: { newValue in
+                if let index = settings.highlightRules.firstIndex(
+                    where: { $0.id == rule.id }) {
+                    settings.highlightRules[index][keyPath: keyPath] = newValue
+                }
+            })
+    }
+
     /// 伪代码 0x1006dce8c（L28）：settings 持有。
     private var mergedRules: [HighlightRule] {
         HighlightRule.mergedWithBuiltinRules(settings.highlightRules)
@@ -157,12 +175,8 @@ struct HighlightRulesView: View {
             // ChapterRuleEditView 属 ChapterRule 域不可混用，wave-16 修正）。
             NavigationStack {
                 Form {
-                    TextField("规则名", text: Binding(
-                        get: { rule.wrappedValue.name },
-                        set: { rule.wrappedValue.name = $0 }))
-                    TextField("正则模式", text: Binding(
-                        get: { rule.wrappedValue.pattern },
-                        set: { rule.wrappedValue.pattern = $0 }))
+                    TextField("规则名", text: ruleBinding(rule, keyPath: \.name))
+                    TextField("正则模式", text: ruleBinding(rule, keyPath: \.pattern))
                 }
                 .navigationTitle("编辑高亮规则")
                 .toolbar {
