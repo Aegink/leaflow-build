@@ -10,6 +10,7 @@
 
 
 import Foundation
+import WebKit
 
 /// 后台 WebView 池（T-207）。
 final class WebViewPool {

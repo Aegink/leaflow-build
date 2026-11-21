@@ -56,3 +56,17 @@ extension BrowserHelper {
     }
 }
 
+// MARK: - 浏览桥上下文（AnalyzeRule 静态域消费确证）
+
+/// 浏览器桥上下文（AnalyzeRule.browserPresentationContext 消费域）。
+final class JSBridgeBrowserContext {
+    var url: URL?
+    var title: String?
+}
+
+/// 平台探测模式（AnalyzeRule.platformProbeMode 域确证）。
+enum JSBridgePlatformProbeMode: String {
+    case none
+    case web
+    case native
+}

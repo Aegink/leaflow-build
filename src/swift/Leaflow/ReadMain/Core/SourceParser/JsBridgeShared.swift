@@ -10,6 +10,7 @@
 
 
 import Foundation
+import JavaScriptCore
 
 /// JS Promise 桥（java.ajax 等异步返回的结算通道）。
 final class JSPromiseBridge {

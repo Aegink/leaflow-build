@@ -10,6 +10,7 @@
 
 
 import Foundation
+import JavaScriptCore
 
 /// 对称加密状态（__qireaderCreateSymmetricCryptoState 创建）。
 struct JSImportSymmetricCryptoState {

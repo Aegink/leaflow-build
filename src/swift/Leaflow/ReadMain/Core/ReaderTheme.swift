@@ -164,6 +164,9 @@ final class ThemeManager {
             textAlignment: light.textAlignment, useBold: light.useBold)
     }
 
+    // MARK: - 界面设置应用桥（T-1401-01 performReaderThemeApplication
+    // 0x100206dc4 调用域确证；本体无独立导出块，语义桥接）
+
     /// 界面设置应用：主题刷新 + 重排标志桥（forceRepagination 域）。
     func applyInterfaceSettings(
         from settings: ReadingSettings, to target: ReadingSettings,

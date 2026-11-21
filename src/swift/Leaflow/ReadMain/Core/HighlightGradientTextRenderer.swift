@@ -828,7 +828,7 @@ enum HighlightGradientTextRenderer {
     /// 渲染配置（renderBackgroundSnapshot 0x1001c5d5c L1154-1182 域确证：
     /// insets 四元组 + lineFragmentPadding + lineBreakMode +
     /// maximumNumberOfLines）。
-    struct Configuration: Codable, Hashable {
+    struct Configuration: Hashable {
         var textInsetsTop: CGFloat
         var textInsetsLeft: CGFloat
         var textInsetsBottom: CGFloat
@@ -1921,7 +1921,7 @@ final class HighlightGradientOverlayView: UIView {
             if renderMode == .foregroundGradient {
                 setNeedsDisplay()
             } else {
-                attributedText = attributedText
+                setNeedsDisplay()
             }
         }
     }
@@ -1938,7 +1938,7 @@ final class HighlightGradientOverlayView: UIView {
             // excludedForegroundRange.didset 0x1001cb5a4 L1980-1980 域确证。
             if excludedForegroundRange != oldValue,
                renderMode == .backgroundSnapshot {
-                attributedText = attributedText
+                setNeedsDisplay()
             }
         }
     }

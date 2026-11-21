@@ -306,7 +306,7 @@ struct SourceFullTestView: View {
                     .autocorrectionDisabled()
                     .onSubmit { startDebug() }
             }
-            .glassEffectRoundedBackground(cornerRadius: 12.0)
+            .sourceTestGlassRoundedBackground(cornerRadius: 12.0)
             .disabled(isRunning)
             if let start = testStart, isRunning {
                 Text("正在执行解析链路")
@@ -517,7 +517,7 @@ struct SourceFullTestView: View {
                     }
                     .buttonStyle(.bordered)
                 }
-                .glassEffectRoundedBackground(cornerRadius: 12.0)
+                .sourceTestGlassRoundedBackground(cornerRadius: 12.0)
             }
         }
     }
@@ -533,7 +533,7 @@ struct SourceFullTestView: View {
                 Text(Self.truncatedContent(contentPreview))
                     .font(.system(.caption, design: .monospaced))
                     .textSelection(.enabled)
-                    .glassEffectRoundedBackground(cornerRadius: 12.0)
+                    .sourceTestGlassRoundedBackground(cornerRadius: 12.0)
             }
         }
     }
@@ -1095,7 +1095,7 @@ struct SourceFullTestView: View {
 
 /// 面板卡（DebugPanelCard init(title:subtitle:systemImage:tint:acces…
 /// 签名确证）。
-struct DebugPanelCard<Accessory: View>: View {
+struct DebugPanelCard<Content: View, Accessory: View>: View {
     let title: String
     var subtitle: String?
     let systemImage: String
@@ -1135,7 +1135,7 @@ struct DebugPanelCard<Accessory: View>: View {
         }
         .padding(.all, 12.0)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffectRoundedBackground(cornerRadius: 16.0)
+        .sourceTestGlassRoundedBackground(cornerRadius: 16.0)
     }
 }
 
@@ -1169,7 +1169,7 @@ struct QuickActionChip: View {
                 .appThemeText(.caption)
                 .padding(.horizontal, 10.0)
                 .padding(.vertical, 6.0)
-                .glassEffectRoundedBackground(cornerRadius: 12.0)
+                .sourceTestGlassRoundedBackground(cornerRadius: 12.0)
         }
         .buttonStyle(.plain)
     }
@@ -1703,7 +1703,7 @@ struct ParseStepResult {
 /// 基础实现，视觉细节待真机对照）。
 extension View {
     @ViewBuilder
-    func glassEffectRoundedBackground(
+    func sourceTestGlassRoundedBackground(
         cornerRadius: CGFloat, followsAppearance: Bool = true
     ) -> some View {
         self

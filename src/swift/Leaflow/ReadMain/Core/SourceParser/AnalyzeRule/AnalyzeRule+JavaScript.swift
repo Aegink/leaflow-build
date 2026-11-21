@@ -29,6 +29,8 @@
 // 还原: 2026-11-18
 
 import Foundation
+import JavaScriptCore
+import SwiftSoup
 
 /// 字符串规则的 JS 求值器（0x10004ef8c，L29-38）：
 /// safeEvaluateScript(timeout: 15.0, convertLegadoTemplates: true) +
@@ -375,3 +377,7 @@ extension AnalyzeRule {
     }
 }
 
+/// JS 求值结果绑定（evaluateJS 族参数域确证；最小载体，字段随消费域补齐）。
+struct AnalyzeRuleJavaScriptResultBinding {
+    var elementValues: [String] = []
+}

@@ -10,6 +10,7 @@
 
 
 import Foundation
+import WebKit
 
 /// 增强 WebView（带超时与响应归一）。
 final class EnhancedWebView {

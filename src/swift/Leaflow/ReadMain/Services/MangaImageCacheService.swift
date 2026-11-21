@@ -28,6 +28,7 @@
 import Foundation
 import PDFKit
 import UIKit
+import JavaScriptCore
 
 /// PDF 页图片请求（url 形态：pdf://<bookId>/<pageIndex>）。
 struct PDFPageImageRequest: Equatable {

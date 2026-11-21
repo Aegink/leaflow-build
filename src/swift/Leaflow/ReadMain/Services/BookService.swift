@@ -525,3 +525,9 @@ final class BookService: ObservableObject {
         return error
     }
 }
+
+extension BookService {
+
+    /// 共享实例（AudioPlayerViewModel 消费域）。
+    static let shared = BookService()
+}

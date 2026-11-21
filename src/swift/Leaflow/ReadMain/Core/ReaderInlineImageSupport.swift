@@ -112,13 +112,13 @@ enum ReaderInlineImageSupport {
         for tag in tags {
             guard !Task.isCancelled else { return }
             // ImageCacheService 缓存命中检查（伪代码 v41 = sub_100322DC8）。
-            let cached = ImageCacheService.cachedImageSync(
+            let cached = InlineImageCacheBridge.cachedImageSync(
                 for: tag.urlString, preferredSize: nil, scale: 1.0
             )
             if cached == nil {
                 // 未命中 → 异步下载（伪代码 DispatchWorkItem + sub_1001EE65C）。
                 Task.detached {
-                    _ = await ImageCacheService.loadImage(from: tag.urlString)
+                    _ = await InlineImageCacheBridge.loadImage(from: tag.urlString)
                 }
             }
         }
@@ -128,7 +128,7 @@ enum ReaderInlineImageSupport {
 
     /// 伪代码 0x1001e9d18（L234-310）：将图片标签替换为 NSTextAttachment。
     /// 逻辑：逐 parsedTag：
-    /// 1. ImageCacheService.cachedImageSync 查缓存。
+    /// 1. InlineImageCacheBridge.cachedImageSync 查缓存。
     /// 2. 缓存命中 → NSTextAttachment.setImage: + setBounds:。
     /// 3. 缓存未命中 → 创建占位（secondaryLabelColor）→ 异步下载 → 完成后重新分页。
     /// 4. 构建 NSAttributedString（initWithString:attributes:）→
@@ -159,8 +159,8 @@ enum ReaderInlineImageSupport {
                 tag.range.location + tag.range.length <= attributedString.length
             else { continue }
 
-            // 伪代码：ImageCacheService.cachedImageSync（L61 附近）。
-            let cachedImage = ImageCacheService.cachedImageSync(
+            // 伪代码：InlineImageCacheBridge.cachedImageSync（L61 附近）。
+            let cachedImage = InlineImageCacheBridge.cachedImageSync(
                 for: tag.urlString, preferredSize: nil, scale: context?.scale ?? 1.0
             )
 
@@ -195,7 +195,7 @@ enum ReaderInlineImageSupport {
                 let targetFont = font
                 let targetContext = context
                 Task.detached { @MainActor in
-                    let image = await ImageCacheService.loadImage(from: tag.urlString)
+                    let image = await InlineImageCacheBridge.loadImage(from: tag.urlString)
                     guard let image else { return }
                     let newAttachment = NSTextAttachment()
                     newAttachment.image = image
@@ -245,7 +245,7 @@ enum ReaderInlineImageSupport {
 // MARK: - 图片缓存服务桥
 
 /// ImageCacheService 桥（T-303 漫画缓存共用）。
-enum ImageCacheService {
+enum InlineImageCacheBridge {
 
     /// 同步查缓存。
     static func cachedImageSync(

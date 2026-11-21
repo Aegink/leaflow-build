@@ -24,12 +24,6 @@
 
 import UIKit
 
-/// 翻页方向。
-enum ReaderPageTurnDirection: Int {
-    case next = 0
-    case previous = 1
-}
-
 /// 即时翻页手势驱动器（伪代码 0x100708d48/0x10077ad5c/0x10070d5e4/0x10070d7e8/0x10070d710）。
 struct ImmediatePageTurnGestureDriver {
 

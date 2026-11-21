@@ -10,6 +10,7 @@
 
 
 import Foundation
+import JavaScriptCore
 
 /// 宿主绑定器：JSExecutionContext ↔ JSContext 的桥接门面（推断 1）。
 enum JSHostBinder {

@@ -94,15 +94,4 @@ enum SyncCategory: String, CaseIterable, Codable, Hashable {
         }
     }
 
-    var systemImage: String {
-        switch self {
-        case .bookshelf: return "books.vertical"
-        case .readingProgress: return "book"
-        case .bookmarks: return "bookmark"
-        case .sources: return "text.book.closed"
-        case .replaceRules: return "arrow.triangle.swap"
-        case .themes: return "paintpalette"
-        case .settings: return "gearshape"
-        }
-    }
 }

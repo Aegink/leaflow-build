@@ -279,16 +279,6 @@ struct ExploreSourceDetailView: View {
             .filter { !$0.isActionControl }
     }
 
-    /// actionControls getter（签名确证）。
-    private var actionControls: [ExploreCategory] {
-        actionControls
-    }
-
-    /// pendingFilterRefresh getter（签名确证；"dingFilterRefresh=" 域）。
-    private var pendingFilterRefresh: Bool {
-        pendingFilterRefresh
-    }
-
     /// ensureFilterEngine（签名确证）。
     private func ensureFilterEngine() -> ExploreFilterEngine {
         if let engine = filterEngine { return engine }

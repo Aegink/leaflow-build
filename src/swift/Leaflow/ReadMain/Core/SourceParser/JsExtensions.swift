@@ -10,6 +10,7 @@
 
 
 import Foundation
+import JavaScriptCore
 
 /// JS toast 桥（伪代码 0x1000ff7d0，L10-21）。
 enum JSToastBridge {

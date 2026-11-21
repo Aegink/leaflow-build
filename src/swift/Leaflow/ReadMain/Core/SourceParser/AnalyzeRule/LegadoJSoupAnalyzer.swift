@@ -26,6 +26,7 @@
 // 还原: 2026-11-19
 
 import Foundation
+import SwiftSoup
 
 /// Legado CSS/JSoup 选择子分析器（栈上构造并持有 AnalyzeRule 上下文，见 T-201-01 事实 11）。
 final class LegadoJSoupAnalyzer {

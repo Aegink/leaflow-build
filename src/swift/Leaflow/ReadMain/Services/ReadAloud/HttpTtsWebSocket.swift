@@ -21,6 +21,7 @@
 // 还原: 2026-11-20
 
 import Foundation
+import JavaScriptCore
 
 /// WebSocket 配置（init(javaScriptValue:) + outgoingMessages 签名域
 /// 确证）。

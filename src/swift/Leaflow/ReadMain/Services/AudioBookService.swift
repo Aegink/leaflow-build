@@ -43,7 +43,7 @@ final class AudioBookService: ObservableObject {
     @Published private var sleepTimerMode: SleepTimerMode?
 
     /// 睡眠定时模式（ivar 域 L57-81 确证）。
-    enum SleepTimerMode: String {
+    enum SleepTimerMode {
         case chapterEnd
         case minutes(Int)
     }

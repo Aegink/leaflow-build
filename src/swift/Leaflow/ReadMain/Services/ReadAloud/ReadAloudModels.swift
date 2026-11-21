@@ -274,7 +274,6 @@ protocol HttpTtsAudioDecoding: AnyObject {
     ) async throws -> ReadAloudAudioBuffer
 }
 
-extension HttpTtsAudioDecoder: HttpTtsAudioDecoding {}
 
 /// HTTP 传输协议（transport.data(for:) 域还原桥）。
 protocol HttpTtsTransporting: AnyObject {
@@ -290,13 +289,6 @@ extension URLSession: HttpTtsTransporting {
 }
 
 /// WS 传输协议（webSocketTransport.connect 域还原桥）。
-protocol HttpTtsWebSocketTransporting: AnyObject {
-    func connect(
-        request: URLRequest,
-        configuration: HttpTtsWebSocketConfiguration
-    ) async throws -> HttpTtsWebSocketConnection
-}
-
 /// 请求错误（rethrowCancellation/validate 域还原桥）。
 enum URLRequestError: LocalizedError {
     case invalidUrl

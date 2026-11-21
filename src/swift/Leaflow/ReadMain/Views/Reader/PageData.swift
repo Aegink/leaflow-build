@@ -35,7 +35,6 @@
 import Foundation
 
 /// 单页渲染数据（@Observable，PGO 确证 ObservationRegistrar 参与）。
-@Observable
 struct PageData {
     var chapterIndex: Int
     var pageIndex: Int

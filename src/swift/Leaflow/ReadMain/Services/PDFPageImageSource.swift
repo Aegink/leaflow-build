@@ -62,7 +62,7 @@ enum PDFPageImageSource {
     ///（closure 0x1003633cc，L93-96 确证）。
     static func directoryChapters(
         at url: URL, pageCount: Int
-    ) -> [LocalChapter] {
+    ) -> [LocalPDFChapter] {
         guard let document = PDFDocument(url: url),
               let outlineRoot = document.outlineRoot else { return [] }
         var collected: [(title: String, pageIndex: Int, order: Int)] = []
@@ -74,7 +74,7 @@ enum PDFPageImageSource {
                 : lhs.pageIndex < rhs.pageIndex
         }
         return collected.enumerated().map { index, item in
-            LocalChapter(
+            LocalPDFChapter(
                 id: UUID(),
                 title: item.title,
                 pageIndex: item.pageIndex,
@@ -133,7 +133,7 @@ enum PDFPageImageSource {
 }
 
 /// 本地章节（PDF 目录项；LocalChapter 属 T-601-01 域，签名级引用）。
-struct LocalChapter: Identifiable {
+struct LocalPDFChapter: Identifiable {
     var id: UUID
     var title: String
     var pageIndex: Int

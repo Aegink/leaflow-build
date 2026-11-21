@@ -164,7 +164,7 @@ struct ChapterRuleEditView: View {
 /// 规则应用选择（书域）。
 struct ChapterRulePickerView: View {
 
-    @State private var localBookService = LocalBookService()
+    @State private var localBookService = LocalBookService.shared
     @State private var pattern: String = ""
 
     var body: some View {

@@ -3,7 +3,7 @@
 //   - PGO: 22 个主函数（index/task_functions.csv T-301-11 / ReaderWidgetRefreshDriver.swift），
 //     地址：ReaderWidgetRefreshEvent.includes 0x1007667f8 L6-12 /
 //     ReaderWidgetRefreshCadence.< 0x1001e35dc L18 / nextFireDate 0x1008b07b4 L20-28 /
-//     tolerance 0x1008b094c L30-36 / ReaderDisplayItem.isBatteryDriven 0x1007667d0
+//     tolerance 0x1008b094c L30-36 / ReaderWidgetDisplayItem.isBatteryDriven 0x1007667d0
 //     L40-45 / LayoutWidget.refreshCadence 0x100766500+0x1008b0030 L49-57 /
 //     dateCadence(for:) 0x1008b09d0 L59-72 / observesBattery 初始化 0x1008b0df0 L85 /
 //     setVisible 0x1008affb0 L112-117 / synchronizeSubscriptions 0x1008b0e6c L119-153
@@ -90,7 +90,7 @@ enum ReaderWidgetRefreshCadence: Comparable {
 }
 
 /// 显示条目（电池驱动判定确证）。
-enum ReaderDisplayItem {
+enum ReaderWidgetDisplayItem {
     /// 伪代码 0x1007667d0（L40-45）。
     static var isBatteryDriven: Bool {
         true
@@ -105,7 +105,7 @@ enum ReaderDisplayItem {
     }()
 
     /// 展示文本（占位；具体条目待真机对照）。
-    static func displayText(for widget: LayoutWidget, context: ReaderDisplayContext, isFirstPage: Bool) -> String {
+    static func displayText(for widget: LayoutWidget, context: ReaderWidgetDisplayContext, isFirstPage: Bool) -> String {
         _ = (widget, context, isFirstPage)
         return ""
     }
@@ -133,7 +133,7 @@ extension LayoutWidget {
 }
 
 /// widget 刷新显示上下文。
-struct ReaderDisplayContext {
+struct ReaderWidgetDisplayContext {
     let page: PageData
     let bookName: String
     let totalChapters: Int

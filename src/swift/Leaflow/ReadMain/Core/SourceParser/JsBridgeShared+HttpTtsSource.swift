@@ -10,6 +10,7 @@
 
 
 import Foundation
+import JavaScriptCore
 
 extension JsBridgeTemplates {
 

@@ -10,6 +10,7 @@
 
 
 import Foundation
+import JavaScriptCore
 
 /// JS cache 桥（memory + persistent 双层）。
 enum JsBridgeTemplates {

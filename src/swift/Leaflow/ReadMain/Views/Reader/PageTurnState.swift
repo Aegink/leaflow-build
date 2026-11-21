@@ -79,7 +79,7 @@ struct PageTurnResolver {
     func targetIndex(
         from index: Int,
         direction: ReaderPageTurnDirection,
-        step: (Int) -> Int = { $0 == .next.rawValue ? 1 : -1 }
+        step: (Int) -> Int = { $0 == ReaderPageTurnDirection.next.rawValue ? 1 : -1 }
     ) -> Int? {
         let delta = direction == .next ? 1 : -1
         let target = index + delta

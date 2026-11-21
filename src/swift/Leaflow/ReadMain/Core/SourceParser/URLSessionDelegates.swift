@@ -130,18 +130,18 @@ final class JavaRawResponse {
 
     let data: Data
     let response: URLResponse?
-    let request: URLRequest?
+    let sourceRequest: URLRequest?
 
     /// 伪代码 0x10016f3a0（L197-203）：三参构造域。
     init(data: Data, response: URLResponse?, request: URLRequest?) {
         self.data = data
         self.response = response
-        self.request = request
+        self.sourceRequest = request
     }
 
     /// 伪代码 0x10016f3e0（L205-207）：请求描述域。
     func request() -> URLRequest? {
-        request
+        sourceRequest
     }
 
     /// 伪代码 0x10016f400（L209）：状态码。

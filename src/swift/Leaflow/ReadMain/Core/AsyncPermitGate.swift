@@ -79,3 +79,19 @@ final class AsyncPermitGate {
         }
     }
 }
+
+extension AsyncPermitGate {
+
+    /// 许可闸门快照（SourceService.snapshot 消费域）。
+    struct Snapshot {
+        var available: Int
+        var waiting: Int
+    }
+
+    /// 快照读取。
+    func snapshot() -> Snapshot {
+        lock.lock()
+        defer { lock.unlock() }
+        return Snapshot(available: available, waiting: waiters.count)
+    }
+}

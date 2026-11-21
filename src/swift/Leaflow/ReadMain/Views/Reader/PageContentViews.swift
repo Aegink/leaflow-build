@@ -200,7 +200,7 @@ func readerFullLineUnderlineShouldExcludeComment(_ comment: ParagraphComment) ->
 /// 职责：单页正文渲染（TextKit2）、章节标题快照、段落评论命中、TTS 高亮、
 /// 全行下划线与渐变高亮覆盖层、布局 widget 标签、加载占位层。
 @MainActor
-final class PageContentViewController: UIViewController {
+final class PageContentViewController: UIViewController, UIGestureRecognizerDelegate {
 
     // MARK: ivar（init 块 L114-261 初始化序列确证）
 
@@ -258,7 +258,7 @@ final class PageContentViewController: UIViewController {
     /// init 签名按 PGO：notifications/now/applicationIsActive/refresh）。
     lazy var widgetRefreshDriver: ReaderWidgetRefreshDriver = {
         ReaderWidgetRefreshDriver(
-            notifications: .defaultCenter,
+            notifications: .default,
             now: { Date() },
             applicationIsActive: { UIApplication.shared.applicationState == .active }
         ) { [weak self] event in

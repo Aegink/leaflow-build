@@ -313,11 +313,6 @@ final class LocalReaderViewModel {
         }
     }
 
-    /// WebView 滚动进度落盘（saveWebViewScrollProgressNow 确证）。
-    private func saveWebViewScrollProgressNow() {
-        // WebViewVerticalScroll 域（T-301-14 落地）。
-    }
-
     // MARK: 朗读联动
 
     /// 伪代码 0x10074fcb4（L765-771）：朗读开关。
@@ -396,15 +391,16 @@ final class LocalReaderViewModel {
         hasError = true
         Logger.error(error, context: "pagination")
     }
+
+    /// 伪代码 0x100642a90（L287-293）：章节加载指示收敛（T-1401-07 域）。
+    func clearLoading() {
+        isLoading = false
+    }
 }
 
 /// 朗读换章结果（readAloudChangeChapter 返回域确证）。
 enum ReadAloudChapterAdvanceResult {
     case advanced
     case exhausted
-
-    /// 伪代码 0x100642a90（L287-293）：章节加载指示收敛（T-1401-07 域）。
-    func clearLoading() {
-        isLoading = false
-    }
+}
 

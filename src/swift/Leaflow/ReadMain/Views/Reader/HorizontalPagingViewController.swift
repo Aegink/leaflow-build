@@ -26,7 +26,7 @@
 import UIKit
 
 /// 水平翻页视图控制器（伪代码 0x1007091f0，19 函数）。
-final class HorizontalPagingViewController: UIViewController {
+final class HorizontalPagingViewController: UIViewController, UIScrollViewDelegate, UIGestureRecognizerDelegate {
 
     // MARK: - ivar（伪代码 init L17-19 初始化的 30+ 字段）
 
@@ -274,29 +274,3 @@ final class HorizontalPagingViewController: UIViewController {
     }
 }
 
-/// 翻页状态（伪代码 PageTurnState）。
-struct PageTurnState {
-    var isTurning = false
-    var direction: ReaderPageTurnDirection?
-
-    /// 伪代码 PageTurnState.finishTurn(committed:)。
-    mutating func finishTurn(committed: Bool) -> Int {
-        isTurning = false
-        return committed ? 1 : 0
-    }
-}
-
-/// 翻页解析器（伪代码 PageTurnResolver）。
-enum PageTurnResolver {
-    /// 伪代码：targetIndex(from:direction:)。
-    static func targetIndex(
-        from currentIndex: Int, direction: ReaderPageTurnDirection
-    ) -> Int? {
-        switch direction {
-        case .next:
-            return currentIndex + 1
-        case .previous:
-            return currentIndex - 1
-        }
-    }
-}

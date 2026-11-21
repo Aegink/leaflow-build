@@ -154,26 +154,3 @@ enum WebViewVerticalScrollPayloadFactory {
 }
 
 /// 正则高亮应用器（WebViewVerticalScrollPayloadFactory 调用方确证）。
-enum ReaderRegexHighlightApplier {
-    struct Match {
-        let range: NSRange
-        let styleIndex: Int
-    }
-
-    static func highlightRanges(
-        in content: String, rules: [CompiledHighlightRule]
-    ) -> [Match] {
-        var matches: [Match] = []
-        for (index, rule) in rules.enumerated() {
-            guard let regex = rule.regex else { continue }
-            let nsContent = content as NSString
-            regex.enumerateMatches(
-                in: content, options: [], range: NSRange(location: 0, length: nsContent.length)) {
-                result, _, _ in
-                guard let result else { return }
-                matches.append(Match(range: result.range, styleIndex: index))
-            }
-        }
-        return matches
-    }
-}

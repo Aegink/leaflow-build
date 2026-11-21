@@ -38,6 +38,8 @@
 // 还原: 2026-11-18
 
 import Foundation
+import SwiftSoup
+import Kanna
 
 extension AnalyzeRule {
 

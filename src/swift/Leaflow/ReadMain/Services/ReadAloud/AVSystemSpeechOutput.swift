@@ -147,3 +147,6 @@ final class AVSystemSpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
         finishCurrent(removeFromQueue: true)
     }
 }
+
+/// 系统朗读输出命名桥（SystemReadAloudDriver init(synthesizer:) 域确证）。
+typealias SystemSpeechOutput = AVSystemSpeechOutput

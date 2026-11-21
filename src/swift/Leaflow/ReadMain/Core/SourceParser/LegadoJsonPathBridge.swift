@@ -10,6 +10,7 @@
 
 
 import Foundation
+import JavaScriptCore
 
 /// Legado JSONPath 桥（readJsonPath 的底层引擎）。
 enum LegadoJsonPathBridge {

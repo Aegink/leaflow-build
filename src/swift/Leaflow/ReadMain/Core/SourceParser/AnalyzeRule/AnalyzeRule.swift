@@ -32,6 +32,8 @@
 // 还原: 2026-11-19
 
 import Foundation
+import JavaScriptCore
+import SwiftSoup
 
 final class AnalyzeRule {
 
@@ -41,7 +43,7 @@ final class AnalyzeRule {
     static var debugMode: Bool = false
 
     /// 伪代码 L1052-1057：正则缓存（closure #1 @0x100007978）。
-    private static let regexCache = LRUCache<NSRegularExpression>(capacity: 64)
+    private static let regexCache = LRUCache<String, NSRegularExpression>(capacity: 64)
 
     static func cachedRegex(_ pattern: String, options: NSRegularExpression.Options) -> NSRegularExpression? {
         let key = "\(options.rawValue)|\(pattern)"
@@ -401,7 +403,7 @@ extension AnalyzeRule {
     }
 
     /// jsonPath 引擎静态槽（JSON 分册使用）。
-    static let jsonPathEngineCache = LRUCache<AnyObject>(capacity: 16)
+    static let jsonPathEngineCache = LRUCache<String, Any>(capacity: 16)
 
     static func makeJsonPathEngine(for rule: String) -> AnyObject {
         LegadoJsonPathBridge.makeEngine(for: rule)

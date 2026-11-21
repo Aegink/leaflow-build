@@ -321,11 +321,6 @@ struct Book: Codable, Identifiable, Equatable, Hashable {
 }
 
 /// 翻页进度（init 域确证）。
-struct WebViewScrollProgress: Codable, Equatable {
-    var offset: Double
-    var chapterIndex: Int
-}
-
 // MARK: - Codable（0x10022b254 L262-335 + 0x10022bf00 L338-366 域确证）
 
 extension Book {

@@ -23,6 +23,7 @@
 // 还原: 2026-11-19
 
 import Foundation
+import WebKit
 
 /// WebView 并发闸门（事实 13）。
 final class WebViewGate {

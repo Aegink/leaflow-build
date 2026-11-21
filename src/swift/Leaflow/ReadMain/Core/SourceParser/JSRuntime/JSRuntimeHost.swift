@@ -10,6 +10,7 @@
 
 
 import Foundation
+import JavaScriptCore
 
 /// JS 执行上下文协议（JSRuntime 家族的统一抽象）。
 protocol JSExecutionContext {

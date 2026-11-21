@@ -10,6 +10,7 @@
 
 
 import Foundation
+import JavaScriptCore
 
 /// 登录检查执行器（书源登录 URL 的可达性检查）。
 final class LoginCheckExecutor {

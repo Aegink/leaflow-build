@@ -10,6 +10,8 @@
 
 
 import Foundation
+import SwiftSoup
+import Kanna
 
 /// SwiftSoup → Kanna 的 XPath 投影。
 final class SoupXPathProjection {

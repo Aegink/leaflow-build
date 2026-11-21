@@ -36,7 +36,7 @@ extension JsExtensions {
     }
 
     /// 伪代码 0x100107a40（L55-68）。
-    func post(_ url: String, _ body: String, _ headers: [String: String]) -> JavaResponse {
+    func post(_ url: String, _ body: String, _ headers: [String: String]) -> JsHTTPResponse {
         var request = URLRequest(url: URL(string: url) ?? URL(fileURLWithPath: "/"))
         request.httpMethod = "POST"
         request.httpBody = body.data(using: .utf8)
@@ -45,7 +45,7 @@ extension JsExtensions {
         }
         let (data, response) = (try? URLSession.shared.dataTaskSync(request)) ?? (Data(), nil)
         let http = response as? HTTPURLResponse
-        return JavaResponse(
+        return JsHTTPResponse(
             body: String(data: data, encoding: .utf8) ?? "",
             code: http?.statusCode ?? 0,
             message: "",
@@ -54,7 +54,7 @@ extension JsExtensions {
     }
 
     /// 伪代码 0x10010821c（L71-82）。
-    func head(_ url: String, _ headers: [String: String]) -> JavaResponse {
+    func head(_ url: String, _ headers: [String: String]) -> JsHTTPResponse {
         var request = URLRequest(url: URL(string: url) ?? URL(fileURLWithPath: "/"))
         request.httpMethod = "HEAD"
         for (key, value) in headers {
@@ -62,7 +62,7 @@ extension JsExtensions {
         }
         let (_, response) = (try? URLSession.shared.dataTaskSync(request)) ?? (Data(), nil)
         let http = response as? HTTPURLResponse
-        return JavaResponse(
+        return JsHTTPResponse(
             body: "", code: http?.statusCode ?? 0, message: "",
             headers: (http?.allHeaderFields as? [String: String]) ?? [:]
         )
@@ -140,7 +140,7 @@ extension JsExtensions {
 }
 
 /// java.ajax 返回结构（T-201-04 相邻定义，跨文件共享）。
-struct JavaResponse {
+struct JsHTTPResponse {
     var body: String
     var code: Int
     var message: String

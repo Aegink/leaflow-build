@@ -1377,10 +1377,8 @@ struct TestReportView: View {
         var line = "批量测试报告\n"
         for item in items {
             line += "\n\(item.source.bookSourceName)"
-            line += " | 成功: \(
-                item.overallStatus == .success ? 1 : 0)"
-            line += " | 失败: \(
-                item.overallStatus == .failed ? 1 : 0)"
+            line += " | 成功: \(item.overallStatus == .success ? 1 : 0)"
+            line += " | 失败: \(item.overallStatus == .failed ? 1 : 0)"
             line += " | 解析问题: \(item.parsingFailures.count)"
             if item.hasParsingIssue {
                 line += "\n🔍 解析问题详情 (\(item.parsingFailures.count))"

@@ -1446,16 +1446,5 @@ private extension UIUserInterfaceStyle {
 
 extension AppThemeManager {
 
-    /// 桥（T-1401-03 applyUserSelectedTheme 0x100206e7c 调用域确证；本体无
-    /// 独立导出块）：手动选择 → 当前阅读主题绑定更新；返回是否发生变更。
-    func updateCurrentReaderThemeBindingFromManualSelection(
-        _ theme: ReaderTheme
-    ) -> Bool {
-        let changed = currentThemeId != theme.id
-        if changed {
-            switchTheme(id: theme.id)
-        }
-        return changed
-    }
 }
 

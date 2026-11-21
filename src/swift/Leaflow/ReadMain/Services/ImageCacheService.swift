@@ -115,7 +115,7 @@ final class ImageCacheService {
     /// 失败标记集（isUrlFailed/markUrlFailed 域确证）。
     private var failedURLs: Set<String> = []
     /// 下载并发闸（updateDownloadConcurrency 签名确证）。
-    private var downloadGate = AsyncPermitGate(permit: 4)
+    private var downloadGate = AsyncPermitGate(maxConcurrent: 4)
     private let lock = NSLock()
 
     /// diskCachePath（0x10032c700 L858-860 域确证）。

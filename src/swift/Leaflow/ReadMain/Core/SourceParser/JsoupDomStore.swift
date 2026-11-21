@@ -10,6 +10,7 @@
 
 
 import Foundation
+import SwiftSoup
 
 /// Jsoup DOM 句柄仓库（T-204-04 _jsoup* 桥的存储后端）。
 final class JsoupDomStore {

@@ -125,6 +125,7 @@ extension SyncCategory {
     }
 
     /// 伪代码 0x1002dd934（L69-83）：SF Symbol 档位（图标域推断）。
+    /// 去重：SyncCategoriesView.swift 同名实现已删除（本文件为域归属）。
     var systemImage: String {
         switch self {
         case .bookshelf: return "books.vertical"

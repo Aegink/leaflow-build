@@ -10,6 +10,8 @@
 
 
 import Foundation
+import JavaScriptCore
+import SwiftSoup
 
 /// Jsoup 桥资源注入器（T-206 的 DOM 桥 native 侧）。
 enum JsResourceLoader {

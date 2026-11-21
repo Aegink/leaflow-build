@@ -137,7 +137,7 @@ final class SourceService: SourceServiceProtocol, ObservableObject {
     let saveSerializer = SaveSerializer()
 
     /// 伪代码 0x1003bcba8（L221）：远程后端初值表达式。
-    let remoteBackend = RemoteBackendService()
+    let remoteBackend = RemoteBackendService.shared
 
     /// url 双索引（PGO sourceIndex/sourceUrlIndex 变量确证）。
     private var sourceIndex: [String: BookSource] = [:]

@@ -223,3 +223,11 @@ enum AudioRequestParser {
         return String(text[valueRange])
     }
 }
+
+// MARK: - 播放请求载体（AudioPlaybackRequest 域；AudioPlayerViewModel 消费）
+
+/// 音频播放请求（AudioRequestParser.parseDirectCandidate 构造域确证）。
+struct AudioPlaybackRequest {
+    var url: URL
+    var headers: [String: String]
+}

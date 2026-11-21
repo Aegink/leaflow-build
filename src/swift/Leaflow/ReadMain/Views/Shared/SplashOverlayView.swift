@@ -7,7 +7,7 @@
 //     （+async closure）/ resolveSplash 0x100b6da78 L62-85
 //   - CovMap: 上述 L 区段
 //   - IDA: src/pseudocode/Leaflow/ReadMain/Views/Shared/SplashOverlayView.c（696 行）
-//   - 事实：resolveSplash —— AppTheme.splashImageDatas(for:)（确证）解析启动图 +
+//   - 事实：resolveSplash —— SplashOverlayTheme.splashImageDatas(for:)（确证）解析启动图 +
 //     时长；body —— 全屏图（scaledToFill + ignoresSafeArea）+ 定时消失；
 //     startTimerIfNeeded —— async 延迟关闭
 // 状态: 语义级还原（不是原始源码；变量名/注释为还原者所加）
@@ -56,10 +56,10 @@ struct SplashOverlayView: View {
         }
     }
 
-    /// 伪代码 0x100b6da78（L62-85）：AppTheme.splashImageDatas(for:)（确证）
+    /// 伪代码 0x100b6da78（L62-85）：SplashOverlayTheme.splashImageDatas(for:)（确证）
     /// 解析启动图与时长。
     static func resolveSplash() -> (image: UIImage, duration: Double)? {
-        guard let data = AppTheme.splashImageDatas(for: .light).first,
+        guard let data = SplashOverlayTheme.splashImageDatas(for: .light).first,
               let image = UIImage(data: data) else { return nil }
         // 时长按主题配置（缺省 2.0s，推断）。
         return (image, 2.0)
@@ -67,7 +67,7 @@ struct SplashOverlayView: View {
 }
 
 /// 主题启动图数据源（resolveSplash 调用确证；实现域 T-701）。
-enum AppTheme {
+enum SplashOverlayTheme {
     enum SplashVariant {
         case light
         case dark

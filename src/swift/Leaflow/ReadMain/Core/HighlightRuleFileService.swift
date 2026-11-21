@@ -278,3 +278,9 @@ private extension ReadingSettings {
         // 持久化域随 T-303-02 HighlightRuleFileService 推进（UserDefaults 域）。
     }
 }
+
+/// 高亮规则导入结果（LeaflowApp.highlightRuleImportMessage 消费域确证）。
+struct HighlightRuleImportResult {
+    var importedCount: Int = 0
+    var failedCount: Int = 0
+}

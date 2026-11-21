@@ -29,6 +29,9 @@ struct MangaPage: Identifiable, Equatable {
     let imageRequestContext: MangaImageRequestContext?
     let chapterTitle: String
 
+    /// Identifiable 合成域（chapterIndex+pageIndex 稳定键）。
+    var id: String { "\(chapterIndex)-\(pageIndex)" }
+
     /// 伪代码 0x100632978（L27-34）：从正文提取图片 URL
     ///（MangaImageParser.extractImageURLs(from:) 调用确证）。
     init(

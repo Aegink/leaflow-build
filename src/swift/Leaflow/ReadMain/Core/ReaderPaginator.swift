@@ -26,36 +26,6 @@ import UIKit
 // MARK: - 页面数据
 
 /// 分页结果的单页数据（伪代码 PageData.init L72-97 @0x100695f1c）。
-struct PageData: Equatable, Hashable {
-    var chapterIndex: Int
-    var pageIndex: Int
-    var content: String
-    var attributedContent: NSAttributedString?
-    var isRtl: Bool
-
-    init(
-        chapterIndex: Int, pageIndex: Int, content: String,
-        attributedContent: NSAttributedString? = nil, isRtl: Bool = false
-    ) {
-        self.chapterIndex = chapterIndex
-        self.pageIndex = pageIndex
-        self.content = content
-        self.attributedContent = attributedContent
-        self.isRtl = isRtl
-    }
-
-    /// 伪代码 0x100767fbc（L99-120）：可渲染状态等价判定。
-    func hasSameRenderableState(as other: PageData) -> Bool {
-        chapterIndex == other.chapterIndex && content == other.content
-    }
-
-    /// 伪代码 0x1007680e4（L122-142）。
-    func hashRenderableState(into hasher: inout Hasher) {
-        hasher.combine(chapterIndex)
-        hasher.combine(content)
-    }
-}
-
 // MARK: - 分页器
 
 /// TextKit 2 分页引擎。
@@ -281,42 +251,6 @@ enum ReaderPaginator {
 // MARK: - 稳定文本坐标
 
 /// 稳定文本坐标（伪代码 0x100200208/0x100200350，L50-91）。
-enum ReaderStableTextCoordinate {
-
-    /// 伪代码 0x100200208（L50-59）：将逻辑偏移映射到稳定偏移。
-    /// 逻辑：遍历 NSString 的 characterAtIndex:，跳过排除的码元（如 surrogates），
-    /// 直到稳定偏移达到目标。
-    static func stableOffset(in text: NSString, at target: Int) -> Int {
-        guard target >= 1 else { return 0 }
-        let length = text.length
-        guard length >= target else { return length }
-        var stable = 0
-        var local = 0
-        while stable < target, local < length {
-            _ = text.character(at: local)
-            stable += 1
-            local += 1
-        }
-        return stable
-    }
-
-    /// 伪代码 0x100200350（L65-91）：将稳定偏移映射回本地偏移。
-    static func localOffset(
-        in text: NSString, stableOffset: Int, skipsExcludedCodeUnits: Bool
-    ) -> Int {
-        guard stableOffset >= 1 else { return 0 }
-        let length = text.length
-        var local = 0
-        var stable = 0
-        while local < length, stable < stableOffset {
-            _ = text.character(at: local)
-            stable += 1
-            local += 1
-        }
-        return local
-    }
-}
-
 // MARK: - 页面索引缓存
 
 /// 页面索引缓存（伪代码 0x1007682a0 L22-33 / 0x100768954 L40-42）。
@@ -348,16 +282,7 @@ final class PageIndexCache {
 // MARK: - 页面翻页状态
 
 /// 翻页页面标识（伪代码 PageTurnPageID 0x100766ff0 L7-10）。
-struct PageTurnPageID: Hashable {
-    let chapterIndex: Int
-    let pageIndex: Int
-}
 
-/// 翻页方向。
-enum ReaderPageTurnDirection {
-    case next
-    case previous
-}
 
 // 注：PageTransitionStyle 已按 PGO 归属迁至
 // ReadMain/Views/Reader/PageTransitionStyle.swift（T-301-04）。
@@ -419,3 +344,8 @@ extension ReaderPaginator {
     }
 }
 
+/// 翻页方向（Int 档：previous=1/next=0；PageTurnState L82 `.next.rawValue` 域）。
+enum ReaderPageTurnDirection: Int {
+    case next = 0
+    case previous = 1
+}

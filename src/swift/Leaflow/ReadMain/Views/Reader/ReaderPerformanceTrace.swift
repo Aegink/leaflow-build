@@ -90,8 +90,9 @@ enum ReaderPerformanceTrace {
         }
     }
 
-    /// 页样本（PageSample(page:reason:role:previous:)，updateContent 调用方确证）。
-    struct PageSample {
+    /// 页样本（PageSample(page:reason:role:previous:)，updateContent 调用方确证；
+    /// previous 递归域 → 引用语义（class）。
+    final class PageSample {
         let page: PageData
         let reason: String
         let role: PageRole

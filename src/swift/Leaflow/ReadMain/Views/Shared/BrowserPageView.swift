@@ -10,11 +10,11 @@
 //     0x100b4a254 L154-160 / cleanupTemporaryReadingModeBook 0x100b49374 L317-322
 //   - CovMap: 上述 L 区段
 //   - IDA: src/pseudocode/Leaflow/ReadMain/Views/Shared/BrowserPageView.c（8478 行）
-//   - 关键调用：BrowserSite.normalizedURL / resolvedColorWithTraitCollection:/
+//   - 关键调用：BrowserSiteURLOps.normalizedURL / resolvedColorWithTraitCollection:/
 //     systemBackgroundColor/traitCollectionWithUserInterfaceStyle: / Animation.easeOut
 //     （键盘/输入两处确证）/ CharacterSet.whitespacesAndNewlines（currentPageURL
 //     trim 确证）/ MainActor / LocalBook
-//   - 事实：body —— BrowserSite.normalizedURL 装配 + 底部 chrome + 阅读模式分支；
+//   - 事实：body —— BrowserSiteURLOps.normalizedURL 装配 + 底部 chrome + 阅读模式分支；
 //     currentPageURL —— trim 后返回；displayTitle/browserBackgroundColor ——
 //     配色联动（ColorScheme 参与）；keyboard/webInput 双处理器（Animation.easeOut）；
 //     阅读模式提取（Result 分支）+ 临时书清理
@@ -26,6 +26,7 @@
 
 import SwiftUI
 import UIKit
+import WebKit
 
 /// 内置浏览器页（阅读模式提取 + 底部 chrome）。
 struct BrowserPageView: View {
@@ -90,7 +91,7 @@ struct BrowserPageView: View {
     /// 浏览器主体（ReaderBrowserWebView 承载，T-101-05 分册）。
     @ViewBuilder
     private var browserContent: some View {
-        if let url = BrowserSite.normalizedURL(currentPageURL) {
+        if let url = BrowserSiteURLOps.normalizedURL(currentPageURL) {
             ReaderBrowserWebView(url: url, sourceStateKey: "browser")
         }
     }
@@ -215,7 +216,7 @@ enum ReadingModeExtractor {
 }
 
 /// 浏览站点工具（normalizedURL 调用确证）。
-enum BrowserSite {
+enum BrowserSiteURLOps {
     static func normalizedURL(_ url: URL?) -> URL? {
         url
     }

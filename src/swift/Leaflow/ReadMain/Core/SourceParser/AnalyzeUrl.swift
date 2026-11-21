@@ -41,6 +41,7 @@
 // 还原: 2026-11-19
 
 import Foundation
+import JavaScriptCore
 
 final class AnalyzeUrl {
 

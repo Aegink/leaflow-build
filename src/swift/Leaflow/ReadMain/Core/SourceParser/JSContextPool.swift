@@ -31,6 +31,7 @@
 // 还原: 2026-11-19
 
 import Foundation
+import JavaScriptCore
 
 /// 求值模板结果（伪代码 0x1000faff4 的返回结构体，骨架签名）。
 struct RuleEvaluationTemplateOutcome {

@@ -94,7 +94,7 @@ struct ReviewRow: View {
 }
 
 /// 书评模型（伪代码 BookReview metadata）。
-struct BookReview: Identifiable {
+struct BookReviewDraft: Identifiable {
     var id = UUID()
     var reviewerName: String?
     var avatarUrl: String?

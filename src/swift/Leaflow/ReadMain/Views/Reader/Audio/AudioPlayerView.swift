@@ -18,6 +18,7 @@
 // 还原: 2026-11-20
 
 import SwiftUI
+import AVKit
 
 /// 有声书播放页（init(book:)/skin/body 签名域确证）。
 struct AudioPlayerView: View {

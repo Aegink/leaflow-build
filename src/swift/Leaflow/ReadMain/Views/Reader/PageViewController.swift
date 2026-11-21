@@ -798,3 +798,10 @@ struct PageViewController: UIViewControllerRepresentable {
         }
     }
 }
+
+/// 阅读页控制器路由（readerPageControllerRoute 返回域确证）。
+enum ReaderPageControllerRoute: String {
+    case pageCurl
+    case horizontalPaging
+    case systemScroll
+}

@@ -19,6 +19,7 @@
 // 还原: 2026-11-18
 
 import Foundation
+import SwiftSoup
 
 extension AnalyzeRule {
 
