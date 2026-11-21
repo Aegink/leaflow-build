@@ -1757,10 +1757,8 @@ enum HighlightGradientTextRenderer {
         textLayoutManager.enumerateTextLayoutFragments(
             from: start, options: []
         ) { fragment in
-            guard let elementEnd = fragment.textElements.last?
-                .elementRange?.endLocation else {
-                return true
-            }
+            // rangeInElement 为 fragment 在文本元素域的区间（SDK 成员）。
+            let elementEnd = fragment.rangeInElement.endLocation
             let offset = contentManager.offset(
                 from: start, to: elementEnd)
             guard offset < documentLength else { return true }
