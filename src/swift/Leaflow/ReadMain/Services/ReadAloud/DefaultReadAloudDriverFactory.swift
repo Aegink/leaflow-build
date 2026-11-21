@@ -39,17 +39,35 @@ final class DefaultReadAloudDriverFactory {
     }
 
     /// makeDriver(for:)（0x 域 L239-360 块体确证：引擎分派域）。
+    /// 双构造按真实 init 全参装配——偏好值取自 preferences（wave-16）。
+    /// HTTP 源缺失时抛 invalidPayload（仓库错误域）。
     func makeDriver(for selection: ReadAloudEngineSelection) throws
         -> ReadAloudDriver {
         switch selection {
         case .http:
             // HttpReadAloudDriver 分派域 L322-L358 确证。
+            guard let source = sources.sources.first else {
+                throw HttpTtsSourceRepository.HttpTtsSourceRepositoryError
+                    .invalidPayload
+            }
+
             return HttpReadAloudDriver(
-                preferences: preferences,
-                sources: sources,
-                synthesizer: synthesizer)
+                source: source,
+                speechRate: preferences.httpRate,
+                downloadAhead: preferences.httpDownloadAhead,
+                tailTrimMilliseconds: preferences.httpTailTrimMilliseconds,
+                synthesizer: synthesizer,
+                decoder: HttpTtsAudioDecoder(),
+                audioCache: HttpTtsAudioCache(),
+                startupTimeoutNanoseconds: 8_000_000_000)
         case .system:
-            return SystemReadAloudDriver(preferences: preferences)
+            return SystemReadAloudDriver(
+                output: nil,
+                voiceIdentifier: "",
+                rate: preferences.systemRate,
+                pitch: preferences.systemPitch,
+                queueAhead: preferences.systemQueueAhead,
+                startTimeoutNanoseconds: 8_000_000_000)
         }
     }
 }

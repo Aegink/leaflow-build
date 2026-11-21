@@ -305,11 +305,14 @@ struct ExploreSourceFeedView: View {
         pendingTextActionKey ?? "输入内容"
     }
 
-    /// filterSheet getter（签名确证）。
+    /// filterSheet getter（签名确证）。onSelect/onAction 双回调域补齐
+    /// （FilterSheet 签名域确证，wave-16）。
     private var filterSheet: some View {
         ExploreCategoryFilterSheet(
             groups: [],
-            actionControls: []) { _ in }
+            actionControls: [],
+            onSelect: { _ in },
+            onAction: { _ in })
     }
 
     /// exploreSettingsSheet getter（签名确证；本体随 ExploreSettingsSheet

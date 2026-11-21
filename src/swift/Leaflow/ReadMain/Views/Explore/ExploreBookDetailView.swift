@@ -87,7 +87,9 @@ struct BookDetailView: View {
     let onRead: (Book) -> Void
 
     // init 域（0x1004b140c L27-36 确证）。
-    private var baseBook: Book
+    // @State：刷新域有写回（refreshBookInfo/refreshAfterSourceChange，
+    // wave-16）。
+    @State private var baseBook: Book
     @State private var availableSources: [Book]
     @State private var initialChapters: [Chapter]?
 
@@ -537,7 +539,7 @@ struct BookDetailView: View {
                             sourceModeTag(for: kind)
                         }
                     }
-                    if let latest = candidate.latestChapter {
+                    if let latest = candidate.lastChapter {
                         Text(latest)
                             .appThemeText(.caption, opacity: 0.6)
                             .lineLimit(1)
@@ -873,7 +875,7 @@ struct BookDetailView: View {
         guard fingerprint != trackedSourcesFingerprint(trackedSources) else {
             return
         }
-        trackedSources = Self.deduplicatedSources(candidates)
+        trackedSources = deduplicatedSources(candidates)
     }
 
     /// refreshTrackedSearchSourcesFromCache（0x1004d3684 L1347-1358 域）。

@@ -26,6 +26,9 @@ import UIKit
 
 /// 自定义字体服务（fontsDirectory 域确证：Application Support/Fonts/
 /// CustomFonts/，'CustomFonts' L102）。
+/// @MainActor：currentTheme/ReadingSettings 域均为 MainActor 隔离——
+/// 消费方（设置视图）亦然（wave-16）。
+@MainActor
 final class CustomFontService {
 
     /// 字体信息（readableName/importDisplayFileName/hasOriginalFileName/

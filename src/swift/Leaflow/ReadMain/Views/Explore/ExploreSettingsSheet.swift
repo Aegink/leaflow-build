@@ -99,9 +99,18 @@ struct ExploreSettingsSheet: View {
             Form {
                 settingsList(
                     settings: settings,
+                    // layoutOption 为 UserDefaults 计算域——Binding 闭包
+                    // 直连 UserDefaults，绕过 self 不可变域（wave-16）。
                     layoutBinding: Binding(
-                        get: { self.layoutOption },
-                        set: { self.layoutOption = $0 }))
+                        get: {
+                            LayoutOption(
+                                rawValue: UserDefaults.standard.integer(
+                                    forKey: "reader_explore_layout")) ?? .grid
+                        },
+                        set: {
+                            UserDefaults.standard.set(
+                                $0.rawValue, forKey: "reader_explore_layout")
+                        }))
             }
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -145,7 +154,7 @@ struct ExploreSettingsSheet: View {
             // Toggle 域 L1155-1165 确证：'square.grid.2x2' 图标。
             Toggle(isOn: boolBinding("reader_explore_show_home")) {
                 AppThemeSettingsLabel(
-                    title: "展示书签页", systemImage: "square.grid.2x2")
+                    "展示书签页", systemImage: "square.grid.2x2")
             }
         } header: {
             Text("首屏配置")
@@ -192,7 +201,7 @@ struct ExploreSettingsSheet: View {
                 // 当前值 + chevron。
                 HStack {
                     AppThemeSettingsLabel(
-                        title: "启动源", systemImage: "paperplane")
+                        "启动源", systemImage: "paperplane")
                     Spacer()
                     Text(launchSourceDisplayName)
                         .lineLimit(1)
@@ -311,21 +320,18 @@ struct ExploreSettingsSheet: View {
 
     private func keywordSection(settings: ReadingSettings) -> some View {
         Section {
-            ForEach(
-                Binding(
-                    get: { Self.keywords },
-                    set: {
-                        Self.keywords = $0
-                        persist()
-                    })
-            ) { keyword in
+            // keywords 为静态 UserDefaults 计算域——indices 枚举域
+            // （ForEach(Binding) 无 [String] 一致性，wave-16）。
+            ForEach(Self.keywords.indices, id: \.self) { offset in
                 AppThemeSettingsLabel(
-                    title: keyword.wrappedValue,
+                    Self.keywords[offset],
                     systemImage: "textformat")
             }
             .onDelete { offsets in
                 // closure #2 域 L118 确证：按下标删除关键词。
-                Self.keywords.remove(atOffsets: offsets)
+                var current = Self.keywords
+                current.remove(atOffsets: offsets)
+                Self.keywords = current
                 persist()
             }
             HStack {
@@ -341,7 +347,7 @@ struct ExploreSettingsSheet: View {
                         addKeyword(settings: settings)
                     } label: {
                         AppThemeSettingsLabel(
-                            title: "添加关键词",
+                            "添加关键词",
                             systemImage: "plus.circle")
                     }
                     .buttonStyle(.plain)

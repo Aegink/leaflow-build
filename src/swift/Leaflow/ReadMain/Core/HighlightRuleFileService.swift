@@ -160,7 +160,8 @@ enum HighlightRuleFileService {
         decoder.dateDecodingStrategy = .iso8601
         let package = try decoder.decode(HighlightRulePackage.self, from: data)
         let assetIDs = importAssets(package.assetFiles, assetManager: assetManager)
-        let rules = normalizedImportedRules(package.rules)
+        // normalizedImportedRules 属 HighlightRuleImportService 域——限定调用。
+        let rules = HighlightRuleImportService.normalizedImportedRules(package.rules)
         return HighlightRuleImportService.apply(rules: rules, settings: settings)
     }
 
@@ -183,9 +184,12 @@ enum HighlightRuleFileService {
         var imported: [String] = []
         for (index, (fileName, _)) in assetFiles.sorted(by: { $0.key < $1.key }).enumerated() {
             let unique = uniqueAssetFileName(index: index, original: fileName)
-            if let url = assetManager.localURL(for: fileName) {
+            // importImage(from:) 无 preferredFilename 参——经 data 变体
+            // 携带目标名（签名域确证，wave-16）。
+            if let url = assetManager.localURL(for: fileName),
+               let data = try? Data(contentsOf: url) {
                 _ = try? assetManager.importImage(
-                    from: url, preferredFilename: unique)
+                    data: data, preferredFilename: unique)
                 imported.append(unique)
             }
         }
@@ -227,6 +231,8 @@ enum HighlightRuleImportService {
     /// 伪代码 0x1001d9470（L278-306）+ normalizedImportedRules（0x1001db1c0，
     /// L311-343 + closure #1/#2 name 域确证）：
     /// 归一（去重/补默认）→ 合并进设置 → 保存。
+    /// @MainActor：ReadingSettings 域隔离（wave-16）。
+    @MainActor
     static func apply(
         rules: [HighlightRule],
         settings: ReadingSettings

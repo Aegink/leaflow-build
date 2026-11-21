@@ -204,7 +204,8 @@ enum ExploreListCacheStore {
     private static func isFresh(
         _ entry: ExploreListCacheEntry, ttl: Double
     ) -> Bool {
-        Date().timeIntervalSince(entry.savedAtDate) < ttl
+        // 缓存条目时间域为 savedAt（ExploreListCacheEntry 签名确证，wave-16）。
+        Date().timeIntervalSince(entry.savedAt) < ttl
     }
 
     /// loadFromDisk(key:)（签名确证）。

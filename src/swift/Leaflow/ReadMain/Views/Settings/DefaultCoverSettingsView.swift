@@ -64,7 +64,7 @@ struct DefaultCoverSettingsView: View {
         settingsCardRow(topGap: 16) {
             Toggle(isOn: $forceDefaultCover) {
                 AppThemeSettingsLabel(
-                    title: "强制默认封面",
+                    "强制默认封面",
                     systemImage: "photo.on.rectangle.angled")
             }
             .onChange(of: forceDefaultCover) { _ in
@@ -95,7 +95,7 @@ struct DefaultCoverSettingsView: View {
         settingsCardRow(topGap: 12) {
             HStack {
                 AppThemeSettingsLabel(
-                    title: "封面池", systemImage: "photo.stack")
+                    "封面池", systemImage: "photo.stack")
                 Spacer()
                 Text("\(lightCoverDatas.count + darkCoverDatas.count) 张")
                     .font(.caption)
@@ -133,7 +133,7 @@ struct DefaultCoverSettingsView: View {
             } label: {
                 HStack {
                     AppThemeSettingsLabel(
-                        title: "选择图片", systemImage: "plus.circle")
+                        "选择图片", systemImage: "plus.circle")
                     Spacer()
                 }
                 .contentShape(Rectangle())
@@ -175,7 +175,7 @@ struct DefaultCoverSettingsView: View {
             } label: {
                 HStack {
                     AppThemeSettingsLabel(
-                        title: "选择图片", systemImage: "plus.circle")
+                        "选择图片", systemImage: "plus.circle")
                     Spacer()
                 }
                 .contentShape(Rectangle())

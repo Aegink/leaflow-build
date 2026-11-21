@@ -204,8 +204,9 @@ struct ExportSourceView: View {
 
     private func shareItem() -> URL {
         if let url = tempFileURL { return url }
+        // exportFileName 为静态域——Self 限定（wave-16）。
         return FileManager.default.temporaryDirectory
-            .appendingPathComponent(exportFileName(for: sources))
+            .appendingPathComponent(Self.exportFileName(for: sources))
     }
 }
 
@@ -223,14 +224,12 @@ extension ExportSourceView {
         guard let url = writeTempJSONFile(data: data, sources: sources) else {
             return
         }
-        guard
-            let root = UIApplication.shared.connectedScenes
-                .compactMap { scene -> UIWindow? in
-                    (scene as? UIWindowScene)?.windows
-                        .first { $0.isKeyWindow }
-                }
-                .first?.rootViewController
-        else {
+        // scenes → keyWindow 域分步解构（多行闭包解析歧义消解，wave-16）。
+        let keyWindow = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .compactMap { scene in scene.windows.first { $0.isKeyWindow } }
+            .first
+        guard let root = keyWindow?.rootViewController else {
             try? FileManager.default.removeItem(at: url)
             return
         }

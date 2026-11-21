@@ -176,11 +176,13 @@ struct HighlightRule: Codable, Identifiable, Equatable {
     }
 
     /// 伪代码 0x1001d2d24（L227-258 + closure #3/#4）：解析字体。
+    /// @MainActor：ReadingSettings 域隔离（wave-16）。
+    @MainActor
     func resolvedFont(using settings: ReadingSettings) -> UIFont {
         let family = layoutFontFamily.isEmpty ? settings.fontName : layoutFontFamily
         let size = fontSize > 0 ? fontSize : settings.fontSize
         if let weight = fontWeightOverride,
-           let descriptor = UIFontDescriptor().withDesign(.system) {
+           let descriptor = UIFontDescriptor().withDesign(.default) {
             return UIFont(
                 descriptor: descriptor.withSymbolicTraits([]) ?? descriptor,
                 size: size)
@@ -338,7 +340,9 @@ enum ReaderRegexHighlightApplier {
                 claimed[i] = true
             }
             guard includeAttributes else { continue }
-            let attributes = compiled.rule.attributesFor(isDark: isDark)
+            // compiled 为外层循环域变量——本循环经 Match.rule 取规则域
+            // （Match 载体确证，wave-16）。
+            let attributes = match.rule.attributesFor(isDark: isDark)
             for (key, value) in attributes {
                 attributed.addAttribute(key, value: value, range: match.range)
             }
@@ -383,16 +387,19 @@ enum ReaderRegexHighlightApplier {
         var cursor = 0
         while cursor < nsLength {
             let remaining = NSRange(location: cursor, length: nsLength - cursor)
-            guard let openRange = nsText.rangeOfCharacter(
+            // NSString.rangeOfCharacter 返回非可选 NSRange（location 判
+            // NSNotFound 域，wave-16）。
+            let openRange = nsText.rangeOfCharacter(
                 from: CharacterSet(charactersIn: String(openChar)),
-                options: [], range: remaining),
-                openRange.location != NSNotFound else { break }
+                options: [], range: remaining)
+            guard openRange.location != NSNotFound else { break }
             let afterOpen = NSRange(
                 location: openRange.location + 1,
                 length: nsLength - openRange.location - 1)
-            guard let closeRange = nsText.rangeOfCharacter(
+            let closeRange = nsText.rangeOfCharacter(
                 from: CharacterSet(charactersIn: String(closeChar)),
-                options: [], range: afterOpen) else { break }
+                options: [], range: afterOpen)
+            guard closeRange.location != NSNotFound else { break }
             ranges.append(NSRange(
                 location: openRange.location,
                 length: closeRange.location - openRange.location + 1))

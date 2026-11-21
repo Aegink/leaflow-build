@@ -120,7 +120,8 @@ func _configuredExploreAnalyzeRule(
     source: BookSource?, infoValues: [String: String]
 ) -> AnalyzeRule? {
     guard let source else { return nil }
-    let rule = AnalyzeRule()
+    // AnalyzeRule 构造带 source/parent 双参（签名域确证，wave-16）。
+    let rule = AnalyzeRule(source: source, parent: nil)
     for (key, value) in infoValues {
         rule.putVariable(key, value: value)
     }

@@ -160,13 +160,15 @@ struct HighlightLinearGradientPaint {
         let colors = stops.map { stop in
             HighlightResolvedColor(uiColor: stop.color).uiColor.cgColor
         }
-        let locations = normalizedLocations ??
+        // 归一化 locations 转数组（?? 桥后非可选，wave-16）。
+        let locations: [CGFloat] = normalizedLocations ??
             stops.indices.map {
                 CGFloat($0) / CGFloat(max(stops.count - 1, 1))
             }
-        guard let space = CGColorSpace(
+        let space = CGColorSpace(
             name: CGColorSpace.sRGB
-        ) ?? CGColorSpaceCreateDeviceRGB(), let gradient = CGGradient(
+        ) ?? CGColorSpaceCreateDeviceRGB()
+        guard let gradient = CGGradient(
             colorsSpace: space, colors: colors as CFArray,
             locations: locations
         ) else {
@@ -186,8 +188,13 @@ struct HighlightLinearGradientPaint {
 
 private extension UIColor {
     /// 占位混合（fallbackColor 域的 alpha 归一化还原桥）。
+    /// alpha 经 getRed 提取（作用域无 alpha 变量，wave-16）。
     func blend(withAlpha fraction: CGFloat) -> UIColor {
-        UIColor(cgColor: cgColor.copy(alpha: alpha * fraction) ?? cgColor)
+        var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+        getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        return UIColor(
+            red: red, green: green, blue: blue,
+            alpha: alpha * fraction)
     }
 }
 
@@ -718,8 +725,8 @@ struct HighlightBackgroundImagePaint {
               let cgImage = image.cgImage else {
             return
         }
-        let scale = cgImage.width / max(image.size.width, 0.001)
-        let verticalScale = cgImage.height / max(image.size.height, 0.001)
+        let scale = CGFloat(cgImage.width) / max(image.size.width, 0.001)
+        let verticalScale = CGFloat(cgImage.height) / max(image.size.height, 0.001)
         let pixelRect = CGRect(
             x: sourceRect.minX * scale,
             y: sourceRect.minY * verticalScale,
@@ -1266,14 +1273,13 @@ enum HighlightGradientTextRenderer {
               bounds.width > 0, bounds.height > 0 else {
             return
         }
-        let layout = textLayoutManager.map {
-            TextLayout(
-                storage: (NSTextContentStorage)(),
-                layoutManager: $0,
-                container: NSTextContainer(size: bounds.size))
+        // TextLayout 装配壳不可达（嵌套于 HighlightBackgroundImagePaint 域）
+        // ——直接在传入的 layoutManager 上确保布局（wave-16）。
+        if let textLayoutManager {
+            let container = NSTextContainer(size: bounds.size)
+            textLayoutManager.textContainer = container
+            textLayoutManager.ensureLayout(for: container)
         }
-        layout?.layoutManager.ensureLayout(
-            for: layout?.container ?? NSTextContainer(size: .zero))
         attributedText.enumerateAttributes(
             in: NSRange(location: 0, length: attributedText.length)
         ) { attributes, range, _ in
@@ -1425,8 +1431,15 @@ enum HighlightGradientTextRenderer {
             return
         }
         layout.layoutManager.ensureLayout(for: textRange)
-        let fragments = textLayoutManager.textLayoutFragments(
-            for: textRange)
+        // enumerateTextLayoutFragments 为 NSTextLayoutManager 真实遍历域
+        // （textLayoutFragments(for:) 非 SDK 成员，wave-16）。
+        var fragments: [NSTextLayoutFragment] = []
+        layout.layoutManager.enumerateTextLayoutFragments(
+            from: textRange.location, options: [.immutable],
+            using: { fragment in
+                fragments.append(fragment)
+                return true
+            })
         for fragment in fragments {
             let frame = fragment.layoutFragmentFrame
             fragment.draw(
@@ -1470,9 +1483,12 @@ enum HighlightGradientTextRenderer {
         guard let contentManager else { return false }
         guard let documentLocation = contentManager.documentRange.location
         else { return false }
-        func offset(of range: NSTextRange, endpoint: (NSTextRange) -> NSTextLocation?)
-            -> Int? {
-            guard let location = endpoint(range) else { return nil }
+        // endpoint 取 KeyPath 直取（NSTextRange.location 非可选域，wave-16）。
+        func offset(
+            of range: NSTextRange,
+            endpoint: KeyPath<NSTextRange, any NSTextLocation>
+        ) -> Int? {
+            let location = range[keyPath: endpoint]
             let offset = contentManager.offset(
                 from: documentLocation, to: location)
             return offset == NSNotFound ? nil : offset
@@ -1495,26 +1511,23 @@ enum HighlightGradientTextRenderer {
         liveContentManager: NSTextContentManager?,
         fallbackContentManager: NSTextContentManager?
     ) -> NSTextLayoutFragment? {
-        guard let liveContentManager, let fallbackContentManager,
-              let fallbackDocumentLocation =
-                fallbackContentManager.documentRange.location,
-              let location0 = location.location
-        else {
+        // documentRange.location / location.location 均为非可选 any
+        // NSTextLocation（NSTextRange 域，wave-16）；fallback→live 偏移
+        // 映射域未还原——直接以传入 range 在 live manager 上定位
+        // （两管理器同文本域，还原推断；记入仍不清楚）。
+        guard let liveContentManager, let fallbackContentManager else {
             return nil
         }
-        let offset = fallbackContentManager.offset(
-            from: fallbackDocumentLocation, to: location0)
-        guard offset != NSNotFound,
-              let liveDocumentLocation =
-                liveContentManager.documentRange.location,
-              let mapped = liveContentManager.location(
-                location: liveDocumentLocation, withOffset: offset)
-        else {
-            return nil
-        }
-        let range = NSTextRange(location: mapped)
-        textLayoutManager.ensureLayout(for: range)
-        return textLayoutManager.textLayoutFragment(for: mapped)
+        _ = fallbackContentManager
+        textLayoutManager.ensureLayout(for: location)
+        var found: NSTextLayoutFragment?
+        textLayoutManager.enumerateTextLayoutFragments(
+            from: location.location, options: [.immutable],
+            using: { fragment in
+                found = fragment
+                return false
+            })
+        return found
     }
 
     // MARK: 矩形域（0x1001c93ac L1565-1582 / 0x1001c7700 L1612-1674）
@@ -1525,32 +1538,31 @@ enum HighlightGradientTextRenderer {
     static func rects(
         for range: NSRange, layout: TextLayout
     ) -> [CGRect] {
-        let layoutManager = layout.layoutManager
-        let container = layout.container
-        guard let storage = layoutManager.textContentManager,
-              let documentRange = storage.documentRange,
-              let documentLocation = documentRange.location,
-              let documentEnd = documentRange.endLocation
+        // TextKit1 glyphRange/boundingRect 域在 NSTextLayoutManager 上不可用
+        // ——改走 enumerateTextSegments 域（与 rects(for:textLayoutManager:)
+        // 同构，wave-16）。
+        guard let textRange = textRange(for: range, in: layout.layoutManager)
         else {
             return []
         }
-        _ = documentEnd
-        let characterRange = NSRange(
-            location: range.location, length: range.length)
-        let glyphRange = layoutManager.glyphRange(
-            forCharacterRange: characterRange,
-            actualCharacterRange: nil)
-        guard glyphRange.length > 0, let bounding = layoutManager.boundingRect(
-            forGlyphRange: glyphRange, in: container
-        ), bounding.width > 0, bounding.height > 0 else {
-            return []
+        layout.layoutManager.ensureLayout(for: textRange)
+        var result: [CGRect] = []
+        layout.layoutManager.enumerateTextSegments(
+            in: textRange, type: .standard, options: []
+        ) { _, segmentBounds, _, _ in
+            guard segmentBounds.width > 0, segmentBounds.height > 0 else {
+                return true
+            }
+            let originX = (
+                segmentBounds.minX + layout.container.lineFragmentPadding)
+            let rect = CGRect(
+                x: floor(originX), y: floor(segmentBounds.minY),
+                width: ceil(segmentBounds.maxX) - floor(originX),
+                height: ceil(segmentBounds.height))
+            result.append(rect)
+            return true
         }
-        let originX = bounding.minX + container.lineFragmentPadding
-        let rect = CGRect(
-            x: floor(originX), y: floor(bounding.minY),
-            width: ceil(bounding.maxX) - floor(originX),
-            height: ceil(bounding.height))
-        return [rect]
+        return result
     }
 
     /// backgroundRects(for:layout:)（签名确证）。
@@ -1707,23 +1719,26 @@ enum HighlightGradientTextRenderer {
         for range: NSRange, in textLayoutManager: NSTextLayoutManager
     ) -> NSTextRange? {
         guard range.location != NSNotFound, range.length > 0,
-              let contentManager = textLayoutManager.textContentManager,
-              let documentRange = contentManager.documentRange,
-              let documentLocation = documentRange.location
+              let contentManager = textLayoutManager.textContentManager
         else {
             return nil
         }
+        // NSTextRange.location/endLocation 均为非可选 any NSTextLocation
+        // （NSTextRange 域，wave-16）。
+        let documentLocation = contentManager.documentRange.location
+        let documentEndLocation = contentManager.documentRange.endLocation
         let documentLength = contentManager.offset(
-            from: documentLocation, to: documentRange.endLocation)
+            from: documentLocation, to: documentEndLocation)
         guard documentLength != NSNotFound, range.location >= 0,
               range.location + range.length <= documentLength
         else {
             return nil
         }
-        guard let start = contentManager.location(
-            location: documentLocation, withOffset: range.location),
-              let end = contentManager.location(
-                location: start, withOffset: range.length)
+        // location(offset) 无 SDK 域——经 NSTextContentStorage.characterIndex
+        // 桥（storage 可用时）：字符索引 → NSTextLocation。
+        guard let storage = textLayoutManager.textContentManager as? NSTextContentStorage,
+              let start = storage.location(for: range.location),
+              let end = storage.location(for: range.location + range.length)
         else {
             return nil
         }
@@ -1740,8 +1755,11 @@ enum HighlightGradientTextRenderer {
             location: 0, length: mutableText.length)
         let transparent = UIGraphicsImageRenderer(
             size: CGSize(width: 1, height: 1)
-        ).image { context in
-            context.currentContext.clear(CGRect(x: 0, y: 0, width: 1, height: 1))
+        ).image { rendererContext in
+            // UIGraphicsImageRendererContext 无 currentContext 成员——
+            // 闭包参数即上下文（wave-16）。
+            rendererContext.cgContext.clear(
+                CGRect(x: 0, y: 0, width: 1, height: 1))
         }
         mutableText.enumerateAttribute(
             .attachment, in: full
@@ -1879,7 +1897,7 @@ final class HighlightGradientBackgroundSnapshotService {
             let image = HighlightGradientTextRenderer
                 .renderBackgroundSnapshot(
                     attributedText, in: bounds,
-                    configuration: configuration, scale: scale)
+                    configuration: textConfiguration, scale: scale)
             self.storeSnapshot(image ?? UIImage(), for: key)
             await MainActor.run { completion(image) }
         }
@@ -1992,7 +2010,7 @@ final class HighlightGradientOverlayView: UIView {
             }
             HighlightGradientTextRenderer.drawForegroundGradients(
                 attributedText, in: bounds,
-                configuration: configuration,
+                configuration: textConfiguration,
                 excluding: excludedForegroundRange,
                 textLayoutManager: textLayoutManager)
         } else {
@@ -2060,7 +2078,7 @@ final class HighlightGradientOverlayView: UIView {
               let key = HighlightGradientTextRenderer
                   .backgroundSnapshotCacheKey(
                     in: bounds, textSignature: cachedTextSignature ?? 0,
-                    configuration: configuration,
+                    configuration: textConfiguration,
                     renderIdentity: renderIdentity, scale: scale)
         else {
             return
@@ -2078,12 +2096,12 @@ final class HighlightGradientOverlayView: UIView {
         }
         guard backgroundSnapshotTask == nil else { return }
         let text = attributedText
-        let configuration = configuration
+        let configuration = textConfiguration
         let bounds = bounds
         let identity = renderIdentity
         backgroundSnapshotTask = Self.snapshotService.renderSnapshot(
             for: key, attributedText: text, bounds: bounds,
-            configuration: configuration, scale: scale
+            configuration: textConfiguration, scale: scale
         ) { [weak self] image in
             guard let self, identity == self.renderIdentity else { return }
             self.backgroundSnapshotImage = image

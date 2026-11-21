@@ -86,13 +86,15 @@ final class EnhancedWebView {
 extension EnhancedWebView {
 
     /// 伪代码 0x1000de210（L143-150）：覆写 URL（重定向拦截域）。
+    /// 覆写 URL 存储域未还原——桥接当前加载 URL（wave-16）。
     func getOverrideUrl() -> String? {
-        overrideUrlStorage
+        wkWebView.url?.absoluteString
     }
 
     /// 伪代码 0x1000dfd88（L262-276）：底层 WKWebView 访问（评估域）。
+    /// 桥接 wkWebView 私有域（wave-16）。
     func webView() -> WKWebView? {
-        underlyingWebView
+        wkWebView
     }
 }
 
