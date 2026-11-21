@@ -59,6 +59,8 @@ import UIKit
 ///    NSBackgroundColor 清色；preserve → 透明 NSTextAttachment
 ///    （bounds (0,0,max(宽,1),0.1)）+ NSAttachmentAttributeName。
 /// 9. "tailWork" 计时；总耗时 >= 6.0ms → Logger.log（"images" + key=value 串）。
+/// @MainActor：ReadingSettings/静态字体桥均为 MainActor 域（wave-16）。
+@MainActor
 func buildReaderBodyAttributedText(
     text: String,
     settings: ReadingSettings,
@@ -78,7 +80,10 @@ func buildReaderBodyAttributedText(
         ofSize: settings.fontSize, weight: .regular, prefersSimplifiedChinese: false)
 
     let paragraphStyle = NSMutableParagraphStyle()
-    paragraphStyle.lineSpacing = font.lineSpacing + extraLineSpacing
+    // UIFont 无 lineSpacing 成员——以 lineHeight - pointSize 推导基准行距
+    // （还原推断）。
+    paragraphStyle.lineSpacing =
+        (font.lineHeight - font.pointSize) + extraLineSpacing
     paragraphStyle.paragraphSpacing = settings.paragraphSpacing
     paragraphStyle.lineBreakMode = .byWordWrapping
     paragraphStyle.alignment = settings.textAlignment

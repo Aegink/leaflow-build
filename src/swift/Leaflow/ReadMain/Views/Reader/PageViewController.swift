@@ -78,6 +78,8 @@ import SwiftUI
 // MARK: - 顶层工具函数
 
 /// 页面内容样式签名（伪代码 0x10076a280，L7-35；displayScale/traitCollection 参与）。
+/// @MainActor：ReadingSettings 属性域隔离（wave-16）。
+@MainActor
 func readerPageContentStyleSignature(
     for settings: ReadingSettings, pageMode: ReadingSettings.PageMode?
 ) -> Int {
@@ -188,7 +190,7 @@ struct PageViewController: UIViewControllerRepresentable {
         let pageVC = ReaderPageViewController(
             transitionStyle: .pageCurl,
             navigationOrientation: .horizontal)
-        pageVC.doubleSided = true
+        pageVC.isDoubleSided = true
         pageVC.dataSource = context.coordinator
         pageVC.delegate = context.coordinator
         for gesture in pageVC.gestureRecognizers {
@@ -549,7 +551,7 @@ struct PageViewController: UIViewControllerRepresentable {
             }
             let back = PageBackViewController()
             back.loadViewIfNeeded()
-            back.view.setFrame(pageVC.view.bounds)
+            back.view.frame = pageVC.view.bounds
             return back
         }
 
@@ -591,10 +593,12 @@ struct PageViewController: UIViewControllerRepresentable {
         // MARK: 翻页命令与手势
 
         /// 伪代码 0x10077897c（L1766-1783）：应用待处理翻页命令。
+        /// 去重键按 uuidString 归一（成员为 String? 域——configure 侧同式，
+        /// wave-16）。
         func applyPageTurnCommandIfNeeded() {
             guard let command = parent.pageTurnCommand,
-                  command.id != lastAppliedPageTurnCommandID else { return }
-            lastAppliedPageTurnCommandID = command.id
+                  command.id.uuidString != lastAppliedPageTurnCommandID else { return }
+            lastAppliedPageTurnCommandID = command.id.uuidString
             pageCurlDriver.applyPendingTurnCommand(command)
         }
 
@@ -618,7 +622,13 @@ struct PageViewController: UIViewControllerRepresentable {
             case .changed:
                 if translation.y < 0 {
                     verticalSwipeDidReachUp = true
-                    parent.onSwipeUpProgress?(.dragging(offset: -translation.y, velocity: velocity.y))
+                    // ReaderGestureDismissState 为结构体（translation/velocity/
+                    // progress/isActive 域确证）——dragging 语义映射（还原推断）。
+                    parent.onSwipeUpProgress?(ReaderGestureDismissState(
+                        translation: CGSize(width: 0, height: translation.y),
+                        velocity: CGSize(width: 0, height: velocity.y),
+                        progress: 0,
+                        isActive: true))
                 }
             case .ended:
                 if verticalSwipeDidReachUp {

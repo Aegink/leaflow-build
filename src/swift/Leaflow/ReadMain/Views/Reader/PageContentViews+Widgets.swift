@@ -92,11 +92,11 @@ extension PageContentViewController {
     /// 其余为刷新当前页 widget 内容 + 刷新需求重算。
     func refreshAllWidgetContent() {
         guard let settings, let page = pageData else { return }
-        if let widgetFont = settings.widgetFont(size: settings.fontSize) {
-            if lastWidgetFontName != widgetFont.fontName {
-                lastWidgetFontName = widgetFont.fontName
-                setupWidgetLabels(settings: settings)
-            }
+        // widgetFont(size:) 非可选（UIFont 返回域确证）——直取。
+        let widgetFont = settings.widgetFont(size: settings.fontSize)
+        if lastWidgetFontName != widgetFont.fontName {
+            lastWidgetFontName = widgetFont.fontName
+            setupWidgetLabels(settings: settings)
         }
         refreshWidgetLabels(
             context: makeWidgetContext(for: page),
@@ -161,7 +161,7 @@ extension PageContentViewController {
     ) -> String {
         _ = context
         if widget.type.lowercased().contains("date") {
-            return ReaderDisplayItem.dateFormatter.string(from: Date())
+            return ReaderWidgetDisplayItem.dateFormatter.string(from: Date())
         }
         // 非 date widget 的文本来源待真机对照（电量和进度类由驱动推送）。
         _ = isFirstPage
@@ -190,9 +190,8 @@ extension PageContentViewController {
             }
             let content = widgetContent(for: widget, context: context, isFirstPage: isFirstPage)
             let tintColor = settings.textUIColor.withAlphaComponent(0.85)
-            if let font = settings.widgetFont(size: settings.fontSize) {
-                label.font = font
-            }
+            // widgetFont(size:) 非可选（UIFont 返回域确证）——直取。
+            label.font = settings.widgetFont(size: settings.fontSize)
             label.textColor = tintColor
             let configured = configureWidgetView(
                 label: label,

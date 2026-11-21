@@ -24,6 +24,9 @@ import UIKit
 // MARK: - 行内图片上下文
 
 /// 行内图片渲染上下文。
+/// wave-16：storageKind 对齐数据层 StorageKind?（PageData 域确证）；
+/// contentWidth/font/scale 供消费域注入真实值，默认值为数据层便捷桥
+/// （PageData.inlineImageContext，还原推断）。
 struct ReaderInlineImageContext {
     var sourceUrl: String?
     var baseUrl: String?
@@ -31,7 +34,13 @@ struct ReaderInlineImageContext {
     var font: UIFont
     var scale: CGFloat
 
-    init(sourceUrl: String?, storageKind: Int, contentWidth: CGFloat, font: UIFont, scale: CGFloat) {
+    init(
+        sourceUrl: String?,
+        storageKind: StorageKind? = nil,
+        contentWidth: CGFloat = 0,
+        font: UIFont = .systemFont(ofSize: 17),
+        scale: CGFloat = UIScreen.main.scale
+    ) {
         self.sourceUrl = sourceUrl
         self.baseUrl = sourceUrl
         self.contentWidth = contentWidth

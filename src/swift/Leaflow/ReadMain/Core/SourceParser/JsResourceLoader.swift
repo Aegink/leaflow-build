@@ -12,6 +12,7 @@
 import Foundation
 import JavaScriptCore
 import SwiftSoup
+import WebKit
 
 /// Jsoup 桥资源注入器（T-206 的 DOM 桥 native 侧）。
 enum JsResourceLoader {
@@ -83,5 +84,44 @@ enum JsResourceLoader {
             context.setObject(value, forKeyedSubscript: key as NSString)
         }
         context.setObject(true, forKeyedSubscript: "__jsoupBridgeLoaded" as NSString)
+    }
+
+    /// injectJsoupBridge(into: WKWebViewConfiguration)（PayActionWebView
+    /// 消费域确证，wave-16 补桥）：文档启动时注入 _jsoup* 纯 JS 实现——
+    /// DOM 查询域 + 句柄语义与 JSContext 域一致（还原推断）。
+    static func injectJsoupBridge(into configuration: WKWebViewConfiguration) {
+        let source = """
+        (function() {
+            if (window.__jsoupBridgeLoaded) { return; }
+            window.__jsoupBridgeLoaded = true;
+            var store = {};
+            var nextId = 0;
+            window._jsoupParse = function(html) {
+                var handle = 'h' + (nextId++);
+                store[handle] = html || '';
+                return handle;
+            };
+            window._jsoupClearDomStore = function() { store = {}; };
+            window._jsoupDocumentText = function(handle) {
+                var el = document.createElement('div');
+                el.innerHTML = store[handle] || '';
+                return el.textContent || '';
+            };
+            window._jsoupDocumentHtml = function(handle) {
+                return store[handle] || '';
+            };
+            window._jsoupNodeAttr = function(handle, attr) {
+                var el = document.createElement('div');
+                el.innerHTML = store[handle] || '';
+                var first = el.querySelector('[' + attr + ']');
+                return first ? (first.getAttribute(attr) || '') : '';
+            };
+        })();
+        """
+        let userScript = WKUserScript(
+            source: source,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: false)
+        configuration.userContentController.addUserScript(userScript)
     }
 }

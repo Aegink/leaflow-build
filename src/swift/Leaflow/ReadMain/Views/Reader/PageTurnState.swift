@@ -114,16 +114,18 @@ struct PageTurnResolver {
 
     /// 伪代码 0x100769644（L134-146）：两 id 间方向解析
     /// （经 targetIndex 双向试探比较，命中即对应方向）。
+    /// 显式解包形式（原 flatMap 链在 targetIndex 可选接收方上解析歧义，wave-16）。
     func direction(from: PageTurnPageID, to: PageTurnPageID) -> ReaderPageTurnDirection? {
         guard let fromIndex = index(for: from) else { return nil }
-        if targetIndex(from: fromIndex, direction: .next)?.flatMap({
-            $0 < sequence.pages.count && sequence.pages[$0].id == to ? $0 : nil
-        }) != nil {
+        if let nextTarget = targetIndex(from: fromIndex, direction: .next),
+           sequence.pages.indices.contains(nextTarget),
+           sequence.pages[nextTarget].id == to {
             return .next
         }
-        if targetIndex(from: fromIndex, direction: .previous)?.flatMap({
-            $0 >= 0 && sequence.pages[$0].id == to ? $0 : nil
-        }) != nil {
+        if let previousTarget = targetIndex(
+            from: fromIndex, direction: .previous),
+           sequence.pages.indices.contains(previousTarget),
+           sequence.pages[previousTarget].id == to {
             return .previous
         }
         return nil

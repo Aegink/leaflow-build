@@ -265,10 +265,13 @@ final class ReadingDurationTracker {
 // MARK: - 阅读器布局计算器
 
 /// Widget 布局配置。
+/// refreshCadence：ReaderWidgetRefreshEvent.includes 消费域确证（时钟/电量
+/// 事件命中档；nil = 不参与自动刷新——装配域随 T-1401-02，还原推断）。
 struct LayoutWidget: Codable {
     var type: String
     var alignment: WidgetTextAlignment
     var showOnFirstPage: Bool
+    var refreshCadence: ReaderWidgetRefreshCadence? = nil
 }
 
 /// 章节标题排版配置（Codable：T-1401-01 ChapterTitlePreset 双档解码桥）。
@@ -288,10 +291,13 @@ struct ChapterTitleConfig: Codable, Equatable {
 
 /// 阅读布局模板（T-1401-01 applyLayoutTemplate 0x100221ef8 域桥；档位推断，
 /// presetWidgets/defaultWidgets 域随 T-1401-02 还原）。
+/// single：PageContentViews.updateFrames 消费域确证（单页渲染域档），
+/// preset 集复用 standard（还原推断）。
 enum ReaderLayoutTemplate: String, Codable, CaseIterable {
     case standard
     case compact
     case immersive
+    case single
 }
 
 /// 页面布局结果。
@@ -584,7 +590,8 @@ extension ReaderLayoutTemplate {
         _ = safeTop
         _ = safeBottom
         switch self {
-        case .standard:
+        case .standard, .single:
+            // .single preset 复用 standard 集（还原推断，随 T-1401-02 核清）。
             return [
                 LayoutWidget(
                     type: "progress", alignment: .leading,

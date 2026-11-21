@@ -19,7 +19,8 @@ enum MemoryTrace {
         var info = task_vm_info_data_t()
         var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / 4)
         let result = withUnsafeMutablePointer(to: &info) { pointer in
-            pointer.withMemoryReboundTo(task_info_t.self, 1) { infoPointer in
+            // UnsafeMutablePointer 重绑 API 为 withMemoryRebound(to:capacity:)。
+            pointer.withMemoryRebound(to: task_info_t.self, capacity: 1) { infoPointer in
                 task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), infoPointer, &count)
             }
         }

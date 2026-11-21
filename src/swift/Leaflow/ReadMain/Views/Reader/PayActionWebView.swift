@@ -29,7 +29,7 @@ struct PayActionWebView: UIViewRepresentable {
         // 伪代码 0x10077c334（L9-44）：非持久存储 + 允许 JS + cookie 预注入。
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .nonPersistent()
-        configuration.allowsContentJavaScript = true
+        // JS 启用走 WKWebpagePreferences.allowsContentJavaScript（iOS 14+ 域）。
         let preferences = WKWebpagePreferences()
         preferences.allowsContentJavaScript = true
         configuration.defaultWebpagePreferences = preferences
@@ -69,9 +69,13 @@ struct PayActionWebView: UIViewRepresentable {
     private func collectCookies(for url: URL) -> [HTTPCookie] {
         var cookies = HTTPCookieStorage.shared.cookies(for: url) ?? []
         if let stored = UserDefaults.standard.string(forKey: "payCookies") {
+            // HTTPCookie 非 Decodable——经 properties 字典域编解码桥（还原推断：
+            // 写入侧为 [[String: String]] properties JSON）。
             if let data = stored.data(using: .utf8),
-               let decoded = try? JSONDecoder().decode([HTTPCookie].self, from: data) {
-                cookies.append(contentsOf: decoded)
+               let decoded = try? JSONDecoder().decode(
+                   [[String: String]].self, from: data) {
+                let restored = decoded.compactMap { HTTPCookie(properties: $0) }
+                cookies.append(contentsOf: restored)
             }
         }
         let merged = HTTPCookieStorage.shared.cookies(for: url) ?? []

@@ -50,10 +50,20 @@ enum PDFPageImageSource {
     // MARK: 文档检查
 
     /// 伪代码 0x10036381c（L49-60）：文档检查（页数 + 目录链）。
+    /// PDFDocumentMetadata.chapters 为 [LocalChapter]（T-601-01 域）——
+    /// LocalPDFChapter 经 order/pageIndex 映射换算（还原推断）。
     static func inspectDocument(at url: URL) -> PDFDocumentMetadata? {
         guard let document = PDFDocument(url: url) else { return nil }
         let pageCount = document.pageCount
-        let chapters = directoryChapters(at: url, pageCount: pageCount)
+        let chapters = directoryChapters(at: url, pageCount: pageCount).map {
+            chapter in
+            LocalChapter(
+                id: chapter.order,
+                title: chapter.title,
+                startPosition: chapter.pageIndex,
+                endPosition: chapter.pageIndex
+                    + max(chapter.pageCount - 1, 0))
+        }
         return PDFDocumentMetadata(pageCount: pageCount, chapters: chapters)
     }
 
@@ -93,12 +103,15 @@ enum PDFPageImageSource {
     ) {
         guard depth < 8 else { return }
         if let title = outline.label,
-           let page = outline.destination?.page,
-           let index = document.index(for: page) {
+           let page = outline.destination?.page {
+            // PDFDocument.index(for:) 非可选（Int 返回域确证）。
+            let index = document.index(for: page)
             collected.append((title: title, pageIndex: index, order: order))
             order += 1
         }
-        for child in outline.children {
+        // PDFOutline 无 children 数组——numberOfChildren + child(at:) 逐个取。
+        for childIndex in 0..<outline.numberOfChildren {
+            guard let child = outline.child(at: childIndex) else { continue }
             visit(child, depth: depth + 1, document: document,
                   order: &order, collected: &collected)
         }

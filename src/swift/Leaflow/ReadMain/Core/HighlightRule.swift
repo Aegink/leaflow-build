@@ -270,6 +270,28 @@ struct CompiledHighlightRule {
             isDark ? rule.darkStyleCSS : rule.lightStyleCSS,
             fallbackForegroundColor: nil)
     }
+
+    /// applyAttributes(to:rules:isDark:)（PageContentViews+Comments 消费域
+    /// 确证——逐规则正则命中域批量上样式，wave-16 补桥）。
+    static func applyAttributes(
+        to mutable: NSMutableAttributedString,
+        rules: [CompiledHighlightRule],
+        isDark: Bool
+    ) {
+        for compiled in rules {
+            guard let regex = compiled.regex else { continue }
+            let attributes = compiled.attributes(isDark: isDark)
+            let full = NSRange(location: 0, length: mutable.length)
+            regex.enumerateMatches(
+                in: mutable.string, options: [], range: full
+            ) { match, _, _ in
+                guard let match else { return }
+                for (key, value) in attributes {
+                    mutable.addAttribute(key, value: value, range: match.range)
+                }
+            }
+        }
+    }
 }
 
 // MARK: - 正则应用器

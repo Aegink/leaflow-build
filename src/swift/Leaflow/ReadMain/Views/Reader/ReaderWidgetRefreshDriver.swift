@@ -26,6 +26,8 @@ import Foundation
 import UIKit
 
 /// widget 刷新事件。
+/// wave-16：补 refreshAll/content 静态桥（调用域 `event: .refreshAll`/
+/// `.content` 隐式成员消费确证）。
 struct ReaderWidgetRefreshEvent: Equatable {
     enum Kind: String {
         case layout
@@ -43,6 +45,15 @@ struct ReaderWidgetRefreshEvent: Equatable {
         self.at = Date()
     }
 
+    /// 调用域隐式成员桥。
+    static var refreshAll: ReaderWidgetRefreshEvent {
+        ReaderWidgetRefreshEvent(.refreshAll)
+    }
+
+    static var content: ReaderWidgetRefreshEvent {
+        ReaderWidgetRefreshEvent(.content)
+    }
+
     /// 伪代码 0x1007667f8（L6-12）：事件是否命中 widget 刷新域。
     func includes(_ widget: LayoutWidget) -> Bool {
         switch kind {
@@ -56,8 +67,19 @@ struct ReaderWidgetRefreshEvent: Equatable {
     }
 }
 
+/// widget 装配配置（PageContentViews+Widgets 消费域确证：settings →
+/// widgets 列表——layoutWidgets 装配源，wave-16 补桥）。
+struct ReaderWidgetConfiguration {
+    let widgets: [LayoutWidget]
+
+    init(settings: ReadingSettings) {
+        widgets = settings.layoutWidgets
+    }
+}
+
 /// 刷新节流档位。
-enum ReaderWidgetRefreshCadence: Comparable {
+/// String/Codable：LayoutWidget.refreshCadence 解码域要求（wave-16）。
+enum ReaderWidgetRefreshCadence: String, Codable, Comparable {
     case perMinute
     case perFiveMinutes
     case perQuarterHour

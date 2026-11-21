@@ -72,13 +72,13 @@ struct PageData {
     }
 
     /// 行内图片上下文（骨架签名 + PageContentViews 调用确证）。
+    /// contentWidth/font/scale 由消费域注入真实值——数据层便捷桥取 init
+    /// 默认（还原推断）；baseUrl 复用 sourceUrl（init 域确证）。
     var inlineImageContext: ReaderInlineImageContext? {
         guard let imageSourceUrl else { return nil }
         return ReaderInlineImageContext(
             sourceUrl: imageSourceUrl,
-            storageKind: imageSourceStorageKind,
-            baseUrl: imageBaseUrl,
-            defaultStyle: imageStyle)
+            storageKind: imageSourceStorageKind)
     }
 
     init(

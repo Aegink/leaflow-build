@@ -76,12 +76,13 @@ func readerFullLineUnderlineHasVisibleText(_ attributed: NSAttributedString) -> 
     let string = attributed.string
     // 伪代码 L108：显式排除 U+200B；另有两个 Character 字面量（零宽类，值未解码）。
     let excludedZeroWidth: Set<UInt32> = [0x200B]
+    let scalars = Array(string.unicodeScalars)
     var range = NSRange()
     for index in 0..<attributed.length {
         if attributed.attribute(.attachment, at: index, effectiveRange: &range) != nil {
             continue
         }
-        let scalar = string[index].unicodeScalars.first?.value ?? 0
+        let scalar = scalars.indices.contains(index) ? scalars[index].value : 0
         if (0xD000...0xDFFF).contains(scalar) { continue }
         if let unicode = Unicode.Scalar(scalar),
            CharacterSet.whitespacesAndNewlines.contains(unicode) {
@@ -245,9 +246,18 @@ final class PageContentViewController: UIViewController, UIGestureRecognizerDele
     }
 
     private(set) var chapterTitleView = ReaderChapterTitleView()
-    private var _widgetInstances: [(id: UUID, widget: LayoutWidget)] = []
-    private var dynamicRefreshTimer: Timer?
-    private var dynamicRefreshTimerTolerance: TimeInterval = 0
+    // wave-17：+Comments/+Widgets 分册扩展（跨文件）有访问——private 放宽
+    // 到 internal（原始二进制无文件边界概念）。
+    var _widgetInstances: [(id: UUID, widget: LayoutWidget)] = []
+    var dynamicRefreshTimer: Timer?
+    var dynamicRefreshTimerTolerance: TimeInterval = 0
+
+    /// widget 实例桥（+Widgets 消费域 `widgetInstances` 命名确证——
+    /// 存储域 _widgetInstances 的无前缀别名，wave-16）。
+    var widgetInstances: [(id: UUID, widget: LayoutWidget)] {
+        get { _widgetInstances }
+        set { _widgetInstances = newValue }
+    }
     private var fullLineUnderlineView = UIView()
     private var fullLineUnderlineLayer = CAShapeLayer()
     private var highlightGradientBackgroundView = HighlightGradientOverlayView(renderMode: .backgroundSnapshot)
@@ -273,15 +283,16 @@ final class PageContentViewController: UIViewController, UIGestureRecognizerDele
     /// 段落评论标记字符（U+FFFC；applyForegroundHighlight/正文标记共用）。
     let commentMarkerChar: Character = "\u{FFFC}"
     private var loadingOverlay: UIView?
-    /// 段落评论矩形缓存 [(comment, rect)]（元素 88 字节步长确证）。
-    private(set) var cachedCommentRects: [(comment: ParagraphComment, rect: CGRect)] = []
+    /// 段落评论矩形缓存 [(comment, rect)]（元素 88 字节步长确证；+Comments
+    /// 分册有写入——setter 放宽，wave-17）。
+    var cachedCommentRects: [(comment: ParagraphComment, rect: CGRect)] = []
     /// 命中缓存时的布局指纹（bounds/container/inset/padding 十字段 + 有效位，L1338-1368）。
-    private var cachedCommentRectsLayoutValid = false
+    var cachedCommentRectsLayoutValid = false
     private var lastLoggedViewBounds: CGRect = .zero
     private var lastLoggedContentFrame: CGRect = .zero
     private var lastTitleSnapshotKey: (width: CGFloat, key: String)?
     private var pageRenderSignature: Int?
-    private var lastWidgetFontName: String?
+    var lastWidgetFontName: String?
     /// PageBackViewController.configure 回写的首页 bounds（0x100754300 L505-510 确证）。
     var initialPageBounds: CGRect = .zero
     var backgroundImageView: UIImageView?
@@ -291,8 +302,9 @@ final class PageContentViewController: UIViewController, UIGestureRecognizerDele
     /// 阅读设置（init 存 nil；configure/setupViews/updateContent 使用）。
     var settings: ReadingSettings?
 
-    /// contentTextView 懒加载（pgo_only getter + init(isSelectable:) 0x1007563d8 块确证）。
-    private lazy var contentTextView: SelectableReaderTextView = {
+    /// contentTextView 懒加载（pgo_only getter + init(isSelectable:) 0x1007563d8 块确证；
+    /// +Comments 分册扩展跨文件访问——放宽 internal，wave-17）。
+    lazy var contentTextView: SelectableReaderTextView = {
         SelectableReaderTextView(isSelectable: isInteractive)
     }()
 
@@ -503,16 +515,17 @@ final class PageContentViewController: UIViewController, UIGestureRecognizerDele
               storedContentStyleSignature == nil || storedContentStyleSignature == contentStyleSignature
         else { return false }
 
-        // 图片上下文预取（BackgroundWork.runAsync + ReaderInlineImageContext.init(
-        // sourceUrl:storageKind:baseUrl:defaultStyle:) 确证；闭包体未恢复，待真机对照）。
-        if let page = pageData {
+        // 图片上下文预取（BackgroundWork.fireAndForget + ReaderInlineImageContext
+        // 真实 init 域确证；闭包体未恢复，待真机对照）。
+        if let page = pageData, let settings {
             let context = ReaderInlineImageContext(
                 sourceUrl: page.imageSourceUrl,
                 storageKind: page.imageSourceStorageKind,
-                baseUrl: page.imageBaseUrl,
-                defaultStyle: page.imageStyle)
-            if context != nil {
-                BackgroundWork.runAsync(priority: nil) {
+                contentWidth: containerSize.width,
+                font: settings.widgetFont(size: settings.fontSize),
+                scale: UIScreen.main.scale)
+            if context.sourceUrl != nil {
+                BackgroundWork.fireAndForget(priority: nil) {
                     // 预取闭包体：伪代码未展开（sub_100752D1C），待真机对照。
                 }
             }
@@ -618,10 +631,11 @@ final class PageContentViewController: UIViewController, UIGestureRecognizerDele
         if let page = pageData, !page.chapterTitle.isEmpty {
             let width = chapterTitleView.frame.width
             let key = (width, page.chapterTitle)
-            if lastTitleSnapshotKey == key {
+            // 元组不持 Equatable——先解包可选键再比较（wave-16）。
+            if let cached = lastTitleSnapshotKey, cached == key {
                 ReaderPerformanceTrace.log(
                     "[TitleSnapshot] SKIP (key matches): \(page.chapterTitle)")
-            } else if let snapshot = ChapterTitleSnapshotService.cachedSnapshot(
+            } else if let snapshot = ChapterTitleSnapshotService.shared.cachedSnapshot(
                 for: page.chapterTitle, width: width) {
                 chapterTitleView.configureWithSnapshot(image: snapshot, animated: false)
                 lastTitleSnapshotKey = key
@@ -976,13 +990,13 @@ final class PageContentViewController: UIViewController, UIGestureRecognizerDele
         totalChapters = newTotalChapters
         originalText = newPage.content
 
-        // widget 字体变化检测（L5844-5896：fontName 桥接比较）。
-        if let widgetFont = newSettings.widgetFont(size: newSettings.fontSize) {
-            let fontName = widgetFont.fontName
-            if lastWidgetFontName != fontName {
-                lastWidgetFontName = fontName
-                refreshAllWidgetContent()
-            }
+        // widget 字体变化检测（L5844-5896：fontName 桥接比较；widgetFont
+        // 非可选——直取，wave-16）。
+        let widgetFont = newSettings.widgetFont(size: newSettings.fontSize)
+        let fontName = widgetFont.fontName
+        if lastWidgetFontName != fontName {
+            lastWidgetFontName = fontName
+            refreshAllWidgetContent()
         }
 
         guard contentChanged else {
@@ -1037,7 +1051,8 @@ final class PageContentViewController: UIViewController, UIGestureRecognizerDele
     ///   settings.ttsHighlightUIColor) → endEditing；
     /// previousHighlightedRange 记录 + updateHighlightGradientOverlayFrames()。
     private func applyForegroundHighlight(for range: NSRange) {
-        guard let textStorage = contentTextView.textStorage else { return }
+        // UITextView.textStorage 非可选（NSTextStorage 域确证）——直取。
+        let textStorage = contentTextView.textStorage
         restorePreviousHighlight()
         guard range.location != NSNotFound, pageData != nil else { return }
         guard range.location >= 0, range.length >= 1 else { return }
@@ -1081,7 +1096,8 @@ final class PageContentViewController: UIViewController, UIGestureRecognizerDele
     private func restorePreviousHighlight() {
         let previous = previousHighlightedRange
         guard previous.location != NSNotFound, previous.length >= 1 else { return }
-        guard let textStorage = contentTextView.textStorage else { return }
+        // UITextView.textStorage 非可选（NSTextStorage 域确证）——直取。
+        let textStorage = contentTextView.textStorage
         guard previous.location + previous.length <= textStorage.length else {
             previousHighlightedRange = NSRange(location: NSNotFound, length: 0)
             return
@@ -1166,10 +1182,12 @@ final class PageContentViewController: UIViewController, UIGestureRecognizerDele
     // MARK: widget 桥
 
     /// widget 上下文（pgo_only makeWidgetContext(for:)）。
+    /// ReaderDisplayContext 无 page: 参——页身份映射到章节/页索引字段。
     func makeWidgetContext(for page: PageData) -> ReaderDisplayContext {
         ReaderDisplayContext(
-            page: page,
             bookName: bookName,
-            totalChapters: totalChapters)
+            totalChapters: totalChapters,
+            currentChapterIndex: page.chapterIndex,
+            currentPageIndex: page.pageIndex)
     }
 }
