@@ -85,3 +85,26 @@ final class CopiedFileImportService {
     }
 }
 
+
+// MARK: - 复制导入文件载体（CopiedImportFile pickerCopy 构造域确证）
+
+/// 复制导入文件（CopiedImportFile pickerCopy 构造域确证；deinit L20-22）。
+final class CopiedImportFile {
+
+    let sourceURL: URL
+
+    /// 伪代码 CopiedImportFile(pickerCopy:)（closure 链确证）。
+    init(pickerCopy url: URL) {
+        sourceURL = url
+    }
+
+    /// 伪代码 0x1003119f8（L5）：id varinit（Foundation.UUID 域确证）。
+    var id: UUID {
+        UUID()
+    }
+
+    /// 伪代码 deinit（L20-22）：临时副本生命周期由文件会话管理。
+    deinit {
+        // 临时副本生命周期由 pickerCopy 域管理。
+    }
+}
