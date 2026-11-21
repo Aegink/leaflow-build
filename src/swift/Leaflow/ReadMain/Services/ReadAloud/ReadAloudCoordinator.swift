@@ -62,7 +62,8 @@ final class ReadAloudCoordinator: ObservableObject {
     private var segmentQueue: [ReadAloudSegment] = []
     private var owner: ReadAloudSessionOwner?
 
-    /// init 桥（factory + 会话域）。
+    /// init 桥（factory + 会话域）。nowPlayingController 以 Noop 控制器
+    /// 初始化（私有域，wave-16）。
     init(
         factory: DefaultReadAloudDriverFactory,
         audioSession: ReadAloudAudioSessionControlling? = nil,
@@ -70,6 +71,7 @@ final class ReadAloudCoordinator: ObservableObject {
     ) {
         self.factory = factory
         self.audioSession = audioSession ?? ReadAloudAudioSessionController()
+        self.nowPlayingController = NoopNowPlayingController()
         self.errorPresenter = errorPresenter
             ?? DefaultReadAloudErrorPresenter { _, _ in }
     }

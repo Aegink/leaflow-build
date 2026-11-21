@@ -736,11 +736,12 @@ struct PageViewController: UIViewControllerRepresentable {
             }
 
             /// 伪代码 0x100770924（L706-728）：接受待定目标。
+            /// accept 返回 Bool 透传（签名域确证，wave-16）。
             func acceptPendingTarget(
                 _ target: PageCurlPageKey, start: PageCurlPageKey, event: String
             ) -> Bool {
                 _ = event
-                turnState.accept(target: target, start: start) { start, target in
+                return turnState.accept(target: target, start: start) { start, target in
                     // 方向解析（resolver.direction 语义；closure 0x100767f2c
                     // 的 "-" 拼接为调试布局键）。
                     _ = "\(start.description)-\(target.description)"
