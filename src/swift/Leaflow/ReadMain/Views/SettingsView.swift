@@ -56,13 +56,22 @@ struct SettingsView: View {
     }
 
     /// activeNavigationPath getter（签名域确证：外层优先）。
+    /// 外层缺失 → 本地路由路径（无捕获闭包域——wave-81）。
     private var activeNavigationPath: Binding<NavigationPath> {
-        if let outer = _navigationPath.wrappedValue {
-            return Binding(
-                get: { _navigationPath.wrappedValue ?? outer },
-                set: { _navigationPath.wrappedValue = $0 })
-        }
-        return $localNavigationPath
+        Binding(
+            get: {
+                if let outer = _navigationPath.wrappedValue {
+                    return outer
+                }
+                return localNavigationPath
+            },
+            set: {
+                if _navigationPath.wrappedValue != nil {
+                    _navigationPath.wrappedValue = $0
+                } else {
+                    localNavigationPath = $0
+                }
+            })
     }
 
     var body: some View {
