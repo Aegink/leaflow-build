@@ -308,7 +308,7 @@ final class ChapterTitleSnapshotService: NSObject, WKNavigationDelegate {
         let html = ChapterTitleHTMLRenderer().buildHTML(
             template: template, title: title, chapterIndex: chapterIndex,
             width: width, height: height,
-            chapterNumberRegex: "\\\\d+",
+            chapterNumberRegex: "\\d+",
             fontFamily: settings.fontName,
             useCustomFont: settings.fontName != "System",
             embeddedFontFaceCSS: nil,
@@ -336,7 +336,7 @@ final class ChapterTitleSnapshotService: NSObject, WKNavigationDelegate {
         let html = ChapterTitleHTMLRenderer().buildResponsiveHTML(
             template: template, title: title, chapterIndex: chapterIndex,
             width: width,
-            chapterNumberRegex: "\\\\d+",
+            chapterNumberRegex: "\\d+",
             fontFamily: settings.fontName,
             useCustomFont: settings.fontName != "System",
             embeddedFontFaceCSS: nil,

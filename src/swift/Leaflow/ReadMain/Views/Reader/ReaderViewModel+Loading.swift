@@ -46,7 +46,7 @@ extension ReaderViewModel {
     ) async {
         isLoadingPage = true
         defer { isLoadingPage = false }
-        Logger.log("loadBook begin id=\\(bookId ?? -1) refresh=\\(needRefresh)", level: .verbose)
+        Logger.log("loadBook begin id=\(bookId ?? -1) refresh=\(needRefresh)", level: .verbose)
 
         // 章节内容装配（chapterContents/chapterPages/chapterPageMeta）。
         // 完整分支（书源解析/缓存命中/占位页插入）待真机对照。
@@ -64,7 +64,7 @@ extension ReaderViewModel {
     /// 章节缓存日志（closure 0x10087f950，L260；BrowserHelper.canOpen 参与确证）。
     func logChapterCacheStats() {
         Logger.log(
-            "chapterCache chapters=\\(chapterContents.count) meta=\\(chapterPageMeta.count)",
+            "chapterCache chapters=\(chapterContents.count) meta=\(chapterPageMeta.count)",
             level: .verbose)
     }
 }

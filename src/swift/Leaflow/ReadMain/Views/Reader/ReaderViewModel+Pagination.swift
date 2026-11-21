@@ -112,7 +112,7 @@ extension ReaderViewModel {
         if preservePosition, let preserved = preservedPageIndex {
             currentPageIndex = preserved
         }
-        Logger.log("mergePages count=\\(newPages.count) preserved=\\(String(describing: preservedPageIndex))", level: .verbose)
+        Logger.log("mergePages count=\(newPages.count) preserved=\(String(describing: preservedPageIndex))", level: .verbose)
     }
 
     /// 伪代码 0x100891ad4（L422-430）：占位抑制（Task 确证）。
@@ -140,7 +140,7 @@ extension ReaderViewModel {
     /// 伪代码 0x10088f87c（L283-298）：分页失败处理（UIApplication 确证）。
     func handlePaginationFailure(_ error: Error, notify: Bool) {
         hasError = true
-        Logger.log("pagination failure \\(error)", level: .warning)
+        Logger.log("pagination failure \(error)", level: .warning)
         if notify {
             Task { @MainActor in
                 NotificationCenter.default.post(

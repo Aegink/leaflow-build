@@ -181,7 +181,7 @@ final class ReaderViewModel {
 
     /// 章节缓存键（骨架签名）。
     var chapterCacheKey: String {
-        "\\(bookName)#\\(currentChapterIndex)"
+        "\(bookName)#\(currentChapterIndex)"
     }
 }
 

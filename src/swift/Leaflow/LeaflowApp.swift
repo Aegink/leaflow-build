@@ -227,7 +227,7 @@ struct LeaflowApp: App {
         _ result: HighlightRuleImportResult?
     ) -> String? {
         guard let result else { return nil }
-        return "导入 \\(result.importedCount) 条高亮规则"
+        return "导入 \(result.importedCount) 条高亮规则"
     }
 
     // MARK: 顶层控制器定位

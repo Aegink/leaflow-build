@@ -102,12 +102,12 @@ struct LayoutSettingsSection: View {
             Text("段落")
                 .appThemeText(.headline)
             Stepper(
-                "行距 \\(Int(settings.lineSpacing))",
+                "行距 \(Int(settings.lineSpacing))",
                 value: Binding(
                     get: { settings.lineSpacing },
                     set: { settings.lineSpacing = $0 }), in: 0...24)
             Stepper(
-                "段距 \\(Int(settings.paragraphSpacing))",
+                "段距 \(Int(settings.paragraphSpacing))",
                 value: Binding(
                     get: { settings.paragraphSpacing },
                     set: { settings.paragraphSpacing = $0 }), in: 0...16)

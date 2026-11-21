@@ -94,7 +94,7 @@ final class SelectableReaderTextView: UITextView, ReaderTextSelectionHandling {
         textStorage.addLayoutManager(layoutManager)
         super.init(frame: .zero, textContainer: container)
         commonInit(isSelectable: isSelectable)
-        ReaderPerformanceTrace.log("init selectable=\\(isSelectable)")
+        ReaderPerformanceTrace.log("init selectable=\(isSelectable)")
     }
 
     required init?(coder: NSCoder) {

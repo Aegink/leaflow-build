@@ -37,7 +37,7 @@ struct FullTextSearchView: View {
         let chapterIndex: Int
         let pageIndex: Int
         let snippet: String
-        var id: String { "\\(chapterIndex)-\\(pageIndex)" }
+        var id: String { "\(chapterIndex)-\(pageIndex)" }
     }
 
     var body: some View {
