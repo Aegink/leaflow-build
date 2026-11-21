@@ -1183,12 +1183,22 @@ struct AppTheme: Codable, Identifiable, Equatable {
 
     /// textColor(_:colorScheme:)（0x100184498 块体确证：三档级别 ×
     /// 明暗分派 → Color(hex:)）。
-    /// wave-16：新增 SwiftUI 风格档先归一到三档（normalizedLevel）再分派。
+    /// wave-16：SwiftUI 风格档直接按七档穷举映射三色（编译期穷举可达）。
     func textColor(
         _ level: AppThemeTextLevel, colorScheme: ColorScheme
     ) -> Color {
+        // 档位 → 三色归一（normalizedLevel 域同映射）。
+        let normalized: AppThemeTextLevel
+        switch level {
+        case .title, .headline, .body, .primary:
+            normalized = .primary
+        case .subheadline, .secondary:
+            normalized = .secondary
+        case .caption, .tertiary:
+            normalized = .tertiary
+        }
         let hex: String
-        switch (colorScheme, level.normalizedLevel) {
+        switch (colorScheme, normalized) {
         case (.light, .primary):
             hex = primaryTextColorHex
         case (.light, .secondary):
