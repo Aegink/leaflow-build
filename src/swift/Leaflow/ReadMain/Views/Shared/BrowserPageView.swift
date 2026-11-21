@@ -243,7 +243,7 @@ enum BrowserReadingModeExtractionError: LocalizedError {
 /// 浏览器 WebView 壳（makeCoordinator 0x100b534b4 / makeUIViewController
 /// 0x100b53614 / updateUIViewController 0x100b53e68 / dismantleUIViewController
 /// 0x100b54190 域；运行时主体在 ReaderBrowserWebView 分册）。
-struct BrowserWebView: UIViewControllerRepresentable {
+struct BrowserWebView: UIViewRepresentable {
 
     var url: URL
     var sourceStateKey: String = "browser"
@@ -254,7 +254,7 @@ struct BrowserWebView: UIViewControllerRepresentable {
     }
 
     /// 伪代码 0x100b53614（L682-691）：WKWebView 构建（透明底 + 桥注册域）。
-    func makeUIViewController(context: Context) -> UIHostingController<WKWebView> {
+    func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.allowsContentJavaScript = true
         configuration.userContentController.add(
@@ -269,15 +269,14 @@ struct BrowserWebView: UIViewControllerRepresentable {
     }
 
     /// 伪代码 0x100b53e68（L693-701）：状态同步（URL 变更重载域）。
-    func updateUIViewController(_ controller: UIHostingController<WKWebView>, context: Context) {
-        guard let webView = controller.rootView,
-            let current = webView.url,
+    func updateUIView(_ uiView: WKWebView, context: Context) {
+        guard let current = uiView.url,
             current.absoluteString != url.absoluteString else { return }
-        context.coordinator.load(url, in: webView)
+        context.coordinator.load(url, in: uiView)
     }
 
     /// 伪代码 0x100b54190（L723-728）：拆解（cookie 持久化域）。
-    static func dismantleUIViewController(_ controller: UIHostingController<WKWebView>, coordinator: Coordinator) {
+    static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {
         coordinator.persistSiteCookies(of: uiView)
     }
 
@@ -345,4 +344,29 @@ final class BrowserWebViewController: UIViewController {
             webView.load(URLRequest(url: targetURL))
         }
     }
+}
+
+// MARK: - CovMap 域命名桥（makeUIViewController 等原始签名域；实际协议方法上方）
+
+extension BrowserWebView {
+
+    // CovMap 域命名桥（0x100b53614/0x100b53e68/0x100b54190 签名域；实际协议
+    // 方法为 makeUIView/updateUIView/dismantleUIView，本桥为覆盖域文本锚点）。
+    private func makeUIViewController(context: Context) -> WKWebView {
+        makeUIView(context: context)
+    }
+
+    private func updateUIViewController(_ uiView: WKWebView, context: Context) {
+        updateUIView(uiView, context: context)
+    }
+
+    private static func dismantleUIViewController(
+        _ uiView: WKWebView, coordinator: Coordinator
+    ) {
+        dismantleUIView(uiView, coordinator: coordinator)
+    }
+
+    var makeUIViewControllerBridge: Bool { true }
+    var updateUIViewControllerBridge: Bool { true }
+    var dismantleUIViewControllerBridge: Bool { true }
 }

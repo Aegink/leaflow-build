@@ -153,6 +153,11 @@ struct SearchRule: Codable, Equatable {
     init() {}
 }
 
+    static func == (lhs: SearchRule, rhs: SearchRule) -> Bool {
+        lhs.checkKeyWord == rhs.checkKeyWord && lhs.bookList == rhs.bookList && lhs.name == rhs.name && lhs.author == rhs.author && lhs.coverUrl == rhs.coverUrl && lhs.intro == rhs.intro && lhs.kind == rhs.kind && lhs.lastChapter == rhs.lastChapter && lhs.bookUrl == rhs.bookUrl && lhs.wordCount == rhs.wordCount
+    }
+
+
 struct TocRule: Codable, Equatable {
     var chapterList: String = ""
     var chapterName: String = ""
@@ -165,6 +170,11 @@ struct TocRule: Codable, Equatable {
     init() {}
 }
 
+    static func == (lhs: TocRule, rhs: TocRule) -> Bool {
+        lhs.chapterList == rhs.chapterList && lhs.chapterName == rhs.chapterName && lhs.chapterUrl == rhs.chapterUrl && lhs.isVolume == rhs.isVolume && lhs.isVip == rhs.isVip && lhs.updateTime == rhs.updateTime && lhs.nextTocUrl == rhs.nextTocUrl
+    }
+
+
 struct ContentRule: Codable, Equatable {
     var content: String = ""
     var nextContentUrl: String = ""
@@ -176,6 +186,11 @@ struct ContentRule: Codable, Equatable {
 
     init() {}
 }
+
+    static func == (lhs: ContentRule, rhs: ContentRule) -> Bool {
+        lhs.content == rhs.content && lhs.nextContentUrl == rhs.nextContentUrl && lhs.webJs == rhs.webJs && lhs.sourceRegex == rhs.sourceRegex && lhs.replaceRegex == rhs.replaceRegex && lhs.imageStyle == rhs.imageStyle && lhs.payAction == rhs.payAction
+    }
+
 
 struct BookInfoRule: Codable, Equatable {
     var initRule: String = ""
@@ -191,6 +206,11 @@ struct BookInfoRule: Codable, Equatable {
     init() {}
 }
 
+    static func == (lhs: BookInfoRule, rhs: BookInfoRule) -> Bool {
+        lhs.initRule == rhs.initRule && lhs.name == rhs.name && lhs.author == rhs.author && lhs.kind == rhs.kind && lhs.wordCount == rhs.wordCount && lhs.lastChapter == rhs.lastChapter && lhs.intro == rhs.intro && lhs.coverUrl == rhs.coverUrl && lhs.tocUrl == rhs.tocUrl
+    }
+
+
 struct ExploreRule: Codable, Equatable {
     var exploreUrl: String = ""
     var bookList: String = ""
@@ -205,6 +225,11 @@ struct ExploreRule: Codable, Equatable {
 
     init() {}
 }
+
+    static func == (lhs: ExploreRule, rhs: ExploreRule) -> Bool {
+        lhs.exploreUrl == rhs.exploreUrl && lhs.bookList == rhs.bookList && lhs.name == rhs.name && lhs.author == rhs.author && lhs.coverUrl == rhs.coverUrl && lhs.intro == rhs.intro && lhs.kind == rhs.kind && lhs.lastChapter == rhs.lastChapter && lhs.bookUrl == rhs.bookUrl && lhs.wordCount == rhs.wordCount
+    }
+
 
 struct ReviewRule: Codable {
     var reviewList: String = ""
@@ -403,5 +428,15 @@ struct BookSource: Codable, Identifiable, Equatable {
     /// 有状态判定（骨架签名 hasStoredState(_)）。
     static func hasStoredState(_ key: String, source: BookSource) -> Bool {
         UserDefaults.standard.object(forKey: "\(source.stateKey).\(key)") != nil
+    }
+}
+
+extension BookSource {
+
+    /// 手工 ==（Equatable 合成对 `init` 反引号/backtick 成员不稳定——构建域桥）。
+    static func == (lhs: BookSource, rhs: BookSource) -> Bool {
+        lhs.bookSourceUrl == rhs.bookSourceUrl
+            && lhs.bookSourceName == rhs.bookSourceName
+            && lhs.enabled == rhs.enabled
     }
 }
