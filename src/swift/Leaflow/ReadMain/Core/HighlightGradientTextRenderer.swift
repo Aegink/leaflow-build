@@ -1753,10 +1753,12 @@ enum HighlightGradientTextRenderer {
         // 目标字符 offset 所在 fragment（NSTextContentManager.offset 域；
         // 字符级定位无公开 API——fragment 粒度，还原推断；记入仍不清楚，
         // wave-16）。
-        guard let contentManager = textLayoutManager.textContentManager,
-              let start = contentManager.documentRange.location else {
+        // documentRange.location/endLocation 均为非可选（NSTextRange 域，
+        // wave-16）。
+        guard let contentManager = textLayoutManager.textContentManager else {
             return nil
         }
+        let start = contentManager.documentRange.location
         let documentEnd = contentManager.documentRange.endLocation
         let documentLength = contentManager.offset(
             from: start, to: documentEnd)
@@ -1769,8 +1771,8 @@ enum HighlightGradientTextRenderer {
         var foundStart = false
         textLayoutManager.enumerateTextLayoutFragments(
             from: start, options: []) { fragment in
-            let fragmentStart = fragment.rangeInTextLocation.location
-            let fragmentEnd = fragment.rangeInTextLocation.endLocation
+            let fragmentStart = fragment.characterRange.location
+            let fragmentEnd = fragment.characterRange.endLocation
             let fragmentOffset = contentManager.offset(
                 from: start, to: fragmentStart)
             let fragmentLength = contentManager.offset(
@@ -1791,7 +1793,7 @@ enum HighlightGradientTextRenderer {
         guard let startLocation, let endLocation else {
             return nil
         }
-        return NSTextRange(location: startLocation, endLocation: endLocation)
+        return NSTextRange(location: startLocation, end: endLocation)
     }
 
     /// replaceCommentAttachmentsWithTransparentPlaceholders(in:)
