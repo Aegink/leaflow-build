@@ -77,14 +77,13 @@ final class URLSessionTransport {
             withResponseHeaderFields:
                 request.allHTTPHeaderFields ?? [:],
             for: request.url ?? URL(string: "https://localhost")!)
-            let existing = HTTPCookieStorage.shared.cookies(
-                for: synced.url ?? URL(string: "https://localhost")!) ?? []
-            for cookie in cookies {
-                HTTPCookieStorage.shared.deleteCookie(cookie)
-            }
-            for cookie in cookies {
-                HTTPCookieStorage.shared.setCookie(cookie)
-            }
+        let existing = HTTPCookieStorage.shared.cookies(
+            for: synced.url ?? URL(string: "https://localhost")!) ?? []
+        for cookie in cookies {
+            HTTPCookieStorage.shared.deleteCookie(cookie)
+        }
+        for cookie in cookies {
+            HTTPCookieStorage.shared.setCookie(cookie)
         }
         if let accept = request.value(forHTTPHeaderField: "Accept") {
             synced.setValue(accept, forHTTPHeaderField: "Accept")
