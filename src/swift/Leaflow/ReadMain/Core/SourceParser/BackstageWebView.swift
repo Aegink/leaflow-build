@@ -87,6 +87,7 @@ final class BackstageWebView: NSObject {
 
     override init() {
         webView = WKWebView(frame: .zero, configuration: WebViewPool.shared.makeConfiguration())
+        super.init()
         webView.configuration.userContentController.add(self, name: "qireader")
     }
 

@@ -165,13 +165,12 @@ struct ChapterTitleFontPickerView: View {
         // 伪代码 0x1006aeb34（L257-281）。Section 用 header: 实参域
         // （双尾随闭包歧义消解，wave-16）。
         List {
-            Section {
+            // Section(title) { content } 单尾随形式（双尾随歧义消解，wave-16）。
+            Section("字体") {
                 fontRow(name: "System", displayName: "系统字体")
                 ForEach(fonts) { font in
                     fontRow(name: font.name, displayName: font.displayName)
                 }
-            } header: {
-                Text("字体")
             }
         }
     }

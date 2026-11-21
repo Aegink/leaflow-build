@@ -29,7 +29,8 @@ final class BlockingLane {
     }
 
     /// 伪代码 0x100285600（L45-60）：在车道上同步执行。
-    func run<T: Sendable>(_ work: @Sendable () throws -> T) async throws -> T {
+    /// work @escaping：queue.async 闭包捕获域（wave-16）。
+    func run<T: Sendable>(_ work: @escaping @Sendable () throws -> T) async throws -> T {
         try await withCheckedThrowingContinuation { continuation in
             queue.async {
                 do {
