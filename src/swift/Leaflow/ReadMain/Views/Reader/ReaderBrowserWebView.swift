@@ -140,11 +140,14 @@ struct ReaderBrowserWebView: UIViewRepresentable {
             let trimmed = String(piece).trimmingCharacters(in: .whitespaces)
             let parts = trimmed.split(separator: "=", maxSplits: 1)
             guard parts.count == 2 else { return nil }
-            return HTTPCookie(
-                name: String(parts[0]),
-                value: String(parts[1]),
-                domain: host,
-                path: "/")
+            // HTTPCookie properties 构造域（name/value/domain/path
+            // 标签构造无此重载——properties 域桥，wave-71）。
+            return HTTPCookie(properties: [
+                .name: String(parts[0]),
+                .value: String(parts[1]),
+                .domain: host,
+                .path: "/",
+            ])
         }
     }
 

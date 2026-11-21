@@ -170,10 +170,16 @@ enum ReaderPaginator {
             options: [.ensuresLayout, .estimatesSize]
         ) { fragment in
             let fragmentRange = fragment.rangeInElement
-            // NSTextRange→NSAttributedString 桥：range(for:) 归一 NSRange +
-            // textStorage attributedSubstring（SDK 域桥，wave-68）。
-            guard let nsRange = contentStorage.range(for: fragmentRange),
-                  let fullStorage = contentStorage.textStorage,
+            // NSTextRange→NSRange 桥：documentRange 起点偏移换算
+            //（offset(from:to:) SDK 域桥，wave-71）。
+            let docStart = contentStorage.documentRange.location
+            let startOffset = contentStorage.offset(
+                from: docStart, to: fragmentRange.location)
+            let endOffset = contentStorage.offset(
+                from: docStart, to: fragmentRange.endLocation)
+            let nsRange = NSRange(
+                location: startOffset, length: endOffset - startOffset)
+            guard let fullStorage = contentStorage.textStorage,
                   nsRange.location != NSNotFound,
                   nsRange.location + nsRange.length <= fullStorage.length
             else { return true }

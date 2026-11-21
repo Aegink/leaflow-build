@@ -1,0 +1,2 @@
+error: argument passed to call that takes no arguments
+error: value of type 'NSTextContentStorage' has no member 'range'
