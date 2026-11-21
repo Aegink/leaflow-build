@@ -1122,4 +1122,8 @@ extension ReadingSettings {
         case modal
         case inline
     }
+
+    /// 段评浮层呈现态（ReaderSettingsView Binding 消费域确证，
+    /// wave-16 补成员；默认模态——还原推断）。
+    var paragraphCommentBrowser: ParagraphCommentBrowserPresentation = .modal
 }

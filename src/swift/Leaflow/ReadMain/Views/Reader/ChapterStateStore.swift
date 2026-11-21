@@ -116,7 +116,8 @@ struct ReaderRenderSnapshot {
 /// 状态机：loading → ready（setChapterPages）或 failed（markFailed）。
 final class ChapterStateStore {
 
-    private(set) var pages: [PageData] = []
+    // wave-16：+Loading 分册扩展（跨文件）有写入——setter 放宽到 internal。
+    var pages: [PageData] = []
     private(set) var snapshot: ReaderRenderSnapshot
     private(set) var loadingChapters: Set<Int> = []
     private(set) var failedChapters: [Int: String] = [:]

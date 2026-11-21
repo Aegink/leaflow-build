@@ -69,9 +69,11 @@ struct ReaderWidgetRefreshEvent: Equatable {
 
 /// widget 装配配置（PageContentViews+Widgets 消费域确证：settings →
 /// widgets 列表——layoutWidgets 装配源，wave-16 补桥）。
+/// init @MainActor：layoutWidgets 属 @MainActor ReadingSettings 域。
 struct ReaderWidgetConfiguration {
     let widgets: [LayoutWidget]
 
+    @MainActor
     init(settings: ReadingSettings) {
         widgets = settings.layoutWidgets
     }

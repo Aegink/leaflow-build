@@ -44,20 +44,20 @@ struct ReaderView: View {
                 .ignoresSafeArea()
                 .modifier(CommentBrowserSheetPresentationModifier(isVisible: showCommentBrowser))
                 .toolbar {
-                    ToolbarItemGroup(placement: .navigationBarTrailing) {
-                        Button {
-                            showChapterList = true
-                        } label: {
+                    // ToolbarItemGroup 对 ToolbarContent/View 双重符合会触发
+                    // toolbar(content:) 重载歧义——改用三个独立 ToolbarItem。
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(action: { showChapterList = true }) {
                             Image(systemName: "list.bullet")
                         }
-                        Button {
-                            showSearch = true
-                        } label: {
+                    }
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(action: { showSearch = true }) {
                             Image(systemName: "magnifyingglass")
                         }
-                        Button {
-                            showSettings = true
-                        } label: {
+                    }
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(action: { showSettings = true }) {
                             Image(systemName: "textformat")
                         }
                     }

@@ -57,7 +57,7 @@ extension ReaderViewModel {
 
     /// 持久化源状态摘要（伪代码 0x100878cfc，L227-246；closure 0x10087d920）。
     func debugPersistentSourceStateSummary() -> String {
-        let sourceName = currentBookSource?.name ?? "-"
+        let sourceName = currentBookSource?.bookSourceName ?? "-"
         return "source=\(sourceName) chapters=\(chapterContents.count) pages=\(pages.count)"
     }
 

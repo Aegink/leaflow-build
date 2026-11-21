@@ -41,13 +41,14 @@ extension ReaderViewModel {
     }
 
     /// 伪代码 0x100643cf8（L46-80）：设置签名。
+    /// settings 为可选（weak 引用域）——可选键入哈希（wave-16）。
     var webViewSettingsSignature: Int {
         var hasher = Hasher()
-        hasher.combine(settings.fontSize)
-        hasher.combine(settings.lineSpacing)
-        hasher.combine(settings.letterSpacing)
-        hasher.combine(settings.verticalJustify)
-        hasher.combine(settings.textAlignment)
+        hasher.combine(settings?.fontSize)
+        hasher.combine(settings?.lineSpacing)
+        hasher.combine(settings?.letterSpacing)
+        hasher.combine(settings?.verticalJustify)
+        hasher.combine(settings?.textAlignment)
         return hasher.finalize()
     }
 
@@ -57,9 +58,11 @@ extension ReaderViewModel {
     }
 
     /// 章节载荷（闭包 ×3 确证，L123）。
-    func webViewChapterPayload(for index: Int, forceRefresh: Bool) -> WebViewVerticalScrollChapterPayload? {
+    func webViewChapterPayload(
+        for index: Int, forceRefresh: Bool
+    ) -> WebViewVerticalScrollChapterPayload? {
         let content = chapterContents.indices.contains(index) ? chapterContents[index] : ""
-        guard !content.isEmpty else { return nil }
+        guard !content.isEmpty, let settings else { return nil }
         let html = WebViewChapterHTMLBuilder.build(content: content, settings: settings)
         return WebViewVerticalScrollPayloadFactory.chapterPayload(
             chapterIndex: index,
