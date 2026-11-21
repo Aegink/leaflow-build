@@ -782,8 +782,4 @@ extension AnalyzeRule {
         get { storedSearchResultLimitHintIsSet }
         set { storedSearchResultLimitHintIsSet = newValue }
     }
-
-    /// 事实 23 存储域（wave-16 补成员）。
-    var storedSearchResultLimitHint: Int = 0
-    var storedSearchResultLimitHintIsSet: Bool = false
 }

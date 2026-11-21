@@ -82,6 +82,11 @@ final class AnalyzeRule {
     var variableMap: [String: String] = [:]
     private var cachedBookVariables: [String: String] = [:]
 
+    /// 事实 23 存储域：searchResultLimitHint（ElementExtraction 扩展计算
+    /// 属性的 backing，wave-16 补成员）。
+    var storedSearchResultLimitHint: Int = 0
+    var storedSearchResultLimitHintIsSet: Bool = false
+
     /// 事实 9：生命周期辅助。
     var isExecutionCancelled: Bool = false
     private var ownedJSContext: JSContext?
