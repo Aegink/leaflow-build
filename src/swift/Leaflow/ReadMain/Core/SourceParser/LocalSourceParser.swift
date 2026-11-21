@@ -69,8 +69,8 @@ final class LocalSourceParser {
         let elements = analyzer.getElements(rule: tocRule.chapterList, maxResults: nil)
         return elements.enumerated().map { index, element in
             BookChapter(
-                title: element.getString(rule: tocRule.chapterName ?? "") ?? "",
-                url: element.getString(rule: tocRule.chapterUrl ?? "") ?? "",
+                title: element.getString(rule: tocRule.chapterName, isUrl: false) ?? "",
+                url: element.getString(rule: tocRule.chapterUrl, isUrl: false) ?? "",
                 index: index
             )
         }

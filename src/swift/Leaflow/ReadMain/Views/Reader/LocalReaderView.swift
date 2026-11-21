@@ -165,12 +165,12 @@ struct LocalReaderView: View {
                 viewModel?.chapterContents.indices.contains(index) == true
                     ? viewModel!.chapterContents[index] : ""
             },
+            chapterCount: viewModel?.chapterContents.count ?? 0,
             onPickResult: { chapterIndex, _ in
                 Task {
                     await viewModel?.jumpToChapter(chapterIndex, coordinateReadAloud: false)
                 }
-            },
-            chapterCount: viewModel?.chapterContents.count ?? 0)
+            })
     }
 
     /// 章节列表 sheet。

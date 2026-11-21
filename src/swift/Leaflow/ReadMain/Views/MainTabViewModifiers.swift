@@ -39,7 +39,7 @@ struct MainTabChromeModifier: ViewModifier {
                 // closure #1 (Bool, Bool) 双态域确证：前台回归同步。
                 syncUIKitAppearance()
             }
-            .onChange(of: statisticsVisibility) { newValue in
+            .onChange(of: statisticsVisibility) { _, newValue in
                 handleStatisticsVisibilityChange(newValue)
             }
             .onReceive(AppThemeManager.shared.objectWillChange) { _ in

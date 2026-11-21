@@ -818,6 +818,9 @@ final class ListeningDurationTracker {
     /// 伪代码 0x1001f9080（resumeSession 域）：暂停中 → 重置会话起点。
     func resumeSession() {
         guard sessionStart != nil, paused else { return }
+        sessionStart = ProcessInfo.processInfo.systemUptime
+        paused = false
+    }
 
     /// saveIncremental 桥（saveProgress 调用域确证；checkpoint 域
     /// 推断对齐 ReadingDurationTracker.saveIncremental——真机核清项）。
@@ -826,9 +829,6 @@ final class ListeningDurationTracker {
         totalDuration += max(
             ProcessInfo.processInfo.systemUptime - start, 0)
         sessionStart = ProcessInfo.processInfo.systemUptime
-    }
-        sessionStart = ProcessInfo.processInfo.systemUptime
-        paused = false
     }
 }
 

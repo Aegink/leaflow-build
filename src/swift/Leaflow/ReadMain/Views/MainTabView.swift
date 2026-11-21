@@ -77,9 +77,12 @@ struct MainTabView: View {
         Group {
             if AppThemeManager.shared.useClassicTabBar {
                 nativeClassicTabView
-            } else {
+            } else if #available(iOS 18.0, *) {
+                // tabBarMinimizeBehavior iOS 18+ 域（部署目标 17.0 门）。
                 nativeSearchTabView
                     .tabBarMinimizeBehavior(.onScrollDown)
+            } else {
+                nativeSearchTabView
             }
         }
         .id(tabAppearanceSignature)
