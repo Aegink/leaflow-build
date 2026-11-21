@@ -49,7 +49,8 @@ struct CloudDriveSettingsView: View {
         }
         .navigationTitle("网盘同步")
         .sheet(item: $editSheet) { item in
-            WebDAVEditView(existingConfig: item.config)
+            // WebDAVEditView 形参为 existing（签名域确证）。
+            WebDAVEditView(existing: item.config)
         }
         .alert(
             "删除目的地",
@@ -119,7 +120,7 @@ struct CloudDriveSettingsView: View {
             } label: {
                 HStack {
                     AppThemeSettingsLabel(
-                        title: "添加 WebDAV", systemImage: "plus.circle")
+                        "添加 WebDAV", systemImage: "plus.circle")
                     Spacer()
                 }
                 .contentShape(Rectangle())
@@ -139,7 +140,7 @@ struct CloudDriveSettingsView: View {
         settingsCardRow(topGap: 12, action: isEnabled ? onSelect : nil) {
             HStack {
                 AppThemeSettingsLabel(
-                    title: title, systemImage: systemImage)
+                    title, systemImage: systemImage)
                 Spacer()
                 if let subtitle {
                     Text(subtitle)

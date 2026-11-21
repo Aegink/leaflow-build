@@ -145,7 +145,7 @@ struct ChapterTitleHTMLEditorView: View {
             html += token
         } label: {
             Text(title)
-                .font(.readerUI(.caption, weight: .medium))
+                .font(.readerUI(.caption).weight(.medium))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)
                 .background(Color.accentColor.opacity(0.12))

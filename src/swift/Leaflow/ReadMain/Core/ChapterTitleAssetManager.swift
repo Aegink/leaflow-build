@@ -101,7 +101,8 @@ final class ChapterTitleAssetManager {
 
     /// 伪代码 0x1001a7bc4（L102-128）：打包资产导入（Data.write(to:options:1) L609 确证）。
     func importPackagedAsset(_ asset: ChapterTitlePackagedAsset) throws -> ChapterTitleAsset {
-        guard Self.isSafeAssetID(asset.id) else {
+        // isSafeAssetID 为实例域（签名确证）——直接调用。
+        guard isSafeAssetID(asset.id) else {
             throw ChapterTitleAssetError.invalidAssetID(asset.id)
         }
         let ext = Self.normalizedExtension(asset.preferredFilename)
@@ -257,13 +258,15 @@ final class ChapterTitleAssetURLSchemeHandler: NSObject, WKURLSchemeHandler {
                   ? url.pathComponents.last : nil,
               let localURL = assetManager.localURL(for: assetID),
               let data = try? Data(contentsOf: localURL) else {
+            // guard 绑定在失败块不可见——经请求 URL 回取（wave-16）。
             urlSchemeTask.didFailWithError(
-                ChapterTitleAssetError.notFound(url?.absoluteString ?? ""))
+                ChapterTitleAssetError.notFound(
+                    urlSchemeTask.request.url?.absoluteString ?? ""))
             return
         }
         let response = URLResponse(
             url: url,
-            mimeType: Self.contentType(for: localURL),
+            mimeType: ChapterTitleAssetManager.contentType(for: localURL),
             expectedContentLength: data.count,
             textEncodingName: nil)
         urlSchemeTask.didReceive(response)

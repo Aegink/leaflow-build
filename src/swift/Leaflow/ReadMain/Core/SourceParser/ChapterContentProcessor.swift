@@ -26,22 +26,30 @@ enum ChapterContentProcessor {
     }
 
     /// 伪代码 0x1000cb584（L134-148）。
+    /// stringByReplacingMatches 仅接受模板串——闭包替换改走
+    /// enumerateMatches + NSMutableString（wave-16）。
     static func normalizeImageTags(_ content: String, redirectUrl: String?) -> String {
         guard let regex = try? NSRegularExpression(pattern: "<img[^>]+src=\"([^\"]+)\"[^>]*>")
         else { return content }
         let range = NSRange(content.startIndex..<content.endIndex, in: content)
-        return regex.stringByReplacingMatches(
+        let mutable = NSMutableString(string: content)
+        regex.enumerateMatches(
             in: content, options: [], range: range
-        ) { match in
-            guard let source = extractImageSource(from: match, in: content) else { return "" }
-            let resolved = redirectUrl.map { resolveRelative(source, base: $0) } ?? source
-            return "<img src="\(resolved)">"
+        ) { match, _, _ in
+            guard let match,
+                  let source = extractImageSource(from: match, in: content)
+            else { return }
+            let resolved = redirectUrl.map { resolveRelative(source, base: $0) }
+                ?? source
+            mutable.replaceCharacters(
+                in: match.range, with: "<img src=\"\(resolved)\">")
         }
+        return mutable as String
     }
 
     /// 伪代码 0x1000cb834（L155-162）。
     private static func normalizedImageTag(_ source: String) -> String {
-        "<img src="\(source)">"
+        "<img src=\"\(source)\">"
     }
 
     /// 伪代码 0x1000cba44（L164-217）。

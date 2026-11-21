@@ -50,19 +50,17 @@ final class CookiePersistenceService {
     // MARK: 读写
 
     /// 伪代码 0x100304ddc（L88-101）：串形式读。
+    /// UserDefaults 无 withValuesOfType 域——stringDictionary 键值域桥。
     func getCookies(for host: String) -> String {
-        let map = cookieMap(from: defaults.dictionary(
-            withValuesOfType: String.self, forKey: keyPrefix + host) ?? [:])
-        return map.map { "\($0.key)=\($0.value)" }
+        let stored = defaults.stringDictionary(forKey: keyPrefix + host) ?? [:]
+        return stored.map { "\($0.key)=\($0.value)" }
             .sorted()
             .joined(separator: "; ")
     }
 
     /// 伪代码 0x1003043fc（L181-216）：响应 cookie 保存。
     func saveResponseCookies(_ cookies: [HTTPCookie], for host: String) {
-        var map = defaults.dictionary(
-            withValuesOfType: String.self,
-            forKey: keyPrefix + host) as? [String: String] ?? [:]
+        var map = defaults.stringDictionary(forKey: keyPrefix + host) ?? [:]
         for cookie in cookies {
             map[cookie.name] = cookie.value
         }
@@ -72,9 +70,7 @@ final class CookiePersistenceService {
 
     /// 伪代码 0x10030aa04（L154-177）：按名删除。
     private func removeCookieNames(_ names: Set<String>, for host: String) {
-        var map = defaults.dictionary(
-            withValuesOfType: String.self,
-            forKey: keyPrefix + host) as? [String: String] ?? [:]
+        var map = defaults.stringDictionary(forKey: keyPrefix + host) ?? [:]
         for name in names {
             map.removeValue(forKey: name)
         }
@@ -85,7 +81,7 @@ final class CookiePersistenceService {
     /// 伪代码 0x100305360（L389-432）：按 host 全删。
     func removeCookies(for host: String) {
         defaults.removeObject(forKey: keyPrefix + host)
-        let forms = domainForms(host)
+        let forms = Self.domainForms(host)
         for form in forms where form != host {
             defaults.removeObject(forKey: keyPrefix + form)
         }
@@ -93,9 +89,9 @@ final class CookiePersistenceService {
     }
 
     /// 伪代码 0x100308b90（L71-84）：书源 cookie 保存。
+    /// mergedHeaderMap 内部读 source.headerMap——外部头注入空表（wave-16）。
     func saveCookies(for source: BookSource) {
-        // source.header 里的 Cookie 串合并（legado 域确证）。
-        let header = LoginService.mergedHeaderMap(source: source, sourceHeaders: [source.header ?? ""])
+        let header = LoginService.mergedHeaderMap(source: source, sourceHeaders: [:])
         if let cookieHeader = header["Cookie"] {
             let map = cookieMap(from: cookieHeader)
             defaults.set(map, forKey: keyPrefix + source.bookSourceUrl)
@@ -127,7 +123,7 @@ final class CookiePersistenceService {
                 }
             }
         }
-        let sourceCookies = source.header?["Cookie"] ?? ""
+        let sourceCookies = source.headerMap["Cookie"] ?? ""
         for part in sourceCookies.split(separator: ";") {
             let pair = part.split(separator: "=", maxSplits: 1)
             if pair.count == 2 {
@@ -224,14 +220,16 @@ final class CookiePersistenceService {
     // MARK: 磁盘
 
     /// 伪代码 0x10030b0ec（L659-668）：磁盘写。
+    /// JSONSerialization 无 write 域——data 写入桥（wave-16）。
     private func saveToDisk() {
         let all = defaults.dictionaryRepresentation()
             .filter { $0.key.hasPrefix(keyPrefix) }
         guard JSONSerialization.isValidJSONObject(all) else { return }
         let url = storageDirectory.appendingPathComponent("cookies.json")
-        try? JSONSerialization.write(
-            JSONSerialization.jsonObject(with: try! JSONSerialization.data(withJSONObject: all)),
-            to: url, options: [.atomic])
+        if let data = try? JSONSerialization.data(
+            withJSONObject: all, options: [.prettyPrinted]) {
+            try? data.write(to: url, options: [.atomic])
+        }
     }
 
     /// 伪代码 0x100308908（L470-483）：磁盘读。

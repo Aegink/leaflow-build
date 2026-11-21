@@ -163,7 +163,8 @@ enum LoginService {
         source: BookSource, sourceHeaders: [String: String]
     ) -> [String: String] {
         var merged = sourceHeaders
-        let persisted = persistedLoginHeader(incomingRawValue: source.header?["Cookie"] ?? "")
+        let persisted = persistedLoginHeader(
+            incomingRawValue: source.headerMap["Cookie"] ?? "")
         if let stored = persisted.storedValue {
             setHeader("Cookie", value: stored, in: &merged)
         } else if let incoming = persisted.incomingValue {

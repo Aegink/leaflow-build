@@ -421,7 +421,8 @@ final class ChapterTitleSnapshotService: NSObject, WKNavigationDelegate {
                     timer.invalidate()
                     return
                 }
-                webView.evaluateJavaScript("document.body.scrollHeight") { result, _ in
+                // webView 属性为可选（WKWebView? 域）——可选链取值（wave-16）。
+                self.webView?.evaluateJavaScript("document.body.scrollHeight") { result, _ in
                     MainActor.assumeIsolated {
                         guard let height = result as? CGFloat, height > 0 else { return }
                         timer.invalidate()

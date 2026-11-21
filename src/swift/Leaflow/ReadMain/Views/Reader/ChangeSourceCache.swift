@@ -27,10 +27,12 @@ final class ChangeSourceCache {
         var totalChapterNum: Int?
 
         /// 伪代码 0x10066e8a8（L38-50）：转换为 Book 模型。
+        /// origin 语义映射到 bookSourceUrl（书源 URL 域——Book 模型字段
+        /// 签名确证，wave-16）。
         func toBook() -> Book {
             var book = Book()
             book.bookUrl = bookUrl
-            book.origin = sourceId
+            book.bookSourceUrl = sourceId
             book.name = title
             book.author = author
             book.coverUrl = coverUrl
@@ -39,10 +41,11 @@ final class ChangeSourceCache {
 
         /// 伪代码 closure #5（0x10066ffb8，L32）：从 Book 构造（字符串规范化字段 1）。
         static func from(_ book: Book) -> SourceItem {
-            SourceItem(
+            let origin = book.bookSourceUrl ?? ""
+            return SourceItem(
                 bookUrl: book.bookUrl,
-                sourceId: book.origin,
-                sourceName: book.origin.isEmpty ? "未知来源" : book.origin,
+                sourceId: book.bookSourceUrl,
+                sourceName: origin.isEmpty ? "未知来源" : origin,
                 title: book.name,
                 author: book.author,
                 coverUrl: book.coverUrl,

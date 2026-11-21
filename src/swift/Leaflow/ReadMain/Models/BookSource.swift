@@ -374,6 +374,17 @@ struct BookSource: Codable, Identifiable, Equatable {
     var variable: String = ""
 
     var header: String?
+
+    /// headerMap 桥（header JSON 串 → 键值域——CookiePersistenceService/
+    /// LoginService 消费域确证；非 JSON 串原样缺失，wave-16 补桥）。
+    var headerMap: [String: String] {
+        guard let header,
+              let data = header.data(using: .utf8),
+              let map = try? JSONSerialization.jsonObject(with: data)
+                  as? [String: String]
+        else { return [:] }
+        return map
+    }
     var loginUrl: String?
     var bookUrlPattern: String?
     var loginUi: String?

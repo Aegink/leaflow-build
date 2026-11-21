@@ -97,7 +97,7 @@ struct ChangeSourceListContent: View {
             Text(book.name)
                 .font(.body)
             HStack {
-                Text(book.origin)
+                Text(book.bookSourceUrl ?? "")
                     .font(.caption)
                     .foregroundColor(.secondary)
                 Spacer()

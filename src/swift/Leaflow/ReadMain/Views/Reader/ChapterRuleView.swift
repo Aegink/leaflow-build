@@ -171,7 +171,8 @@ struct ChapterRulePickerView: View {
         // 伪代码 0x10068e2dc（L220-255）。
         List {
             ForEach(localBookService.books) { book in
-                ruleRow(name: book.title, book: book)
+                // LocalBook 标题域为 name（模型签名确证，wave-16）。
+                ruleRow(name: book.name, book: book)
             }
         }
         .navigationTitle("应用到书")

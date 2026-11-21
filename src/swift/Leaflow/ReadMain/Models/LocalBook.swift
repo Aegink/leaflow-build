@@ -148,6 +148,12 @@ final class ChapterRuleManager: ObservableObject {
         rules
     }
 
+    /// isPresetRule(_:)（ChapterRuleView 消费域确证，wave-16 补桥）。
+    /// 内置预设集未还原——恒 false（全部规则按可编辑处理），记入仍不清楚。
+    func isPresetRule(_ rule: ChapterRule) -> Bool {
+        false
+    }
+
     /// loadRules（0x1002436c8 L174-178 域确证）。
     private func loadRules() {
         guard

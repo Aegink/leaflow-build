@@ -98,10 +98,12 @@ struct ChapterTitleDesignerView: View {
                 let asset = try ChapterTitleAssetManager().importImage(from: url)
                 insertImportedAsset(asset)
             } catch {
-                AppErrorPresenter.show(error.localizedDescription, level: .error)
+                AppErrorPresenter.shared.show(
+                    error.localizedDescription, level: .error)
             }
         case .failure(let error):
-            AppErrorPresenter.show(error.localizedDescription, level: .error)
+            AppErrorPresenter.shared.show(
+                error.localizedDescription, level: .error)
         }
     }
 
@@ -170,7 +172,8 @@ struct ChapterTitleDesignerWebView: UIViewControllerRepresentable {
 /// 设计器 JS 桥（configure/send/handleMessage 链确证）。
 final class ChapterTitleDesignerBridge: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
 
-    private let configuration = WKWebViewConfiguration()
+    // wave-16：访问域放宽（makeUIViewController 消费域——跨类型域）。
+    let configuration = WKWebViewConfiguration()
     private weak var webView: WKWebView?
     private var initialConfig: ChapterTitleConfig
     private var colorScheme: ColorScheme
@@ -324,8 +327,16 @@ private extension ChapterTitleConfig {
 /// UIViewControllerRepresentable 桥形态，本壳承载 UIViewRepresentable 域）。
 struct ChapterTitleDesignerWebViewCanvas: UIViewRepresentable {
 
-    final class Coordinator: NSObject {
+    final class Coordinator: NSObject, WKScriptMessageHandler {
         var pendingPhotoImportRequest = false
+
+        /// WKScriptMessageHandler 协议域（requestImportImageFromPhotos 消息
+        /// 注册确证；相册导入执行体随 T-303 分册落地——记入仍不清楚）。
+        func userContentController(
+            _ userContentController: WKUserContentController,
+            didReceive message: WKScriptMessage
+        ) {
+        }
     }
 
     func makeCoordinator() -> Coordinator {

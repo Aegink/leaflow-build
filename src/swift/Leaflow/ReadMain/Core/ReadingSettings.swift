@@ -231,6 +231,10 @@ final class ReadingSettings: Codable {
     /// wave-16 补成员；默认模态——还原推断）。
     var paragraphCommentBrowser: ParagraphCommentBrowserPresentation = .modal
 
+    /// 自定义章节标题预设（ChapterTitleSettingsView 编辑域确证，
+    /// wave-16 补成员）。
+    var customChapterTitlePresets: [ChapterTitlePreset] = []
+
     // MARK: 非持久化缓存域（伪代码偏移语义映射）
 
     /// 编译规则缓存（offset 400，0x100216b40 写回域）。

@@ -279,12 +279,15 @@ struct ChapterTitleStyleSettingsView: View {
 
     // MARK: 导入导出
 
-    /// 伪代码 0x1006c004c（L619-638）：导出（ChapterTitleStyleFileService.exportFile 域确证）。
+    /// 伪代码 0x1006c004c（L619-638）：导出。
+    /// exportFile 属 ChapterTitleDesignerProject（styleName/light/dark 签名域）。
     private func exportStyles() {
         let manager = ChapterTitleAssetManager()
         do {
-            let url = try ChapterTitleStyleFileService.exportFile(
-                rules: [], suggestedFileName: currentExportStyleName,
+            let url = try ChapterTitleDesignerProject.exportFile(
+                styleName: currentExportStyleName,
+                light: previewTitleConfig(),
+                dark: previewTitleConfig(),
                 assetManager: manager)
             _ = url
         } catch {
@@ -306,14 +309,16 @@ struct ChapterTitleStyleSettingsView: View {
                     into: &library, assetManager: manager)
                 let message = chapterTitleStyleImportMessage(summary)
                 if let message {
-                    AppErrorPresenter.show(message, level: .success)
+                    AppErrorPresenter.shared.show(message, level: .success)
                 }
                 invalidateChapterTitleRender()
             } catch {
-                AppErrorPresenter.show(error.localizedDescription, level: .error)
+                AppErrorPresenter.shared.show(
+                    error.localizedDescription, level: .error)
             }
         case .failure(let error):
-            AppErrorPresenter.show(error.localizedDescription, level: .error)
+            AppErrorPresenter.shared.show(
+                error.localizedDescription, level: .error)
         }
     }
 
@@ -347,8 +352,9 @@ struct ChapterTitleStyleSettingsView: View {
 
 // MARK: - ReadingSettings 桥扩展（已迁回 ReadMain/Core/ReadingSettings.swift，
 // T-1401-01 逐域还原：ChapterTitlePreset + currentChapterTitleConfig 域）
+// wave-16：访问域放宽到 internal（ChapterTitleEditors 消费域）。
 
-private extension ChapterTitleConfig {
+extension ChapterTitleConfig {
     var templateHTML: String? {
         nil
     }

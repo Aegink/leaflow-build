@@ -43,15 +43,17 @@ enum CryptoBridge {
     /// CommonCrypto 一次性摘要桥。
     private static func commonDigest(
         _ data: [UInt8],
-        _ transform: (UnsafeRawPointer, Int, UnsafeMutablePointer<UInt8>)
-            -> UnsafeMutablePointer<UInt8>
+        _ transform: (UnsafeRawPointer?, Int, UnsafeMutablePointer<UInt8>) -> Void
     ) -> [UInt8] {
         // 各算法缓冲上限统一取 SHA512 摘要长度（64）。
         var output = [UInt8](repeating: 0, count: 64)
-        _ = data.withUnsafeBufferPointer { buffer in
-            transform(
-                buffer.baseAddress ?? UnsafeRawPointer([UInt8]()),
-                data.count, &output)
+        data.withUnsafeBufferPointer { buffer in
+            if let base = buffer.baseAddress {
+                transform(UnsafeRawPointer(base), data.count, &output)
+            } else {
+                // 空输入域：CommonCrypto 接受 NULL 指针 + 长度 0。
+                transform(nil, 0, &output)
+            }
         }
         return output
     }

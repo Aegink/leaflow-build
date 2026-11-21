@@ -134,6 +134,7 @@ final class ChapterStateStore {
 
     /// 伪代码 0x100695808（L232-253）：标记章节加载中。
     /// 逻辑：加入 loadingChapters → installPlaceholderPage 时插入占位 PageData。
+    /// 占位页经 PageData 全参 init（isLoadingPlaceholder 档，wave-16）。
     func markLoading(chapterIndex: Int, title: String, installPlaceholderPage: Bool) {
         lock.lock()
         defer { lock.unlock() }
@@ -142,8 +143,24 @@ final class ChapterStateStore {
             let placeholder = PageData(
                 chapterIndex: chapterIndex,
                 pageIndex: 0,
-                content: title
-            )
+                content: title,
+                contentRangeInChapter: nil,
+                imageSourceUrl: nil,
+                imageSourceStorageKind: nil,
+                imageBaseUrl: nil,
+                imageStyle: nil,
+                chapterTitle: title,
+                isFirstPageOfChapter: false,
+                continuesParagraphOnNextPage: false,
+                chapterTotalPages: 0,
+                isLoadingPlaceholder: true,
+                isErrorPlaceholder: false,
+                extraLineSpacing: 0,
+                continuationLineFillRatio: 0,
+                continuationTailPreview: "",
+                bodyHeight: 0,
+                charCount: title.count,
+                comments: [])
             pages.append(placeholder)
         }
     }

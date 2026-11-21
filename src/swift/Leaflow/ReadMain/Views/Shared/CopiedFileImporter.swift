@@ -31,7 +31,7 @@ struct CopiedFilePicker: UIViewControllerRepresentable {
     }
 
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
-        makeDocumentPicker()
+        makeDocumentPicker(coordinator: context.coordinator)
     }
 
     func updateUIViewController(
@@ -39,11 +39,14 @@ struct CopiedFilePicker: UIViewControllerRepresentable {
     ) {}
 
     /// 伪代码 makeDocumentPicker：组装选择器。
-    private func makeDocumentPicker() -> UIDocumentPickerViewController {
+    /// coordinator 经参数注入（makeUIViewController 上下文域，wave-16）。
+    private func makeDocumentPicker(
+        coordinator: Coordinator
+    ) -> UIDocumentPickerViewController {
         let picker = UIDocumentPickerViewController(
             forOpeningContentTypes: allowedContentTypes, asCopy: true)
         picker.allowsMultipleSelection = allowsMultipleSelection
-        picker.delegate = context.coordinator
+        picker.delegate = coordinator
         return picker
     }
 

@@ -160,6 +160,7 @@ final class CloudSyncController: ObservableObject {
             case .icloud:
                 date = await backupService.iCloudLastBackupDate()
             case .webdav:
+                guard let config else { return }
                 date = await backupService.webDAVLastBackupDate(
                     config: config)
             }

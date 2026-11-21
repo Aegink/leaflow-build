@@ -267,11 +267,20 @@ enum ChapterTitleStyleFileService {
     }
 
     /// 伪代码 0x1001b30d8（L424-433）：构造预设。
+    /// 伪代码 0x1001b30d8（L424-433）：构造预设。
+    /// 8 参真实 init 桥（模板串/高度域随设计器载荷对齐——还原推断）。
     static func makePreset(
         name: String, light: ChapterTitleConfig, dark: ChapterTitleConfig
     ) -> ReadingSettings.ChapterTitlePreset {
         ReadingSettings.ChapterTitlePreset(
-            name: name, light: light, dark: dark)
+            id: UUID(),
+            name: name,
+            template: "",
+            darkTemplate: nil,
+            height: 120,
+            useCustomFont: !light.chapterNameFont.isEmpty,
+            lightConfig: light,
+            darkConfig: dark)
     }
 
     /// 伪代码 0x1001b1adc（L465-472）：配置刷新（默认值回填）。

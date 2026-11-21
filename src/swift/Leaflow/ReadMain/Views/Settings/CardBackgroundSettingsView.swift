@@ -64,16 +64,19 @@ struct CardBackgroundSettingsView: View {
     /// 编辑器元组）。
     @ViewBuilder
     private var content: some View {
-        Picker(selection: $selectedTarget) {
-            Text("亮色").tag(CardBackgroundImageTarget.light)
-            Text("深色").tag(CardBackgroundImageTarget.dark)
-        } label: {
-            // '卡片背景' L229/L349 域确证。
-            AppThemeSettingsLabel(
-                title: "卡片背景", systemImage: "rectangle.on.rectangle")
+        // settingsCardRow 为内容包裹函数（AppThemeSettingsModifiers 域）——
+        // Picker 作为其 label 闭包（wave-16）。
+        settingsCardRow(topGap: 16) {
+            Picker(selection: $selectedTarget) {
+                Text("亮色").tag(CardBackgroundImageTarget.light)
+                Text("深色").tag(CardBackgroundImageTarget.dark)
+            } label: {
+                // '卡片背景' L229/L349 域确证。
+                AppThemeSettingsLabel(
+                    "卡片背景", systemImage: "rectangle.on.rectangle")
+            }
+            .pickerStyle(.segmented)
         }
-        .pickerStyle(.segmented)
-        .settingsCardRow(topGap: 16)
 
         livePreview
 
@@ -136,7 +139,7 @@ struct CardBackgroundSettingsView: View {
         settingsCardRow(topGap: 12) {
             HStack {
                 AppThemeSettingsLabel(
-                    title: "图片", systemImage: "photo")
+                    "图片", systemImage: "photo")
                 Spacer()
                 if card.hasBackgroundImage {
                     Button {

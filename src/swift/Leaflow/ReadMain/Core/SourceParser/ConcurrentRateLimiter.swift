@@ -12,9 +12,10 @@
 import Foundation
 
 /// 并发限流器。
+/// activeCount 内部访问域放宽（Registry.snapshot 消费域确证，wave-16）。
 final class ConcurrentRateLimiter {
 
-    private var activeCount = 0
+    var activeCount = 0
     private let maxConcurrent: Int
     private let lock = NSLock()
 
@@ -77,13 +78,11 @@ final class ConcurrentRateLimiterRegistry {
 extension ConcurrentRateLimiterRegistry {
 
     /// 伪代码 0x1000cd690（L62-88）：按源键取限流器（并发数钳制域）。
+    /// limiter(for:) 非可选（按需创建域确证）——直走 insertIfAbsent 复用位。
     func getLimiter(
         sourceKey: String, concurrency: Int
     ) -> ConcurrentRateLimiter {
         let clamped = max(1, min(concurrency, 16))
-        if let existing = limiter(for: sourceKey) {
-            return existing
-        }
         return insertIfAbsent(
             sourceKey, ConcurrentRateLimiter(maxConcurrent: clamped))
     }

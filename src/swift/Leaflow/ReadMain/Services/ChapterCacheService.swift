@@ -335,8 +335,9 @@ extension ChapterCacheService {
             at: cacheDirectory, includingPropertiesForKeys: [.fileSizeKey])
         else { return 0 }
         for case let file as URL in enumerator {
-            total += Int64((try? file.resourceValues(forKeys: [.fileSizeKey]))
-                ?.fileSize ?? 0)
+            // 行首 ?. 会被解析为三元 ?——先落变量再链式取值（wave-16）。
+            let values = try? file.resourceValues(forKeys: [.fileSizeKey])
+            total += Int64(values?.fileSize ?? 0)
         }
         return total
     }
