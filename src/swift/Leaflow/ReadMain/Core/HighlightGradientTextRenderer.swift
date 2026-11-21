@@ -1922,7 +1922,7 @@ final class HighlightGradientBackgroundSnapshotService {
         attributedText: NSAttributedString, bounds: CGRect,
         configuration: HighlightGradientTextRenderer.Configuration,
         scale: CGFloat,
-        completion: @MainActor @Sendable (UIImage?) -> Void
+        completion: @escaping @MainActor @Sendable (UIImage?) -> Void
     ) -> Task<Void, Never> {
         Task.detached(priority: .userInitiated) { [weak self] in
             guard let self, !Task.isCancelled else {
@@ -1966,7 +1966,7 @@ final class HighlightGradientOverlayView: UIView {
         }
     }
 
-    var textConfiguration: HighlightGradientTextRenderer.Configuration {
+    var textConfiguration: HighlightGradientTextRenderer.Configuration = .init() {
         didSet {
             // configuration.didset 0x1001cb410 L1963-1970 域确证：
             // 等值短路；前景模式 setNeedsDisplay，背景模式走快照链。
