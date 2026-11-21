@@ -1,0 +1,10 @@
+error: 'buildExpression' is unavailable: this expression does not conform to 'View'
+error: cannot convert return expression of type 'Bool' to return type 'ColorScheme'
+error: cannot infer contextual base in reference to member 'semibold'
+error: cannot infer contextual base in reference to member 'whitespaces'
+error: main actor-isolated property 'doublePageMode' can not be referenced from a nonisolated context
+error: main actor-isolated property 'pageMode' can not be referenced from a nonisolated context
+error: type 'NSRange' (aka '_NSRange') has no member 'zero'
+error: value of type 'ArraySlice<String.Element>' (aka 'ArraySlice<Character>') has no member 'trimmingCharacters'
+error: value of type 'NSTextContentStorage' has no member 'attributedSubstring'
+error: value of type 'some View' has no member 'weight'

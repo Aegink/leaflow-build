@@ -51,6 +51,8 @@ enum ReaderDoublePagePolicy {
     }
 
     /// 伪代码 0x10079f2c4（L40-48）：settings 快捷入口（宽度 700 阈值确证）。
+    /// @MainActor：ReadingSettings 域隔离对齐（wave-68）。
+    @MainActor
     static func isEffective(
         settings: ReadingSettings,
         containerSize: CGSize,
@@ -93,6 +95,8 @@ enum ReaderDoublePagePolicy {
     }
 
     /// 逻辑页界（骨架签名：settings 快捷入口）。
+    /// @MainActor：ReadingSettings 域隔离对齐（wave-68）。
+    @MainActor
     static func logicalPageBounds(
         for renderBounds: CGRect,
         renderBounds renderBoundsIn: CGRect,
@@ -170,6 +174,8 @@ enum ReaderDoublePagePolicy {
     }
 
     /// 逻辑页界（骨架签名：settings 快捷入口）。
+    /// @MainActor：ReadingSettings 域隔离对齐（wave-68）。
+    @MainActor
     static func logicalPageBounds(
         for renderBounds: CGRect,
         settings: ReadingSettings,

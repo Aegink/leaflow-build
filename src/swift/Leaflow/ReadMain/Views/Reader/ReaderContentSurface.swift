@@ -128,7 +128,7 @@ struct ReaderContentBackground: View {
     var settings: ReadingSettings
 
     var body: some View {
-        settings.textUIColor
+        Color(uiColor: settings.textUIColor)
     }
 }
 

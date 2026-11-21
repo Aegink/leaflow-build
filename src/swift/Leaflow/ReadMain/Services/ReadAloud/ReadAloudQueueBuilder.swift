@@ -48,7 +48,7 @@ enum ReadAloudQueueBuilder {
                 anchors.append(
                     ReadAloudAnchor(
                         location: .init(pageIndex: page.pageIndex),
-                        rangeInPage: .zero, rangeInChapter: nil,
+                        rangeInPage: NSRange(), rangeInChapter: nil,
                         startUTF16Offset: 0, isChapterTitle: true))
             }
             for fragment in fragments {

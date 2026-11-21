@@ -137,7 +137,7 @@ struct ReaderBrowserWebView: UIViewRepresentable {
         let merged = CookiePersistenceService.mergeCookieStrings([stored])
         // 闭包显式 HTTPCookie? 返回域（guard nil 分支合法化，wave-16）。
         return merged.split(separator: ";").compactMap { piece -> HTTPCookie? in
-            let trimmed = piece.trimmingCharacters(in: .whitespaces)
+            let trimmed = String(piece).trimmingCharacters(in: .whitespaces)
             let parts = trimmed.split(separator: "=", maxSplits: 1)
             guard parts.count == 2 else { return nil }
             return HTTPCookie(

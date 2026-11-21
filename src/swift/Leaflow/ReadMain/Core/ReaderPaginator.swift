@@ -170,11 +170,14 @@ enum ReaderPaginator {
             options: [.ensuresLayout, .estimatesSize]
         ) { fragment in
             let fragmentRange = fragment.rangeInElement
-            // NSTextRange→NSAttributedString 桥：textContentStorage 域
-            // attributedSubstring(for:)（TextKit 2 原生桥，wave-63）。
-            guard let substring = contentStorage.attributedSubstring(
-                for: fragmentRange
-            ) else { return true }
+            // NSTextRange→NSAttributedString 桥：range(for:) 归一 NSRange +
+            // textStorage attributedSubstring（SDK 域桥，wave-68）。
+            guard let nsRange = contentStorage.range(for: fragmentRange),
+                  let fullStorage = contentStorage.textStorage,
+                  nsRange.location != NSNotFound,
+                  nsRange.location + nsRange.length <= fullStorage.length
+            else { return true }
+            let substring = fullStorage.attributedSubstring(from: nsRange)
 
             let rawText = substring.string
             // 分隔符检查（伪代码 separatorContainsVisibleText）。

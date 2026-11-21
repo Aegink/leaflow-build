@@ -49,7 +49,7 @@ struct ReaderChapterListView: View {
     private var themeColorScheme: ColorScheme {
         // ThemeManager 无 isDark 成员——经 currentTheme.useDarkBackground
         // 桥（ReaderTheme 域，wave-16）。
-        themeManager.currentTheme.useDarkBackground
+        themeManager.currentTheme.useDarkBackground ? .dark : .light
     }
 
     var body: some View {
@@ -67,7 +67,7 @@ struct ReaderChapterListView: View {
                     }
                     ToolbarItemGroup(placement: .topBarTrailing) {
                         Button("完成") { dismiss() }
-                            .appThemeText(.body).weight(.semibold)
+                            .appThemeText(.body).fontWeight(.semibold)
                     }
                 }
                 .toolbarTitleDisplayMode(.inline)
