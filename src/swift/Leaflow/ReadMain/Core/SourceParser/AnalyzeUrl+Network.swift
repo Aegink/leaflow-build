@@ -77,21 +77,21 @@ final class WKWebViewBridgeRunner {
     /// 伪代码 L62-65：加载 URL 并等待桥接。
     func load(url: String, headers: [String: String]?, javaScript: String) async -> String? {
         await WebViewGate.shared.withPermit {
-            WebViewRuntime.load(url: url, headers: headers, javaScript: javaScript)
+            await WebViewRuntime.load(url: url, headers: headers, javaScript: javaScript)
         }
     }
 
     /// 伪代码 L67-70：加载 HTML 片段。
     func loadHTML(url: String, html: String, webJs: String) async -> String? {
         await WebViewGate.shared.withPermit {
-            WebViewRuntime.loadHTML(url: url, html: html, webJs: webJs)
+            await WebViewRuntime.loadHTML(url: url, html: html, webJs: webJs)
         }
     }
 
     /// 伪代码 L72-87：从 WebView 结果中提取最终源码。
     func sourceURL(html: String?, url: String, javaScript: String) async -> String? {
         await WebViewGate.shared.withPermit {
-            WebViewRuntime.sourceURL(html: html, url: url, javaScript: javaScript)
+            await WebViewRuntime.sourceURL(html: html, url: url, javaScript: javaScript)
         }
     }
 }

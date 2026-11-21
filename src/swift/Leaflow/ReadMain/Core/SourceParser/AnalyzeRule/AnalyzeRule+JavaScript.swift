@@ -204,6 +204,12 @@ extension AnalyzeRule {
         executeJsRule(rule, input: previousResult)
     }
 
+    /// stringValueForJavaScriptRuleResult(_:)（executeJsRule 成功域确证——
+    /// 结果串归一桥，wave-16 补桥；空白修剪）。
+    static func stringValueForJavaScriptRuleResult(_ text: String) -> String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     /// 伪代码 0x100053110（L1071-1116 区段）：JS 代码嗅探正则族（事实 16）。
 
     /// 伪代码 0x100053110（L1071-1116 区段）：JS 代码嗅探正则族（事实 16）。

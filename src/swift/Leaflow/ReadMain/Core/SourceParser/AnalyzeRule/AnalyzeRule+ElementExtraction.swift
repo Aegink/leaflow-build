@@ -92,7 +92,7 @@ extension AnalyzeRule {
         let segments = Array(
             LegadoRuleAnalyzer
                 .innerRule(trimmed, markers: ["&&", "||", "%%"])
-                .split { $0.isEmpty }.map { String($0) })
+                .split { -e.isEmpty }.map { String(-e.joined()) })
         if segments.count <= 1 {
             return collectElementsByMode(rules: splitRules(trimmed, allInOne: true), limit: limit)
         }
@@ -337,7 +337,7 @@ extension AnalyzeRule {
             LegadoRuleAnalyzer
                 .innerRule(rule.trimmingCharacters(in: .whitespacesAndNewlines),
                            markers: ["&&", "||", "%%"])
-                .split { $0.isEmpty }.map { String($0) })
+                .split { -e.isEmpty }.map { String(-e.joined()) })
         if segments.count > 1 {
             switch LegadoRuleAnalyzer.lastCombiner {
             case "||":

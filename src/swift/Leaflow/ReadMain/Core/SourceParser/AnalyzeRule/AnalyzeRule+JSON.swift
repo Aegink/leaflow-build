@@ -87,7 +87,9 @@ extension AnalyzeRule {
             LegadoRuleAnalyzer
                 .innerRule(rule, markers: ["&&", "||", "%%"])
                 .split { $0.isEmpty }
-        ).map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+        ).map {
+            $0.joined().trimmingCharacters(in: .whitespacesAndNewlines)
+        }
 
         if segments.count <= 1 {
             // 事实 7：单段 —— 内嵌规则优先。
