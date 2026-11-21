@@ -54,7 +54,7 @@ final class ZoomableImageScrollView: UIScrollView {
     }
 
     /// 伪代码 0x10063f8e8（L78-80）：缩放目标。
-    override func viewForZooming(in scrollView: UIScrollView) -> UIView? {
+    func viewForZooming(in scrollView: UIScrollView) -> UIView? {
         imageView
     }
 

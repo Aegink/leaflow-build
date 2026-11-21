@@ -67,8 +67,7 @@ extension PageContentViewController {
         }
     }
 
-    private var dynamicRefreshTimer: Timer?
-    private var dynamicRefreshTimerTolerance: TimeInterval = 0
+    // （dynamicRefreshTimer 双域移至 PageContentViewController 类体）
 
     private func startDynamicRefreshTimer() {
         // pgo_only（签名确证）：Timer 容差按 cadence.tolerance（PGO 确证该属性存在）。

@@ -19,7 +19,7 @@ import Foundation
 
 /// 动态编码键（stringValue/intValue 双 init 确证；
 /// AnalyzeRule JSON 动态域消费）。
-struct DynamicCodingKeys: CodingKey, Hashable {
+enum DynamicCodingKeys: CodingKey, Hashable {
     case string(String)
     case int(Int)
 

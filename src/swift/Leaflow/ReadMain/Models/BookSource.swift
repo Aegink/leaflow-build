@@ -318,6 +318,8 @@ struct BookSource: Codable, Identifiable, Equatable {
     /// 伪代码 0x1002339b0（L229-279）：35 字段解码链
     ///（decodeIfPresent 占多数 + 6 个规则对象 decodeObjectOrJSONStringIfPresent +
     /// StorageKind 回退闭包确证）。
+    init() {}
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         bookSourceUrl = try container.decodeLenientStringIfPresent(forKey: .bookSourceUrl) ?? ""

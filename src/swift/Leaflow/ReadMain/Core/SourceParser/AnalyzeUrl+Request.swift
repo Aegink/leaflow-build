@@ -234,5 +234,5 @@ extension AnalyzeUrl {
     static let userTimeout: TimeInterval = 60.0
     static let defaultUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)"
     /// 事实 2 的 Cookie 摘要缓存（LRUCache.put）。
-    static let cookieSummaryCache = LRUCache<String>(capacity: 32)
+    static let cookieSummaryCache = LRUCache<String, String>(maxSize: 32)
 }

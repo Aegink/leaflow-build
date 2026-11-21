@@ -246,6 +246,8 @@ final class PageContentViewController: UIViewController, UIGestureRecognizerDele
 
     private(set) var chapterTitleView = ReaderChapterTitleView()
     private var _widgetInstances: [(id: UUID, widget: LayoutWidget)] = []
+    private var dynamicRefreshTimer: Timer?
+    private var dynamicRefreshTimerTolerance: TimeInterval = 0
     private var fullLineUnderlineView = UIView()
     private var fullLineUnderlineLayer = CAShapeLayer()
     private var highlightGradientBackgroundView = HighlightGradientOverlayView()
@@ -1110,7 +1112,7 @@ final class PageContentViewController: UIViewController, UIGestureRecognizerDele
 
     /// 伪代码 0x10075d0b8 L1289-1295：
     /// UILongPressGestureRecognizer 且其视图是 SelectableReaderTextView → true；否则 false。
-    override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         guard let longPress = gestureRecognizer as? UILongPressGestureRecognizer else {
             return true
         }

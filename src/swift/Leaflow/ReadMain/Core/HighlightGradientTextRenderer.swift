@@ -1917,7 +1917,7 @@ final class HighlightGradientOverlayView: UIView {
         didSet {
             // configuration.didset 0x1001cb410 L1963-1970 域确证：
             // 等值短路；前景模式 setNeedsDisplay，背景模式走快照链。
-            guard oldValue != configuration else { return }
+            guard oldValue != textConfiguration else { return }
             if renderMode == .foregroundGradient {
                 setNeedsDisplay()
             } else {
@@ -1964,7 +1964,7 @@ final class HighlightGradientOverlayView: UIView {
         HighlightGradientBackgroundSnapshotService(maxEntries: 8)
 
     /// init(renderMode:)（签名确证）。
-    init(renderMode: RenderMode) {
+    init(renderMode: RenderMode = .backgroundSnapshot) {
         self.renderMode = renderMode
         super.init(frame: .zero)
         commonInit()
@@ -2107,7 +2107,7 @@ final class HighlightGradientAttributedTextView: UIView {
         }
     }
 
-    var configuration: HighlightGradientTextRenderer.Configuration {
+    var textConfiguration: HighlightGradientTextRenderer.Configuration {
         didSet {
             // configuration.didset 0x1001cc914 L2138-2141 域确证。
             setNeedsDisplay()

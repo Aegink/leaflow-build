@@ -265,7 +265,7 @@ final class HorizontalPagingViewController: UIViewController, UIScrollViewDelega
 
     /// 伪代码 0x10070cf10（L643-660）：手势是否应该开始。
     /// 逻辑：menuVisible → false；velocityInView → 方向判定。
-    override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         if menuVisible { return false }
         if let pan = gestureRecognizer as? UIPanGestureRecognizer {
             let velocity = pan.velocity(in: view)

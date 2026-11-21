@@ -61,7 +61,7 @@ extension ParagraphCommentParser {
         from comment: String, attribute: String
     ) -> String? {
         guard let regex = try? NSRegularExpression(
-            pattern: "<img[^>]*\b\(attribute)=\"([^\"]+)\"") else {
+            pattern: "<img[^>]*\\b\\(attribute)=\\"([^\\"]+)\\"") else {
             return nil
         }
         let range = NSRange(comment.startIndex..<comment.endIndex, in: comment)

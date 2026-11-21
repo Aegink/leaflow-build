@@ -38,8 +38,6 @@ struct ReadAloudSessionOwner: Equatable, Hashable {
 
 /// 朗读主协调器（start/pause/resume/stop 签名域确证）。
 @MainActor
-@MainActor
-@MainActor
 final class ReadAloudCoordinator: ObservableObject {
 
     @Published private(set) var state: ReadAloudPlaybackState = .idle
@@ -67,14 +65,13 @@ final class ReadAloudCoordinator: ObservableObject {
     /// init 桥（factory + 会话域）。
     init(
         factory: DefaultReadAloudDriverFactory,
-        audioSession: ReadAloudAudioSessionControlling =
-            ReadAloudAudioSessionController(),
-        errorPresenter: DefaultReadAloudErrorPresenter =
-            DefaultReadAloudErrorPresenter { _, _ in }
+        audioSession: ReadAloudAudioSessionControlling? = nil,
+        errorPresenter: DefaultReadAloudErrorPresenter? = nil
     ) {
         self.factory = factory
-        self.audioSession = audioSession
+        self.audioSession = audioSession ?? ReadAloudAudioSessionController()
         self.errorPresenter = errorPresenter
+            ?? DefaultReadAloudErrorPresenter { _, _ in }
     }
 
     /// start(owner:)（签名域确证：会话租约 + 从当前页起读）。

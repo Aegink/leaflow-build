@@ -102,7 +102,7 @@ struct LoginUiItem: Codable {
     }
 
     /// 伪代码 0x10034db00（L95-134）：数组宽容解码。
-    static func decodeFlexibleStringArray(
+    private static func decodeFlexibleStringArray(
         _ container: KeyedDecodingContainer<CodingKeys>, forKey key: CodingKeys
     ) throws -> [String]? {
         guard container.contains(key) else { return nil }
