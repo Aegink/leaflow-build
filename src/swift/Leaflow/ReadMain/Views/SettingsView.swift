@@ -48,7 +48,12 @@ struct SettingsView: View {
         if let outer = navigationPath {
             _navigationPath = Binding<NavigationPath?>(
                 get: { outer.wrappedValue },
-                set: { outer.wrappedValue = $0 })
+                set: {
+                    // Optional 值写入域桥：nil 值忽略（wave-82）。
+                    if let value = $0 {
+                        outer.wrappedValue = value
+                    }
+                })
         } else {
             _navigationPath = Binding<NavigationPath?>(
                 get: { nil }, set: { _ in })
