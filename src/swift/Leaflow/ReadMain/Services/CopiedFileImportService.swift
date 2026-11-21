@@ -103,8 +103,4 @@ final class CopiedImportFile {
         UUID()
     }
 
-    /// 伪代码 deinit（L20-22）：临时副本生命周期由文件会话管理。
-    deinit {
-        // 临时副本生命周期由 pickerCopy 域管理。
-    }
 }

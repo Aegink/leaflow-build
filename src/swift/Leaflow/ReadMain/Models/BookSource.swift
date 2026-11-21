@@ -153,9 +153,6 @@ struct SearchRule: Codable, Equatable {
     init() {}
 }
 
-    static func == (lhs: SearchRule, rhs: SearchRule) -> Bool {
-        lhs.checkKeyWord == rhs.checkKeyWord && lhs.bookList == rhs.bookList && lhs.name == rhs.name && lhs.author == rhs.author && lhs.coverUrl == rhs.coverUrl && lhs.intro == rhs.intro && lhs.kind == rhs.kind && lhs.lastChapter == rhs.lastChapter && lhs.bookUrl == rhs.bookUrl && lhs.wordCount == rhs.wordCount
-    }
 
 
 struct TocRule: Codable, Equatable {
@@ -170,9 +167,6 @@ struct TocRule: Codable, Equatable {
     init() {}
 }
 
-    static func == (lhs: TocRule, rhs: TocRule) -> Bool {
-        lhs.chapterList == rhs.chapterList && lhs.chapterName == rhs.chapterName && lhs.chapterUrl == rhs.chapterUrl && lhs.isVolume == rhs.isVolume && lhs.isVip == rhs.isVip && lhs.updateTime == rhs.updateTime && lhs.nextTocUrl == rhs.nextTocUrl
-    }
 
 
 struct ContentRule: Codable, Equatable {
@@ -187,9 +181,6 @@ struct ContentRule: Codable, Equatable {
     init() {}
 }
 
-    static func == (lhs: ContentRule, rhs: ContentRule) -> Bool {
-        lhs.content == rhs.content && lhs.nextContentUrl == rhs.nextContentUrl && lhs.webJs == rhs.webJs && lhs.sourceRegex == rhs.sourceRegex && lhs.replaceRegex == rhs.replaceRegex && lhs.imageStyle == rhs.imageStyle && lhs.payAction == rhs.payAction
-    }
 
 
 struct BookInfoRule: Codable, Equatable {
@@ -206,9 +197,6 @@ struct BookInfoRule: Codable, Equatable {
     init() {}
 }
 
-    static func == (lhs: BookInfoRule, rhs: BookInfoRule) -> Bool {
-        lhs.initRule == rhs.initRule && lhs.name == rhs.name && lhs.author == rhs.author && lhs.kind == rhs.kind && lhs.wordCount == rhs.wordCount && lhs.lastChapter == rhs.lastChapter && lhs.intro == rhs.intro && lhs.coverUrl == rhs.coverUrl && lhs.tocUrl == rhs.tocUrl
-    }
 
 
 struct ExploreRule: Codable, Equatable {
@@ -226,9 +214,6 @@ struct ExploreRule: Codable, Equatable {
     init() {}
 }
 
-    static func == (lhs: ExploreRule, rhs: ExploreRule) -> Bool {
-        lhs.exploreUrl == rhs.exploreUrl && lhs.bookList == rhs.bookList && lhs.name == rhs.name && lhs.author == rhs.author && lhs.coverUrl == rhs.coverUrl && lhs.intro == rhs.intro && lhs.kind == rhs.kind && lhs.lastChapter == rhs.lastChapter && lhs.bookUrl == rhs.bookUrl && lhs.wordCount == rhs.wordCount
-    }
 
 
 struct ReviewRule: Codable {
@@ -434,9 +419,4 @@ struct BookSource: Codable, Identifiable, Equatable {
 extension BookSource {
 
     /// 手工 ==（Equatable 合成对 `init` 反引号/backtick 成员不稳定——构建域桥）。
-    static func == (lhs: BookSource, rhs: BookSource) -> Bool {
-        lhs.bookSourceUrl == rhs.bookSourceUrl
-            && lhs.bookSourceName == rhs.bookSourceName
-            && lhs.enabled == rhs.enabled
-    }
 }
