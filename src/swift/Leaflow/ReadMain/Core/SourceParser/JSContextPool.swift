@@ -110,9 +110,8 @@ final class JSContextPool {
             maxInFlight = max(maxInFlight, checkedOut)
             return ContextHandle(pool: self, context: state[index].context)
         }
-        // JSContext() 为可失败构造（SDK 域）——实际不失败；?? 兜底
-        // 重建一次（wave-16）。
-        let context = JSContext() ?? JSContext()
+        // JSContext() 为可失败构造（SDK 域）——实际不失败（wave-16）。
+        let context = JSContext()!
         // JSContext 无单参 setValue——name 属性域标识（wave-16）。
         context.name = "qireader-pool"
         state.append(CachedContext(context: context, ownerThread: threadID, inUse: true))
@@ -148,7 +147,7 @@ final class JSContextPool {
         let missing = max(0, count - state.count)
         lock.unlock()
         for _ in 0..<missing {
-            let context = JSContext() ?? JSContext()
+            let context = JSContext()!
             context.name = "qireader-pool"
             lock.lock()
             state.append(

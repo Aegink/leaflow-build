@@ -95,8 +95,9 @@ final class HttpTtsAudioDecoder: HttpTtsAudioDecoding {
     ) {
         // AVAudioChannelCount (UInt32) → Int 归一（floatChannelData
         // 下标域，wave-16）。
-        let channels = Int(Swift.min(
-            source.format.channelCount, target.format.channelCount))
+        let channels = min(
+            Int(source.format.channelCount),
+            Int(target.format.channelCount))
         let safeCount = Swift.min(
             frameCount,
             source.frameLength - AVAudioFrameCount(sourceOffset))

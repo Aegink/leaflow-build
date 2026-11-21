@@ -78,6 +78,7 @@ enum HighlightRuleListBindings {
 struct HighlightRulesView: View {
 
     @Binding var settings: ReadingSettings
+    @Environment(\.dismiss) private var dismiss
     @State private var editingRule: HighlightRule?
     @State private var showAddSheet = false
     @State private var showImporter = false
@@ -152,7 +153,24 @@ struct HighlightRulesView: View {
             EditButton()
         }
         .sheet(item: $editingRule, onDismiss: { settings.saveHighlightRules(mergedRules) }) { rule in
-            ChapterRuleEditView(mode: .edit(rule))
+            // 高亮规则编辑表单（HighlightRule 域 name/pattern——内联编辑器；
+            // ChapterRuleEditView 属 ChapterRule 域不可混用，wave-16 修正）。
+            NavigationStack {
+                Form {
+                    TextField("规则名", text: Binding(
+                        get: { rule.wrappedValue.name },
+                        set: { rule.wrappedValue.name = $0 }))
+                    TextField("正则模式", text: Binding(
+                        get: { rule.wrappedValue.pattern },
+                        set: { rule.wrappedValue.pattern = $0 }))
+                }
+                .navigationTitle("编辑高亮规则")
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("完成") { dismiss() }
+                    }
+                }
+            }
         }
         .fileImporter(
             isPresented: $showImporter,
