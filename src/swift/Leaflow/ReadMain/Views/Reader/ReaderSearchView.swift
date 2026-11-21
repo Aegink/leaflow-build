@@ -72,11 +72,6 @@ struct FullTextSearchView: View {
             }
         }
     }
-        .searchable(text: $keyword, prompt: "搜索正文")
-        .onChange(of: keyword, initial: false) { _, newValue in
-            performSearch(keyword: newValue)
-        }
-    }
 
     /// 伪代码 0x1007ca2ac（L89-165）+ 闭包（0x1007cacf0，L114-164）：
     /// Task(userInitiated) 后台检索；大小写不敏感（lowercased + range(of:options:)）。
