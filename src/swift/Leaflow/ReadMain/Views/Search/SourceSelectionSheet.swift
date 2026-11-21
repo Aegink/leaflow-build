@@ -196,7 +196,8 @@ struct SourceRow: View {
                     //（源名以 URL 代显，真机核清项）。
                     Text(indexed.book.bookSourceUrl ?? "")
                         .lineLimit(1)
-                    if let latest = indexed.book.latestChapter {
+                    // Book 无 latestChapter——lastChapter 域桥。
+                    if let latest = indexed.book.lastChapter {
                         Text(latest)
                             .appThemeText(.caption, opacity: 0.6)
                             .lineLimit(1)

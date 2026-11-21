@@ -173,8 +173,10 @@ final class SourceService: SourceServiceProtocol, ObservableObject {
     @discardableResult
     func reportError(_ error: Error, context: String?) -> AppError {
         let appError = SourceService.classifyNetworkError(error)
+        // Logger.error(_:context:) 签名域：Error 载体（String 变体
+        // 无 context 形参——对齐 error 形参，wave-72）。
         Logger.error(
-            appError.errorDescription ?? "未知错误",
+            error,
             context: context ?? "-")
         return appError
     }

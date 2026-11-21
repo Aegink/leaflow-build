@@ -1,0 +1,4 @@
+error: missing argument label 'for:' in call
+error: referencing initializer 'init(_:content:)' on 'ForEach' requires that 'ParseStepResult' conform to 'Identifiable'
+error: type of expression is ambiguous without a type annotation
+error: value of type 'Book' has no member 'latestChapter'

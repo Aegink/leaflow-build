@@ -1707,7 +1707,7 @@ private struct DiagnosticsStepRow: View {
 
 /// 步骤诊断结果（DiagnosticsSheet.resultText/resultColor 签名确证；
 /// ParseStepResult 本体 pgo_only）。
-struct ParseStepResult {
+struct ParseStepResult: Identifiable {
     enum Outcome {
         case success
         case failure
@@ -1718,6 +1718,9 @@ struct ParseStepResult {
     let message: String
     let result: Outcome
     let duration: Double
+
+    /// id 桥（ForEach 域——name+时长组合键，真机核清项）。
+    var id: String { name + "/\(duration)" }
 }
 
 /// 应用自带毛玻璃圆角修饰（签名族 glassEffectRoundedBackground 确证；

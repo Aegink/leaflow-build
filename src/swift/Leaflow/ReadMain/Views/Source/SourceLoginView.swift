@@ -974,7 +974,7 @@ struct SourceLoginView: View {
                     LoginFormFlexLayout(
                         availableWidth: UIScreen.main.bounds.width - 32.0) {
                         ForEach(localVisibleLoginUiItems) { item in
-                            localLoginUiItemView(item)
+                            localLoginUiItemView(for: item)
                         }
                     }
                 }
