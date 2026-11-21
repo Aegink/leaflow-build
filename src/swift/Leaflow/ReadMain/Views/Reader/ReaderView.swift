@@ -44,6 +44,7 @@ struct ReaderView: View {
                 .ignoresSafeArea()
                 .modifier(CommentBrowserSheetPresentationModifier(isVisible: showCommentBrowser))
                 .toolbar(content: readerToolbarContent)
+                .readerPresentationSheets
         }
         .onAppear {
             Task {
@@ -73,22 +74,27 @@ struct ReaderView: View {
             }
         }
     }
-        .sheet(isPresented: $showChapterList) {
-            ReaderChapterListView(
-                chapters: .constant([]),
-                currentChapterIndex: .constant(viewModel.currentChapterIndex),
-                onPickChapter: { index in
-                    viewModel.activateCurrentVisiblePages([index], reason: "chapterPick")
-                })
-        }
-        .sheet(isPresented: $showSearch) {
-            FullTextSearchView(
-                chapters: .constant([]),
-                chapterContentProvider: { _ in "" },
-                onPickResult: { _, _ in })
-        }
-        .sheet(isPresented: $showSettings) {
-            ReaderSettingsView(settings: $settings, onDismiss: { showSettings = false })
+
+    /// 呈现层链（sheet ×3）。
+    private func readerPresentationSheets() -> some View {
+        Group {
+            sheet(isPresented: $showChapterList) {
+                ReaderChapterListView(
+                    chapters: .constant([]),
+                    currentChapterIndex: .constant(viewModel.currentChapterIndex),
+                    onPickChapter: { index in
+                        viewModel.activateCurrentVisiblePages([index], reason: "chapterPick")
+                    })
+            }
+            sheet(isPresented: $showSearch) {
+                FullTextSearchView(
+                    chapters: .constant([]),
+                    chapterContentProvider: { _ in "" },
+                    onPickResult: { _, _ in })
+            }
+            sheet(isPresented: $showSettings) {
+                ReaderSettingsView(settings: $settings, onDismiss: { showSettings = false })
+            }
         }
     }
 
