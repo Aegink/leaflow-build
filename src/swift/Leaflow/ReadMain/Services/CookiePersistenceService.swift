@@ -52,7 +52,7 @@ final class CookiePersistenceService {
     /// 伪代码 0x100304ddc（L88-101）：串形式读。
     /// UserDefaults 无 withValuesOfType 域——stringDictionary 键值域桥。
     func getCookies(for host: String) -> String {
-        let stored = defaults.stringDictionary(forKey: keyPrefix + host) ?? [:]
+        let stored = defaults.dictionary(forKey: keyPrefix + host) as? [String: String] ?? [:]
         return stored.map { "\($0.key)=\($0.value)" }
             .sorted()
             .joined(separator: "; ")
@@ -60,7 +60,7 @@ final class CookiePersistenceService {
 
     /// 伪代码 0x1003043fc（L181-216）：响应 cookie 保存。
     func saveResponseCookies(_ cookies: [HTTPCookie], for host: String) {
-        var map = defaults.stringDictionary(forKey: keyPrefix + host) ?? [:]
+        var map = defaults.dictionary(forKey: keyPrefix + host) as? [String: String] ?? [:]
         for cookie in cookies {
             map[cookie.name] = cookie.value
         }
@@ -70,7 +70,7 @@ final class CookiePersistenceService {
 
     /// 伪代码 0x10030aa04（L154-177）：按名删除。
     private func removeCookieNames(_ names: Set<String>, for host: String) {
-        var map = defaults.stringDictionary(forKey: keyPrefix + host) ?? [:]
+        var map = defaults.dictionary(forKey: keyPrefix + host) as? [String: String] ?? [:]
         for name in names {
             map.removeValue(forKey: name)
         }

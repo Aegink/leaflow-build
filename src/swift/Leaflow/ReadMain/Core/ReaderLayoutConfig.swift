@@ -286,6 +286,11 @@ struct ChapterTitleConfig: Codable, Equatable {
     var chapterNameFont: String = ""
     /// 权重名（uiFontWeight 0x1001f1f4c 读取域；四档字面量确证）。
     var fontWeightName: String = "regular"
+    /// 设计器 HTML 模板（ChapterTitleSettingsView 设计器载荷写入域确证，
+    /// wave-16 补成员）。
+    var templateHTML: String? = nil
+    /// 样式名（导出 styleName 消费域确证，wave-16 补成员）。
+    var styleName: String? = nil
 }
 
 /// 阅读布局模板（T-1401-01 applyLayoutTemplate 0x100221ef8 域桥；档位推断，

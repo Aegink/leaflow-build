@@ -40,14 +40,15 @@ final class ChangeSourceCache {
         }
 
         /// 伪代码 closure #5（0x10066ffb8，L32）：从 Book 构造（字符串规范化字段 1）。
+        /// SourceItem 字段为非可选——可选域经空串兜底（wave-16）。
         static func from(_ book: Book) -> SourceItem {
             let origin = book.bookSourceUrl ?? ""
             return SourceItem(
-                bookUrl: book.bookUrl,
-                sourceId: book.bookSourceUrl,
+                bookUrl: book.bookUrl ?? "",
+                sourceId: origin,
                 sourceName: origin.isEmpty ? "未知来源" : origin,
                 title: book.name,
-                author: book.author,
+                author: book.author ?? "",
                 coverUrl: book.coverUrl,
                 latestChapterTitle: book.lastChapter,
                 totalChapterNum: nil

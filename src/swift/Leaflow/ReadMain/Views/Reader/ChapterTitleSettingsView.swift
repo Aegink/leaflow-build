@@ -280,11 +280,12 @@ struct ChapterTitleStyleSettingsView: View {
     // MARK: 导入导出
 
     /// 伪代码 0x1006c004c（L619-638）：导出。
-    /// exportFile 属 ChapterTitleDesignerProject（styleName/light/dark 签名域）。
+    /// exportFile 属 ChapterTitleStyleFileService（styleName/light/dark
+    /// 签名域确证，wave-16 类型名修正）。
     private func exportStyles() {
         let manager = ChapterTitleAssetManager()
         do {
-            let url = try ChapterTitleDesignerProject.exportFile(
+            let url = try ChapterTitleStyleFileService.exportFile(
                 styleName: currentExportStyleName,
                 light: previewTitleConfig(),
                 dark: previewTitleConfig(),
@@ -355,15 +356,10 @@ struct ChapterTitleStyleSettingsView: View {
 // wave-16：访问域放宽到 internal（ChapterTitleEditors 消费域）。
 
 extension ChapterTitleConfig {
-    var templateHTML: String? {
-        nil
-    }
+    // templateHTML/styleName 已转为 ChapterTitleConfig 存储字段（设计器
+    // 载荷写入域确证，wave-16）。
 
     var canvasHeight: CGFloat {
         120
-    }
-
-    var styleName: String? {
-        nil
     }
 }
