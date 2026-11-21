@@ -250,8 +250,8 @@ final class PageContentViewController: UIViewController, UIGestureRecognizerDele
     private var dynamicRefreshTimerTolerance: TimeInterval = 0
     private var fullLineUnderlineView = UIView()
     private var fullLineUnderlineLayer = CAShapeLayer()
-    private var highlightGradientBackgroundView = HighlightGradientOverlayView()
-    private var highlightGradientForegroundView = HighlightGradientOverlayView()
+    private var highlightGradientBackgroundView = HighlightGradientOverlayView(renderMode: .backgroundSnapshot)
+    private var highlightGradientForegroundView = HighlightGradientOverlayView(renderMode: .foregroundGradient)
 
     var widgetLabels: [UUID: UILabel] = [:]
     var widgetImageViews: [UUID: UIImageView] = [:]

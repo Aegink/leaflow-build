@@ -137,7 +137,7 @@ private extension KeyedDecodingContainer {
 
 // MARK: - 规则子结构（init() 默认构造确证）
 
-struct SearchRule: Codable {
+struct SearchRule: Codable, Equatable {
     var checkKeyWord: String = ""
     var bookList: String = ""
     var name: String = ""
@@ -153,7 +153,7 @@ struct SearchRule: Codable {
     init() {}
 }
 
-struct TocRule: Codable {
+struct TocRule: Codable, Equatable {
     var chapterList: String = ""
     var chapterName: String = ""
     var chapterUrl: String = ""
@@ -165,7 +165,7 @@ struct TocRule: Codable {
     init() {}
 }
 
-struct ContentRule: Codable {
+struct ContentRule: Codable, Equatable {
     var content: String = ""
     var nextContentUrl: String = ""
     var webJs: String = ""
@@ -177,7 +177,7 @@ struct ContentRule: Codable {
     init() {}
 }
 
-struct BookInfoRule: Codable {
+struct BookInfoRule: Codable, Equatable {
     var initRule: String = ""
     var name: String = ""
     var author: String = ""
@@ -191,7 +191,7 @@ struct BookInfoRule: Codable {
     init() {}
 }
 
-struct ExploreRule: Codable {
+struct ExploreRule: Codable, Equatable {
     var exploreUrl: String = ""
     var bookList: String = ""
     var name: String = ""
@@ -264,7 +264,7 @@ enum StorageKind: String, Codable {
 // MARK: - 书源
 
 /// 书源模型（legado 兼容 JSON；35 字段解码链确证）。
-struct BookSource: Codable, Identifiable {
+struct BookSource: Codable, Identifiable, Equatable {
     var bookSourceUrl: String
     var bookSourceName: String
     var bookSourceGroup: String?

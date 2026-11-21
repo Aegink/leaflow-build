@@ -243,7 +243,7 @@ enum BrowserReadingModeExtractionError: LocalizedError {
 /// 浏览器 WebView 壳（makeCoordinator 0x100b534b4 / makeUIViewController
 /// 0x100b53614 / updateUIViewController 0x100b53e68 / dismantleUIViewController
 /// 0x100b54190 域；运行时主体在 ReaderBrowserWebView 分册）。
-struct BrowserWebView: UIViewRepresentable {
+struct BrowserWebView: UIViewControllerRepresentable {
 
     var url: URL
     var sourceStateKey: String = "browser"
@@ -254,7 +254,7 @@ struct BrowserWebView: UIViewRepresentable {
     }
 
     /// 伪代码 0x100b53614（L682-691）：WKWebView 构建（透明底 + 桥注册域）。
-    func makeUIViewController(context: Context) -> WKWebView {
+    func makeUIViewController(context: Context) -> UIHostingController<WKWebView> {
         let configuration = WKWebViewConfiguration()
         configuration.allowsContentJavaScript = true
         configuration.userContentController.add(
@@ -269,14 +269,15 @@ struct BrowserWebView: UIViewRepresentable {
     }
 
     /// 伪代码 0x100b53e68（L693-701）：状态同步（URL 变更重载域）。
-    func updateUIViewController(_ uiView: WKWebView, context: Context) {
-        guard let current = uiView.url,
+    func updateUIViewController(_ controller: UIHostingController<WKWebView>, context: Context) {
+        guard let webView = controller.rootView,
+            let current = webView.url,
             current.absoluteString != url.absoluteString else { return }
-        context.coordinator.load(url, in: uiView)
+        context.coordinator.load(url, in: webView)
     }
 
     /// 伪代码 0x100b54190（L723-728）：拆解（cookie 持久化域）。
-    static func dismantleUIViewController(_ uiView: WKWebView, coordinator: Coordinator) {
+    static func dismantleUIViewController(_ controller: UIHostingController<WKWebView>, coordinator: Coordinator) {
         coordinator.persistSiteCookies(of: uiView)
     }
 
