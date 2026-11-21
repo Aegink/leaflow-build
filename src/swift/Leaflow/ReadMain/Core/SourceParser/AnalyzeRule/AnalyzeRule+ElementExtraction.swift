@@ -92,7 +92,7 @@ extension AnalyzeRule {
         let segments = Array(
             LegadoRuleAnalyzer
                 .innerRule(trimmed, markers: ["&&", "||", "%%"])
-                .split { -e.isEmpty }.map { String(-e.joined()) })
+                .split { $0.isEmpty }.map { String($0.joined()) })
         if segments.count <= 1 {
             return collectElementsByMode(rules: splitRules(trimmed, allInOne: true), limit: limit)
         }
@@ -202,10 +202,13 @@ extension AnalyzeRule {
                 // 事实 25：XPath（空结果按伪代码记 `[XPath] -> 匹配 0` 日志）。
                 // 节点装箱走 childRule 路径（wrapNodesAsChildRules 同域，wave-16）。
                 let nodes = executeXPathRuleForNodes(effective.rule)
-                let wrapped = nodes.map { node in
-                    AnalyzeRule.wrapNodesAsChildRules([node])
-                } ?? []
-                appendCapped(Array(wrapped.joined()), to: &result, limit: limit)
+                if let nodes {
+                    let wrapped = nodes.map { node in
+                        AnalyzeRule.wrapNodesAsChildRules([node])
+                    }
+                    appendCapped(
+                        Array(wrapped.joined()), to: &result, limit: limit)
+                }
             case .json:
                 // 事实 25：JSONPath（LRU 引擎缓存 + readJsonPath）。
                 // getOrPut 无 key: 标签（LRUCache 签名域）；readJsonPath
@@ -337,7 +340,7 @@ extension AnalyzeRule {
             LegadoRuleAnalyzer
                 .innerRule(rule.trimmingCharacters(in: .whitespacesAndNewlines),
                            markers: ["&&", "||", "%%"])
-                .split { -e.isEmpty }.map { String(-e.joined()) })
+                .split { $0.isEmpty }.map { String($0.joined()) })
         if segments.count > 1 {
             switch LegadoRuleAnalyzer.lastCombiner {
             case "||":

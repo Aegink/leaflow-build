@@ -127,7 +127,8 @@ extension AnalyzeRule {
     /// 伪代码 0x10006e658（L191-207）：Kanna 文档构造（stderr 抑制）。
     /// 构造走 Kanna.XML 工厂（5.3 域：XMLDocument 为协议，wave-16）。
     func getXPathDocument(from source: String) -> KannaXMLDocument? {
-        try AnalyzeRule.withLibxmlStderrSuppressed {
+        // 外层函数非 throws——try? 承接 rethrows 域（wave-16）。
+        try? AnalyzeRule.withLibxmlStderrSuppressed {
             let prepared = preparedXPathSource(source)
             return try Kanna.XML(xml: prepared, encoding: .utf8)
         }
