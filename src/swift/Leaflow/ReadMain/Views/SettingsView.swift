@@ -44,8 +44,9 @@ struct SettingsView: View {
 
     /// init(navigationPath:)（签名域确证：外层可选路由绑定）。
     init(navigationPath: Binding<NavigationPath>?) {
-        _navigationPath = navigationPath ?? Binding(
+        let nilBinding = Binding<NavigationPath?>(
             get: { nil }, set: { _ in })
+        _navigationPath = navigationPath ?? nilBinding
     }
 
     /// activeNavigationPath getter（签名域确证：外层优先）。

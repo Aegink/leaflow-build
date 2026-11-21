@@ -73,7 +73,7 @@ final class SoupXPathProjection {
         var segments: [String] = []
         var cursor: Kanna.XMLElement? = node
         while let current = cursor {
-            segments.insert(current.name ?? "*", at: 0)
+            segments.insert(current.tagName ?? "*", at: 0)
             cursor = current.parent
         }
         return "/" + segments.joined(separator: "/")

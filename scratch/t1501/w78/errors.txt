@@ -1,0 +1,2 @@
+error: cannot convert value of type 'Binding<NavigationPath>' to expected argument type 'Binding<NavigationPath?>'
+error: value of type 'any XMLElement' has no member 'name'
