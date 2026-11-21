@@ -18,6 +18,7 @@
 // 还原: 2026-11-20
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// 替换规则导入导出（body/exportView/ImportExportTab 签名域确证）。
 struct ReplaceRuleImportExportView: View {
@@ -44,7 +45,7 @@ struct ReplaceRuleImportExportView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                Picker(selection: $tab) {
+                Picker("", selection: $tab) {
                     ForEach(ImportExportTab.allCases) { item in
                         Text(item.title).tag(item)
                     }
@@ -158,9 +159,11 @@ struct ReplaceRuleImportExportView: View {
                 statusMessage = "URL 无效"
                 return
             }
-            let (data, _) = try? await URLSession.shared.data(from: url)
+            // URLSession 返回 (Data, URLResponse)?——单层 try? 元组
+            // 解构域桥（wave-76）。
+            let fetched = try? await URLSession.shared.data(from: url)
             isImporting = false
-            guard let data,
+            guard let data = fetched?.0,
                   let text = String(data: data, encoding: .utf8) else {
                 statusMessage = "下载失败"
                 return

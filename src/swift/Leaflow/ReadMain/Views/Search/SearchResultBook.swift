@@ -64,7 +64,8 @@ final class SearchResultBook: Hashable, Identifiable {
         if let withCover = sources.first(where: { $0.coverUrl != nil }) {
             displayBook.coverUrl = withCover.coverUrl
         }
-        if let withIntro = sources.first(where: { !($0.bookSourceType == nil) }) {
+        // Book 无 bookSourceType——bookSourceUrl 非空域桥。
+        if let withIntro = sources.first(where: { $0.bookSourceUrl != nil }) {
             _ = withIntro
         }
         // 最新章/总章数取首源（展示域推断）。

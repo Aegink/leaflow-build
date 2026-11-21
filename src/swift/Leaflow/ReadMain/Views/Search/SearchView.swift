@@ -92,27 +92,38 @@ struct SearchView: View {
             scheduleSourceReload()
             scheduleSearchFieldReady()
         }
-        .sheet(isPresented: $showGroupPicker) {
-            GroupPickerSheet(
-                groups: viewModel.availableGroups,
-                selectedGroup: viewModel.selectedGroup) { group in
-                viewModel.selectedGroup = group ?? "全部分组"
-                viewModel.onSourcesChanged()
-            }
+        .sheet(isPresented: $showGroupPicker) { groupPickerSheet }
+        .sheet(item: singleSourceBinding) { box in
+            singleSourcePickerSheet(box)
         }
-        .sheet(
-            item: Binding(
-                get: { pendingSingleSource.map { SingleSourceBox(source: $0) } },
-                set: { pendingSingleSource = $0?.source }
-            )
-        ) { box in
-            SingleSourcePickerSheet(source: box.source) { picked in
-                if let picked {
-                    Task {
-                        let books = try? await SearchViewModel.searchSingleSource(
-                            source: picked, keyword: viewModel.keyword, page: 1)
-                        _ = books
-                    }
+    }
+
+    /// 分组选择 sheet（body 拆分域——类型检查超时消解，wave-77）。
+    private var groupPickerSheet: some View {
+        GroupPickerSheet(
+            groups: viewModel.availableGroups,
+            selectedGroup: viewModel.selectedGroup) { group in
+            viewModel.selectedGroup = group ?? "全部分组"
+            viewModel.onSourcesChanged()
+        }
+    }
+
+    /// 单源 sheet 绑定（body 拆分域）。
+    private var singleSourceBinding: Binding<SingleSourceBox?> {
+        Binding(
+            get: { pendingSingleSource.map { SingleSourceBox(source: $0) } },
+            set: { pendingSingleSource = $0?.source })
+    }
+
+    /// 单源选择 sheet（body 拆分域）。
+    @ViewBuilder
+    private func singleSourcePickerSheet(_ box: SingleSourceBox) -> some View {
+        SingleSourcePickerSheet(source: box.source) { picked in
+            if let picked {
+                Task {
+                    let books = try? await SearchViewModel.searchSingleSource(
+                        source: picked, keyword: viewModel.keyword, page: 1)
+                    _ = books
                 }
             }
         }

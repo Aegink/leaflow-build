@@ -164,7 +164,11 @@ struct SettingsView: View {
         -> some View {
         switch route {
         case .reader:
-            ReaderSettingsView()
+            // ReaderSettingsView 全参装配域桥（settings 常量域，
+            // 真机核清项）。
+            ReaderSettingsView(
+                settings: .constant(ReadingSettings.load()),
+                onDismiss: {})
         case .appearance:
             AppThemeSettingsView()
         case .tabIcon:
@@ -198,6 +202,11 @@ enum SettingsRoute: String, Hashable {
 
 /// 高级设置域（OtherSettingsView.body 0x100d2e11c L194-297 域确证）。
 struct OtherSettingsView: View {
+
+    @State private var searchMode: SearchMode = .all
+    @State private var concurrentThreads = 4
+    @State private var timeoutSeconds = 15
+    @State private var chapterPrecache = true
 
     var body: some View {
         VStack(spacing: 0) {

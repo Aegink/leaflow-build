@@ -152,7 +152,8 @@ struct SearchResultCard: View, Equatable {
 
     /// singleSourceName getter（0x1008eb0c8 L166-177 域确证）。
     private var singleSourceName: String? {
-        sources.count == 1 ? sources.first?.bookSourceName : nil
+        // Book 无 bookSourceName——bookSourceUrl 域桥。
+        sources.count == 1 ? sources.first?.bookSourceUrl : nil
     }
 
     var body: some View {
@@ -192,7 +193,7 @@ struct SearchResultCard: View, Equatable {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6.0) {
                         ForEach(sources, id: \.bookSourceUrl) { book in
-                            Button(book.bookSourceName) {
+                            Button(book.bookSourceUrl ?? "") {
                                 onPick(book)
                             }
                             .appThemeText(.caption)

@@ -144,7 +144,8 @@ struct LegadoSourceRule {
     /// 伪代码 0x10007ce28（L156-189）支撑：前段中 `$N` 组引用取值。
     private static func groupValue(in text: String, groupIndex: Int) -> String {
         // `\$(\d{1,2})` 匹配 $N 引用；此处仅还原取值语义（正则缓存走 AnalyzeRule.cachedRegex）。
-        guard let regex = AnalyzeRule.cachedRegex("\\$(\\d{1,2})") else { return "" }
+        guard let regex = AnalyzeRule.cachedRegex(
+                "\\$(\\d{1,2})", options: []) else { return "" }
         let range = NSRange(text.startIndex..<text.endIndex, in: text)
         guard let match = regex.firstMatch(in: text, options: [], range: range),
               match.numberOfRanges > 1,
@@ -180,7 +181,7 @@ extension AnalyzeRule {
             timeout: 15.0,
             convertLegadoTemplates: true
         )
-        return ruleEvaluationTemplateOutcome(from: evaluated) ?? ""
+        return ruleEvaluationTemplateOutcome(from: evaluated).text ?? ""
     }
 
     /// 伪代码 0x10007d58c（L191-237）同族 + implicit closure #3（0x10007dc74）：

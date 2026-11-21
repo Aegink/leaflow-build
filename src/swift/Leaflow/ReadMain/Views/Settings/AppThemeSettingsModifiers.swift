@@ -153,13 +153,13 @@ extension View {
     /// （签名域确证：settingsCardRow<A>(topGap: CGFloat, action:
     /// (() -> ())?, padding: EdgeInsets, cornerRadius: CGFloat,
     /// label: () -> A)）。
-    func settingsCardRow<V: View>(
+    func settingsCardRow(
         topGap: CGFloat = 12,
         action: (() -> Void)? = nil,
         padding: EdgeInsets = EdgeInsets(
             top: 12, leading: 14, bottom: 12, trailing: 14),
         cornerRadius: CGFloat = 14,
-        @ViewBuilder label: () -> V
+        @ViewBuilder label: () -> some View = { EmptyView() }
     ) -> some View {
         let card = Group {
             if #available(iOS 15.0, *) {
@@ -191,6 +191,16 @@ extension View {
             }
         }
         .padding(.top, topGap)
+    }
+
+    /// settingsRowLabel(_:systemImage:)（OtherSettingsView 行内标签
+    /// 调用域——icon + 文字，wave-77 还原桥）。
+    @ViewBuilder
+    func settingsRowLabel(_ title: String, systemImage: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: systemImage)
+            Text(title)
+        }
     }
 
     /// appThemeAccent(opacity:)（签名域确证：主题强调色着色）。

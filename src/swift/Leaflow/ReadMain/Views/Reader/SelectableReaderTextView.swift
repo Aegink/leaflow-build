@@ -87,7 +87,8 @@ final class SelectableReaderTextView: UITextView, ReaderTextSelectionHandling {
     init(isSelectable: Bool) {
         self.isSelectableText = isSelectable
         let textStorage = NSTextStorage()
-        let container = NSTextContainer(size: CGSize(width: 0, height: .infinity))
+        let container = NSTextContainer(
+            size: CGSize(width: 0, height: CGFloat.infinity))
         let layoutManager = NSLayoutManager()
         layoutManager.addTextContainer(container)
         textStorage.addLayoutManager(layoutManager)
@@ -106,7 +107,7 @@ final class SelectableReaderTextView: UITextView, ReaderTextSelectionHandling {
     private func commonInit(isSelectable: Bool) {
         backgroundColor = .clear
         isEditable = false
-        isSelectable = isSelectableText
+        self.isSelectable = isSelectableText
         isScrollEnabled = false
         textContainer.lineFragmentPadding = 0
         textContainer.lineBreakMode = .byWordWrapping

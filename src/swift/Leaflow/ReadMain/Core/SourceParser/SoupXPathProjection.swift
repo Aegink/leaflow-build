@@ -25,10 +25,12 @@ final class SoupXPathProjection {
     /// 伪代码 0x100167504（L24-77）：从 SwiftSoup 文档构建投影。
     static func build(document: SwiftSoupDocument, isXML: Bool) -> SoupXPathProjection {
         let html = (try? document.html()) ?? ""
-        let kannaDocument = KannaXMLDocument(
-            string: html, encoding: .utf8
-        )
-        return SoupXPathProjection(document: kannaDocument ?? KannaXMLDocument(string: "<html/>")!)
+        // Kanna 工厂域桥（XMLDocument 为协议——Kanna.XML(xml:encoding:)
+        // throws 工厂，wave-76；"<html/>" 兜底恒可解析）。
+        let fallbackDocument = try! Kanna.XML(xml: "<html/>", encoding: .utf8)
+        return SoupXPathProjection(
+            document: (try? Kanna.XML(xml: html, encoding: .utf8))
+                ?? fallbackDocument)
     }
 
     /// XPath 求值桥（T-1401-09 xpathResults 0x10010caf8 消费域；Kanna
@@ -66,7 +68,17 @@ final class SoupXPathProjection {
     }
 
     static func kannaPath(of node: KannaXMLElement) -> String {
-        node.xpath ?? ""
+        // 节点路径桥（Kanna 5.3 xpath 为方法域非属性——祖先序拼接，
+        // 真机核清项）。
+        var segments: [String] = []
+        var cursor: XMLNode? = node
+        while let current = cursor {
+            if let element = current as? XMLElement {
+                segments.insert(element.name ?? "*", at: 0)
+            }
+            cursor = current.parent
+        }
+        return "/" + segments.joined(separator: "/")
     }
 }
 
