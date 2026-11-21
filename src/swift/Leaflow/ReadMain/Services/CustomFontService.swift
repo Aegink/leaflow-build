@@ -41,6 +41,15 @@ final class CustomFontService {
         var familyName: String?
         var importedAt: Date
 
+        /// name 桥（ChapterTitleFontPickerView 字体选择域确证——即
+        /// fileName，wave-16 补桥）。
+        var name: String { fileName }
+
+        /// displayName 桥（readableName 归一；nil 回退 fileName）。
+        var displayName: String {
+            Self.readableName(fileName) ?? fileName
+        }
+
         /// readableName(_:)（签名域确证：PostScript 名 → 文件名去
         /// 扩展 → 空兜底）。
         static func readableName(_ fileName: String) -> String? {
