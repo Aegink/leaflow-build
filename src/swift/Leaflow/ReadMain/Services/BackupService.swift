@@ -205,7 +205,8 @@ final class BackupService {
         if categories.contains(.settings) {
             exportReadingSettings()
             try exportReadingSettingsFile(to: directory)
-            try exportReadingStatistics(to: directory)
+            try exportReadingStatistics(
+                to: directory, incremental: incremental)
             try exportTtsSources(
                 to: directory, counts: &counts, incremental: incremental)
         }
@@ -335,8 +336,11 @@ final class BackupService {
             incremental: incremental)
     }
 
-    /// exportReadingStatistics(to:)（签名域确证）。
-    private func exportReadingStatistics(to directory: URL) throws {
+    /// exportReadingStatistics(to:incremental:)（签名域确证；mirrorDirectory
+    /// incremental 参域对齐，wave-16 补参）。
+    private func exportReadingStatistics(
+        to directory: URL, incremental: Bool
+    ) throws {
         let stats = appSupportDir.appendingPathComponent("reading_stats")
         guard fileManager.fileExists(atPath: stats.path) else { return }
         try mirrorDirectory(
