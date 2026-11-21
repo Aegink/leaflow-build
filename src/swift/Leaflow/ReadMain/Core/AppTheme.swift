@@ -1233,23 +1233,9 @@ struct AppTheme: Codable, Identifiable, Equatable {
     }
 }
 
-private extension UIColor {
-    /// hex 分量桥（TabBackground hex 域还原桥）。
-    /// 注意：BookshelfAppearanceSettingsView 另有 internal 同名桥——本域
-    /// 保持 private 防重声明（wave-16）。
-    func toHexComponents() -> String? {
-        var red: CGFloat = 0
-        var green: CGFloat = 0
-        var blue: CGFloat = 0
-        var alpha: CGFloat = 0
-        guard getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-        else { return nil }
-        return String(
-            format: "%02X%02X%02X",
-            Int(round(red * 255)), Int(round(green * 255)),
-            Int(round(blue * 255)))
-    }
-}
+// 注：UIColor.toHexComponents() 由 BookshelfAppearanceSettingsView 的
+// internal 扩展提供（CardBackgroundSettingsView 同消费域）——本文件不重复
+// 声明（wave-16 重声明消解）。
 
 /// 非可失败 hex 桥（0x100184398 Color.init(hex:) 域确证；ReaderTheme
 /// 扩展的 failable init 收敛）。
