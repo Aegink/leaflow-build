@@ -78,7 +78,7 @@ final class BackstageWebView: NSObject {
     static let timeoutMessage = "WebView加载超时"
     static let emptyContentMessage = "无法获取页面内容"
 
-    init() {
+    override init() {
         webView = WKWebView(frame: .zero, configuration: WebViewPool.shared.makeConfiguration())
         webView.configuration.userContentController.add(self, name: "qireader")
     }

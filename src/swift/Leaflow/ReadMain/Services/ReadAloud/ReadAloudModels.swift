@@ -55,7 +55,7 @@ struct ReadAloudAnchor: Equatable {
 
     /// 空锚点桥（slices 域还原桥）。
     static let empty = ReadAloudAnchor(
-        location: .init(pageIndex: 0), rangeInPage: .zero,
+        location: .init(pageIndex: 0), rangeInPage: NSRange(location: 0, length: 0),
         rangeInChapter: nil, startUTF16Offset: 0,
         isChapterTitle: false)
 }
@@ -306,17 +306,3 @@ enum URLRequestError: LocalizedError {
     }
 }
 
-/// 驱动工厂错误（0x100299d2c L56-61 签名域确证）。
-enum ReadAloudDriverFactoryError: LocalizedError {
-    case outputPreparationFailed
-    case engineUnavailable
-
-    var errorDescription: String? {
-        switch self {
-        case .outputPreparationFailed:
-            return "朗读音频输出初始化失败"
-        case .engineUnavailable:
-            return "朗读引擎不可用"
-        }
-    }
-}

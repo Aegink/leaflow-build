@@ -38,6 +38,8 @@ struct ReadAloudSessionOwner: Equatable, Hashable {
 
 /// 朗读主协调器（start/pause/resume/stop 签名域确证）。
 @MainActor
+@MainActor
+@MainActor
 final class ReadAloudCoordinator: ObservableObject {
 
     @Published private(set) var state: ReadAloudPlaybackState = .idle

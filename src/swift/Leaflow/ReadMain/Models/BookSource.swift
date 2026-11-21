@@ -178,7 +178,7 @@ struct ContentRule: Codable, Equatable {
 }
 
 struct BookInfoRule: Codable, Equatable {
-    var init: String = ""
+    var `init`: String = ""
     var name: String = ""
     var author: String = ""
     var kind: String = ""

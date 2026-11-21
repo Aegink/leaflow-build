@@ -50,7 +50,7 @@ extension PageContentViewController {
         get { _widgetInstances }
         set { _widgetInstances = newValue }
     }
-    private var _widgetInstances: [(id: UUID, widget: LayoutWidget)] = []
+    // （_widgetInstances 移至 PageContentViewController 类体）
 
     // MARK: 动态刷新需求
 

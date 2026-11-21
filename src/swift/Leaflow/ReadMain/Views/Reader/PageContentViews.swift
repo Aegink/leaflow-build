@@ -245,6 +245,7 @@ final class PageContentViewController: UIViewController, UIGestureRecognizerDele
     }
 
     private(set) var chapterTitleView = ReaderChapterTitleView()
+    private var _widgetInstances: [(id: UUID, widget: LayoutWidget)] = []
     private var fullLineUnderlineView = UIView()
     private var fullLineUnderlineLayer = CAShapeLayer()
     private var highlightGradientBackgroundView = HighlightGradientOverlayView()

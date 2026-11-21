@@ -39,6 +39,8 @@ final class JsoupDomStore {
         }
     }
 
+    /// 节点句柄表（nodeID → Element；T-1401-09 域）。
+    private var nodes: [String: SwiftSoupElement] = [:]
     private var records: [String: DocumentRecord] = [:]
     private let lock = NSLock()
     private var counter = 0
@@ -89,9 +91,6 @@ final class JsoupDomStore {
 // MARK: - T-1401-09 逐域补齐（节点句柄域）
 
 extension JsoupDomStore {
-
-    /// 节点句柄表（nodeID → Element）。
-    private var nodes: [String: SwiftSoupElement] = [:]
 
     /// 节点登记（元素句柄域；handle 前缀 "n" + 计数）。
     func registerNode(_ element: SwiftSoupElement, documentID: String) -> String {

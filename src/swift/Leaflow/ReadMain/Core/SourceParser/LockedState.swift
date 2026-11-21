@@ -50,15 +50,6 @@ extension LockedState {
     }
 }
 
-extension UncheckedLockedState {
-
-    /// 伪代码 0x100015294（L47-51）：无锁变体（unchecked 域语义）。
-    func withValue(_ body: (inout Value) -> Void) {
-        body(&storage)
-    }
-}
-
-
 /// 无锁状态容器（0x100015294 L47-51 域容器；类型缺失按签名还原——
 /// unchecked 语义：无锁直读直写）。
 final class UncheckedLockedState<Value> {

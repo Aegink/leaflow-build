@@ -149,7 +149,7 @@ enum HighlightRuleFileService {
         from archiveURL: URL,
         assetManager: HighlightBackgroundImageAssetManager,
         settings: ReadingSettings
-    ) throws -> HighlightRuleImportSummary {
+    ) throws -> HighlightRuleImportService.HighlightRuleImportSummary {
         let packageDirectory = locatePackageDirectory(in: archiveURL)
         let manifestURL = packageDirectory.appendingPathComponent("manifest.json")
         guard FileManager.default.fileExists(atPath: manifestURL.path) else {

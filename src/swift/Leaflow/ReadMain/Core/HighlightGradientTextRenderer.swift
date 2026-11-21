@@ -1913,7 +1913,7 @@ final class HighlightGradientOverlayView: UIView {
         }
     }
 
-    var configuration: HighlightGradientTextRenderer.Configuration {
+    var textConfiguration: HighlightGradientTextRenderer.Configuration {
         didSet {
             // configuration.didset 0x1001cb410 L1963-1970 域确证：
             // 等值短路；前景模式 setNeedsDisplay，背景模式走快照链。
@@ -2115,7 +2115,7 @@ final class HighlightGradientAttributedTextView: UIView {
     }
 
     init(frame: CGRect) {
-        configuration = HighlightGradientTextRenderer.Configuration()
+        textConfiguration = HighlightGradientTextRenderer.Configuration()
         super.init(frame: frame)
         backgroundColor = .clear
     }

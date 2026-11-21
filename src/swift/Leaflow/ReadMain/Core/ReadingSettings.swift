@@ -1099,3 +1099,20 @@ extension Color {
             Int(round(red * 255)), Int(round(green * 255)), Int(round(blue * 255)))
     }
 }
+
+extension ReadingSettings {
+
+    /// 页面模式（PageViewController 路由域 + ReaderViewModifiers `.horizontal`
+    /// 域确证；档位推断）。
+    enum PageMode: String, Codable {
+        case horizontal
+        case curl
+        case scroll
+    }
+
+    /// 段评浮层呈现（ReaderSettingsComponents tag 域确证：modal/inline）。
+    enum ParagraphCommentBrowserPresentation: String, Codable {
+        case modal
+        case inline
+    }
+}

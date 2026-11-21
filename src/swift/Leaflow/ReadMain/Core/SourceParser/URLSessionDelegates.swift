@@ -166,14 +166,14 @@ extension JavaRawResponse: CustomStringConvertible {
 /// Java 原始请求（init 0x10016f8ec L237-240 / url 0x10016f90c 域）。
 final class JavaRawRequest {
 
-    let url: URL
+    let requestURL: URL
     let method: String
     let headers: [String: String]
     let body: Data?
 
     /// 伪代码 0x10016f8ec（L237-240）：四参构造域。
     init(url: URL, method: String, headers: [String: String], body: Data?) {
-        self.url = url
+        self.requestURL = url
         self.method = method
         self.headers = headers
         self.body = body
@@ -181,7 +181,7 @@ final class JavaRawRequest {
 
     /// 伪代码 0x10016f90c（L242）：URL 域。
     func url() -> String {
-        url.absoluteString
+        requestURL.absoluteString
     }
 }
 

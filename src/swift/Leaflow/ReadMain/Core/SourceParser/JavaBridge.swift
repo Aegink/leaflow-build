@@ -54,7 +54,7 @@ enum JSImportScriptResolver {
 
     /// 伪代码 0x1000ea4d8（L103-123）：直接沙箱文件 URL（非法字符清洗后）。
     static func directSandboxFileURL(_ path: String) -> URL? {
-        let invalid = CharacterSet(charactersIn: "\\/:*?"<>|")
+        let invalid = CharacterSet(charactersIn: "\\/:*?\"<>|")
         let cleaned = path.components(separatedBy: invalid).joined()
         for root in sandboxRoots() {
             let candidate = root.appendingPathComponent(cleaned)
