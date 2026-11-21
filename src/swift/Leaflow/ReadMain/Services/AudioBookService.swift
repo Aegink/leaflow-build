@@ -101,7 +101,7 @@ final class AudioBookService: ObservableObject {
     /// seek(to: Double)（签名域确证：0...1 比例）。
     func seek(to ratio: Double) {
         guard let duration = player.currentItem?.duration,
-              duration.isNumeric, duration > 0 else {
+              duration.isNumeric, duration.seconds > 0 else {
             return
         }
         let target = CMTime(
@@ -113,7 +113,7 @@ final class AudioBookService: ObservableObject {
     /// progressRatio getter（签名域确证）。
     func currentProgressRatio() -> Double {
         guard let item = player.currentItem,
-              item.duration.isNumeric, item.duration > 0,
+              item.duration.isNumeric, item.duration.seconds > 0,
               item.currentTime().isNumeric else {
             return 0
         }

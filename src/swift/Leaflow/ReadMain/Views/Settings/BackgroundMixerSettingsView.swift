@@ -138,8 +138,7 @@ struct AppThemeSettingsView: View {
                 Text("跟随系统").tag(true)
                 Text("亮色模式").tag(false)
             } label: {
-                AppThemeSettingsLabel(
-                    title: "主题切换", systemImage: "circle.lefthalf.filled")
+                AppThemeSettingsLabel("主题切换", systemImage: "circle.lefthalf.filled")
             }
             .pickerStyle(.menu)
             .onChange(of: followSystem) { newValue in
@@ -153,8 +152,7 @@ struct AppThemeSettingsView: View {
         }
         settingsCardRow(topGap: 12) {
             HStack {
-                AppThemeSettingsLabel(
-                    title: "深色模式", systemImage: "moon.fill")
+                AppThemeSettingsLabel("深色模式", systemImage: "moon.fill")
                 Spacer()
                 Button {
                     AppThemeManager.shared.activateThemeMode(true)
@@ -166,8 +164,7 @@ struct AppThemeSettingsView: View {
         }
         settingsCardRow(topGap: 12) {
             HStack {
-                AppThemeSettingsLabel(
-                    title: "主题列表", systemImage: "paintpalette")
+                AppThemeSettingsLabel("主题列表", systemImage: "paintpalette")
                 Spacer()
                 Button {
                     // '新建' L3503 域确证。
@@ -224,31 +221,26 @@ struct AppThemeSettingsView: View {
         HStack {
             switch destination {
             case .readerInterface:
-                AppThemeSettingsLabel(
-                    title: "阅读界面", systemImage: "book")
+                AppThemeSettingsLabel("阅读界面", systemImage: "book")
             case .tabIcon:
-                AppThemeSettingsLabel(
-                    title: "字体", systemImage: "textformat")
+                AppThemeSettingsLabel("字体", systemImage: "textformat")
             case .bookshelfAppearance:
                 HStack {
                     AppThemeSettingsLabel(
-                        title: "书架", systemImage: "books.vertical")
+                        "书架", systemImage: "books.vertical")
                     Text(" 列 · ")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             case .defaultCover:
-                AppThemeSettingsLabel(
-                    title: "默认封面", systemImage: "photo.stack")
+                AppThemeSettingsLabel("默认封面", systemImage: "photo.stack")
             case .splash:
-                AppThemeSettingsLabel(
-                    title: "启动图", systemImage: "sparkles")
+                AppThemeSettingsLabel("启动图", systemImage: "sparkles")
             case .cardBackground:
-                AppThemeSettingsLabel(
-                    title: "卡片背景", systemImage: "rectangle.on.rectangle")
+                AppThemeSettingsLabel("卡片背景", systemImage: "rectangle.on.rectangle")
             default:
                 AppThemeSettingsLabel(
-                    title: destination.rawValue, systemImage: "gear")
+                    destination.rawValue, systemImage: "gear")
             }
             Spacer()
             Image(systemName: "chevron.right")

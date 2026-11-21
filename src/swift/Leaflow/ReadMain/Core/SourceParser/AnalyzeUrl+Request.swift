@@ -133,7 +133,7 @@ extension AnalyzeUrl {
         // 事实 1：两段编码 + URL 构造。
         let encoded = Self.smartPercentEncode(url)
         guard let target = URL(string: encoded) else {
-            Logger.log("[buildRequest] 无效的 URL: \(url)", level: Self.requestLogLevel, anchor: 233)
+            Logger.log("[buildRequest] 无效的 URL: \(url)", level: Self.requestLogLevel)
             return nil
         }
 
@@ -149,8 +149,7 @@ extension AnalyzeUrl {
         if !headers.isEmpty {
             Logger.log(
                 "[HTTP] 自定义Headers(\(headers.count)) names=[\(headers.keys.joined(separator: ","))]",
-                level: Self.requestLogLevel,
-                anchor: 260
+                level: Self.requestLogLevel
             )
         }
 
@@ -160,8 +159,7 @@ extension AnalyzeUrl {
             Logger.log(
                 "[HTTP-COOKIE-DIAG] stateKey=\(target.host ?? "") [HTTP] legado cookie host=\(target.host ?? "") "
                     + "finalLen=\(cookie.count)",
-                level: Self.requestLogLevel,
-                anchor: 287
+                level: Self.requestLogLevel
             )
         }
 
@@ -229,7 +227,7 @@ extension AnalyzeUrl {
 
 extension AnalyzeUrl {
 
-    static let requestLogLevel: Int = 2
+    static let requestLogLevel: Logger.Level = .warning
     /// 伪代码：NetworkConstants.userTimeout（URLRequest.timeoutInterval setter 输入）。
     static let userTimeout: TimeInterval = 60.0
     static let defaultUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)"

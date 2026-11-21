@@ -34,8 +34,10 @@ jobs:
 
       - name: Extract unique errors
         run: |
-          grep -E "error:" build.log | sed 's/^.*error:/error:/' | sort -u > errors.txt || true
-          grep -cE "error:" build.log > error_count.txt || true
+          # 只匹配 "path:line:col: error: msg" 形式的真实编译错误行，
+          # 排除 xcodebuild 回显的源码上下文（如 func present(_ error: Error)）假阳性
+          grep -E ": error:" build.log | sed 's/^.*error:/error:/' | sort -u > errors.txt || true
+          grep -cE ": error:" build.log > error_count.txt || true
           echo "---- unique errors ----"
           cat errors.txt || true
           echo "---- total error lines ----"

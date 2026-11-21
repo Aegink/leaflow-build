@@ -38,6 +38,7 @@
 
 import SwiftUI
 import UIKit
+import AVFoundation
 
 // MARK: - 主题更新影响（0x10018e268 L31-39）
 
@@ -190,6 +191,13 @@ final class AppThemeManager: ObservableObject {
         themes.first { $0.id == id }
     }
 
+    /// validThemeId(_:)（applyTheme/selectTheme 调用域确证：主题 ID 存在
+    /// 性校验，命中返回原 ID 否则 nil）。存在性语义与 theme(withID:) 一致，
+    /// 具体校验域为还原推断。
+    private func validThemeId(_ id: String) -> String? {
+        theme(withID: id) != nil ? id : nil
+    }
+
     /// activeThemeModeIsDark getter（0x10018e9bc closure 域确证）。
     var activeThemeModeIsDark: Bool {
         currentTheme.id == darkThemeID
@@ -241,11 +249,13 @@ final class AppThemeManager: ObservableObject {
     }
 
     /// appFont(size:weight:)（签名族确证：自定义字体桥）。
+    /// Font.custom 无 size:weight: 重载——用 Font.weight 链
+    /// （ReaderFont.readerUI 同惯用式）。
     func appFont(size: CGFloat, weight: Font.Weight = .regular) -> Font {
         guard let family = fontFamily else {
             return .system(size: size, weight: weight)
         }
-        return .custom(family, size: size, weight: weight)
+        return .custom(family, size: size).weight(weight)
     }
 
     var defaultFont: Font? {
@@ -370,7 +380,8 @@ final class AppThemeManager: ObservableObject {
     }
 
     /// themeFileData(for:)（AppTheme.swift fileDataMap 还原桥）。
-    func themeFileData(for themeID: String) -> [String: Data] {
+    /// nonisolated：纯文件系统读取（AppTheme 非 MainActor 域消费）。
+    nonisolated func themeFileData(for themeID: String) -> [String: Data] {
         guard let directory = Self.themesRootDirectory?
             .appendingPathComponent(themeID) else {
             return [:]
@@ -378,15 +389,22 @@ final class AppThemeManager: ObservableObject {
         var result: [String: Data] = [:]
         if let files = try? FileManager.default.contentsOfDirectory(
             at: directory, includingPropertiesForKeys: nil) {
-            for file in files where !file.hasHiddenExtension {
-                result[file.lastPathComponent] =
-                    try? Data(contentsOf: file)
+            for file in files {
+                // URL 无 hasHiddenExtension 直取成员——经 resourceValues
+                // 读取（hasHiddenExtensionKey 资源域）。
+                let hidden = (try? file.resourceValues(
+                    forKeys: [.hasHiddenExtensionKey]))?
+                    .hasHiddenExtension ?? false
+                if !hidden {
+                    result[file.lastPathComponent] =
+                        try? Data(contentsOf: file)
+                }
             }
         }
         return result
     }
 
-    private static var themesRootDirectory: URL? {
+    private nonisolated static var themesRootDirectory: URL? {
         let base = FileManager.default.urls(
             for: .applicationSupportDirectory, in: .userDomainMask
         ).first

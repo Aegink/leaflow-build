@@ -100,8 +100,8 @@ final class AppThemeCardBackgroundSnapshotCache {
     private let cache = NSCache<CacheKey, Entry>()
 
     /// init(countLimit:totalCostLimit:)（0x10018c168 L51-54 域确证）。
+    /// 无父类——不调 super.init()（Swift 基类隐式 init 可用）。
     init(countLimit: Int, totalCostLimit: Int) {
-        super.init()
         cache.countLimit = countLimit
         cache.totalCostLimit = totalCostLimit
     }
@@ -179,7 +179,7 @@ final class AppThemeCardBackgroundSnapshotCache {
                 position: .zero, layout: layout,
                 cacheIdentifier: cacheIdentifier)
             paint.draw(in: CGRect(origin: .zero, size: renderSize),
-                       context: context.currentContext)
+                       context: context.cgContext)
         }
     }
 

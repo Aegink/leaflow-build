@@ -114,7 +114,7 @@ struct AudioPlayerView: View {
                     Task { await viewModel.jumpToChapter(index) }
                 } label: {
                     HStack {
-                        Text(viewModel.chapters[index].title)
+                        Text(viewModel.chapters[index].name)
                             .lineLimit(1)
                         Spacer()
                         if index == viewModel.currentChapterIndex {

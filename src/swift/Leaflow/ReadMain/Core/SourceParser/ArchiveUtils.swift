@@ -79,14 +79,17 @@ enum ArchiveUtils {
         data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
             stream.next_in = UnsafeMutablePointer<UInt8>(
                 mutating: raw.bindMemory(to: UInt8.self).baseAddress)
-            stream.avail_in = uint32(data.count)
+            stream.avail_in = uInt(data.count)
             repeat {
-                stream.next_out = &chunk
-                stream.avail_out = uInt(chunk.count)
-                status = deflate(&stream, Z_FINISH)
-                guard status != Z_STREAM_ERROR else { return }
-                let produced = chunk.count - Int(stream.avail_out)
+                var produced = 0
+                chunk.withUnsafeMutableBufferPointer { buffer in
+                    stream.next_out = buffer.baseAddress
+                    stream.avail_out = uInt(buffer.count)
+                    status = deflate(&stream, Z_FINISH)
+                    produced = buffer.count - Int(stream.avail_out)
+                }
                 compressed.append(chunk, count: produced)
+                guard status != Z_STREAM_ERROR else { return }
             } while stream.avail_out == 0
         }
         return compressed
@@ -106,17 +109,20 @@ enum ArchiveUtils {
         data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
             stream.next_in = UnsafeMutablePointer<UInt8>(
                 mutating: raw.bindMemory(to: UInt8.self).baseAddress)
-            stream.avail_in = uint32(data.count)
+            stream.avail_in = uInt(data.count)
             repeat {
-                stream.next_out = &chunk
-                stream.avail_out = uInt(chunk.count)
-                status = inflate(&stream, Z_NO_FLUSH)
+                var produced = 0
+                chunk.withUnsafeMutableBufferPointer { buffer in
+                    stream.next_out = buffer.baseAddress
+                    stream.avail_out = uInt(buffer.count)
+                    status = inflate(&stream, Z_NO_FLUSH)
+                    produced = buffer.count - Int(stream.avail_out)
+                }
+                inflated.append(chunk, count: produced)
                 guard status != Z_STREAM_ERROR,
                       status != Z_DATA_ERROR, status != Z_MEM_ERROR else {
                     return
                 }
-                let produced = chunk.count - Int(stream.avail_out)
-                inflated.append(chunk, count: produced)
             } while stream.avail_out == 0
         }
         return inflated

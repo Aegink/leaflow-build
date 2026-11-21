@@ -60,7 +60,7 @@ struct AudioSkinApple: View {
     private func content(in geometry: GeometryProxy) -> some View {
         VStack(spacing: 20) {
             Spacer()
-            coverArea(in: geometry)
+            coverArea
             chapterTitle
             playerControls
             bottomIconRow

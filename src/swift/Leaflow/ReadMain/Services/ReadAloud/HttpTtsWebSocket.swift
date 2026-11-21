@@ -117,9 +117,67 @@ enum HttpTtsWebSocketOutgoingMessage {
 }
 
 /// 帧域（Frame 签名还原桥）。
+/// 消费端 evaluateTtsWebSocketMessage 需 _ws* 桥成员（byteAt/uint16BE/utf8/base64/
+/// stateJSON/messageType/text/messageCount，AnalyzeUrl.swift 事实 8）；以下成员
+/// 基于 data/isText 实实现，偏移/编码语义为还原推断（待 T-801 真机交叉核清）。
 struct HttpTtsWebSocketFrame {
     let data: Data
     let isText: Bool
+
+    /// 文本帧完整 UTF-8 内容（非文本帧为 nil）。
+    var text: String? {
+        guard isText else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    /// 帧类型（_wsMessageType 桥：text/binary）。
+    var messageType: String {
+        isText ? "text" : "binary"
+    }
+
+    /// 帧内消息计数（_wsMessageCount 桥：帧缓冲字节数）。
+    var messageCount: Int {
+        data.count
+    }
+
+    /// 帧状态 JSON（_wsStateJSON 桥）。
+    var stateJSON: String {
+        let type = isText ? "text" : "binary"
+        return "{\"type\":\"\(type)\",\"length\":\(data.count)}"
+    }
+
+    /// 帧内偏移字节（_wsByteAt 桥；越界回 0）。
+    func byteAt(_ index: Int) -> Int {
+        guard data.indices.contains(index) else { return 0 }
+        return Int(data[data.startIndex + index])
+    }
+
+    /// 大端 16 位读取（_wsUInt16BE 桥；越界回 0）。
+    func uint16BE(at offset: Int) -> Int {
+        let high = byteAt(offset)
+        let low = byteAt(offset + 1)
+        return high << 8 | low
+    }
+
+    /// UTF-8 切片解码（_wsUtf8 桥；越界或解码失败为 nil）。
+    func utf8(at offset: Int, count: Int) -> String? {
+        guard let chunk = slice(offset: offset, count: count) else { return nil }
+        return String(data: chunk, encoding: .utf8)
+    }
+
+    /// Base64 切片编码（_wsBase64 桥）。
+    func base64(at offset: Int, count: Int) -> String? {
+        guard let chunk = slice(offset: offset, count: count) else { return nil }
+        return chunk.base64EncodedString()
+    }
+
+    /// 帧内切片（offset..offset+count，截断到帧尾）。
+    private func slice(offset: Int, count: Int) -> Data? {
+        guard offset >= 0, count >= 0, data.indices.contains(offset) else { return nil }
+        let end = min(offset + count, data.count)
+        guard end > offset else { return nil }
+        return data.subdata(in: (data.startIndex + offset)..<(data.startIndex + end))
+    }
 }
 
 /// 连接域（Connection/transporting 签名还原桥）。

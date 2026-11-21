@@ -339,7 +339,7 @@ final class AnalyzeUrl {
         let context = jsContext()
         context.setObject(frame.messageType, forKeyedSubscript: "_wsMessageType" as NSString)
         context.setObject(frame.text ?? "", forKeyedSubscript: "_wsMessageText" as NSString)
-        context.setObject(frame.messageCount, forKeyedSubscript: "_wsMessageCount" as NSNumber)
+        context.setObject(frame.messageCount, forKeyedSubscript: "_wsMessageCount" as NSString)
         context.setObject({ (index: Int) -> Int in
             frame.byteAt(index)
         }, forKeyedSubscript: "_wsByteAt" as NSString)
@@ -484,7 +484,7 @@ final class AnalyzeUrl {
 
 extension AnalyzeUrl {
 
-    static let analyzeUrlLogLevel: Int = 2
+    static let analyzeUrlLogLevel: Logger.Level = .warning
 
     /// 伪代码 0x100081ffc（L365-418）：搜索缓存全清。
     static func clearSearchCaches() {

@@ -126,6 +126,13 @@ struct TabIcon: Codable, Hashable {
     var symbolName: String?
     var imageData: Data?
 
+    /// 成员wise init（自定义 init(from:) 抑制合成后显式补回——工厂方法域确证）。
+    init(kind: Kind, symbolName: String?, imageData: Data?) {
+        self.kind = kind
+        self.symbolName = symbolName
+        self.imageData = imageData
+    }
+
     static func sfSymbol(_ name: String) -> TabIcon {
         TabIcon(kind: .sfSymbol, symbolName: name, imageData: nil)
     }
@@ -184,7 +191,7 @@ struct TabIconSet: Codable, Hashable {
         storage = [:]
         for page in TabPage.allCases {
             if let icon = try c.decodeIfPresent(
-                TabIcon.self, forKey: CodingKeys(page.rawValue)) {
+                TabIcon.self, forKey: CodingKeys(stringValue: page.rawValue)) {
                 storage[page] = icon
             }
         }
@@ -194,7 +201,7 @@ struct TabIconSet: Codable, Hashable {
         var c = encoder.container(keyedBy: CodingKeys.self)
         for page in TabPage.allCases {
             try c.encodeIfPresent(
-                storage[page], forKey: CodingKeys(page.rawValue))
+                storage[page], forKey: CodingKeys(stringValue: page.rawValue))
         }
     }
 

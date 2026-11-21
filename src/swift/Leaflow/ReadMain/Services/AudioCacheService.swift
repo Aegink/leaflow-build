@@ -213,7 +213,10 @@ final class AudioCacheService {
     private func stableKey(_ value: String) -> String {
         var hasher = Hasher()
         hasher.combine(value)
-        return String(format: "%016x", UInt64(bitPattern: hasher.finalize()))
+        // UInt64(bitPattern:) 接 Int64（Int 需显式桥接）。
+        return String(
+            format: "%016x",
+            UInt64(bitPattern: Int64(hasher.finalize())))
     }
 }
 
@@ -226,8 +229,10 @@ extension AudioCacheService {
             at: cacheRoot, includingPropertiesForKeys: [.fileSizeKey])
         else { return 0 }
         for file in files {
-            total += Int64((try? file.resourceValues(forKeys: [.fileSizeKey]))
-                ?.fileSize ?? 0)
+            // 行首 ?. 会被解析为三元 ?——先落变量再链式取值。
+            let fileValues = try? file.resourceValues(
+                forKeys: [.fileSizeKey])
+            total += Int64(fileValues?.fileSize ?? 0)
         }
         return total
     }

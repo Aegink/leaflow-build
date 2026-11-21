@@ -103,7 +103,7 @@ final class AudioPlayerViewModel: ObservableObject {
     func refreshChapterList() async {
         guard let source = currentBookSource else { return }
         let list = try? await bookService.getChapterList(
-            bookSourceUrl: source.bookSourceUrl, bookUrl: book.bookUrl,
+            bookSourceUrl: source.bookSourceUrl, bookUrl: book.bookUrl ?? "",
             bookName: book.name, needRefresh: false, useReplaceRule: false)
         if let list, !list.isEmpty {
             chapters = list
@@ -118,7 +118,7 @@ final class AudioPlayerViewModel: ObservableObject {
     /// shouldRefreshRemoteChapterList(for: Chapter)（签名域确证）。
     private func shouldRefreshRemoteChapterList(for chapter: Chapter)
         -> Bool {
-        chapter.title.isEmpty || chapter.url.isEmpty
+        chapter.name.isEmpty || chapter.url.isEmpty
     }
 
     // MARK: 播放域（loadAndPlayChapter/jumpToChapter/next/previous 签名域）
@@ -169,10 +169,11 @@ final class AudioPlayerViewModel: ObservableObject {
         let chapter = chapters[index]
         guard let source = currentBookSource else { return nil }
         // 音频 URL 解析桥（chapter.url → 正文解析域，T-201 分册桥）。
+        // buildPlaybackRequest 消费原始 String——URL 构造仅做空值校验。
         let audioUrl = chapter.url.isEmpty
             ? nil : URL(string: chapter.url)
         guard let audioUrl else { return nil }
-        return buildPlaybackRequest(from: audioUrl)
+        return buildPlaybackRequest(from: chapter.url)
     }
 
     /// buildPlaybackRequest(from: String)（签名域确证：AudioRequestParser
@@ -187,7 +188,7 @@ final class AudioPlayerViewModel: ObservableObject {
     ) {
         audioCache.predownload(
             remoteUrl: request.url, headers: request.headers,
-            bookUrl: book.bookUrl, chapterIndex: chapterIndex)
+            bookUrl: book.bookUrl ?? "", chapterIndex: chapterIndex)
     }
 
     /// prefetchNextChapter(after: Int)（签名域确证）。
@@ -208,7 +209,7 @@ final class AudioPlayerViewModel: ObservableObject {
         audioService.play(url: url, headers: headers)
         audioService.updateNowPlayingInfo(
             bookName: book.name,
-            chapterName: currentChapter?.title ?? "",
+            chapterName: currentChapter?.name ?? "",
             coverUrl: nil)
         saveProgress()
     }
@@ -239,7 +240,7 @@ final class AudioPlayerViewModel: ObservableObject {
 
     /// audioCacheKey getter（签名域确证）。
     private var audioCacheKey: String {
-        book.bookUrl
+        book.bookUrl ?? ""
     }
 
     /// ownsCurrentAudioSession getter（签名域确证）。
@@ -253,7 +254,7 @@ final class AudioPlayerViewModel: ObservableObject {
     /// cachedChapterIndices getter（签名域确证）。
     var cachedChapterIndices: Set<Int> {
         chapters.indices.filter {
-            audioCache.isCached(bookUrl: book.bookUrl, chapterIndex: $0)
+            audioCache.isCached(bookUrl: book.bookUrl ?? "", chapterIndex: $0)
         }.reduce(into: Set<Int>()) { $0.insert($1) }
     }
 
@@ -275,7 +276,7 @@ final class AudioPlayerViewModel: ObservableObject {
 
     /// chapterTitle getter（签名域确证）。
     var chapterTitle: String {
-        currentChapter?.title ?? ""
+        currentChapter?.name ?? ""
     }
 
     var currentChapterIndexIsLoading: Bool {
@@ -287,7 +288,7 @@ final class AudioPlayerViewModel: ObservableObject {
 
     /// saveProgress（签名域确证：BookService.setLastReadTime 域桥）。
     func saveProgress() {
-        bookService.setLastReadTime(Date(), for: book.bookUrl)
+        bookService.setLastReadTime(Date(), for: book.bookUrl ?? "")
     }
 
     /// addBookToBookshelf（签名域确证：addBook 三参域桥）。

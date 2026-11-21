@@ -21,9 +21,10 @@ import Foundation
 enum BackgroundWork {
 
     /// 伪代码 0x1001ee570（L8-14）：后台同步执行。
+    /// @escaping：Task(priority:operation:) 形参要求逃逸闭包。
     static func run<A: Sendable>(
         priority: TaskPriority? = nil,
-        _ operation: @Sendable () -> A
+        _ operation: @escaping @Sendable () -> A
     ) async -> A {
         await Task(priority: priority, operation: operation).value
     }
@@ -31,7 +32,7 @@ enum BackgroundWork {
     /// 伪代码 0x100d3ae50（L20-24，3 共体块）：后台抛出执行。
     static func runThrowing<A: Sendable>(
         priority: TaskPriority? = nil,
-        _ operation: @Sendable () throws -> A
+        _ operation: @escaping @Sendable () throws -> A
     ) async throws -> A {
         try await Task(priority: priority, operation: operation).value
     }
@@ -39,7 +40,7 @@ enum BackgroundWork {
     /// 伪代码 0x1001e6f50（L30-34）：后台异步执行。
     static func runAsync<A: Sendable>(
         priority: TaskPriority? = nil,
-        _ operation: @Sendable () async -> A
+        _ operation: @escaping @Sendable () async -> A
     ) async -> A {
         await Task(priority: priority, operation: operation).value
     }
@@ -47,7 +48,7 @@ enum BackgroundWork {
     /// 伪代码 0x100d43c20（L39-43）：后台异步抛出执行。
     static func runThrowingAsync<A: Sendable>(
         priority: TaskPriority? = nil,
-        _ operation: @Sendable () async throws -> A
+        _ operation: @escaping @Sendable () async throws -> A
     ) async throws -> A {
         try await Task(priority: priority, operation: operation).value
     }
