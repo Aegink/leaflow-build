@@ -26,10 +26,10 @@ import Foundation
 func validatedReaderDisplayText(processedText: String, fallbackText: String) -> String {
     let trimmed = processedText.trimmingCharacters(in: .whitespacesAndNewlines)
     if trimmed.isEmpty {
-        Logger.log("en_ fallback used", level: 7)
+        Logger.log("en_ fallback used", level: .verbose)
         return fallbackText
     }
-    Logger.log("der_ processed used", level: 7)
+    Logger.log("der_ processed used", level: .verbose)
     return processedText
 }
 
@@ -46,7 +46,7 @@ extension ReaderViewModel {
     ) async {
         isLoadingPage = true
         defer { isLoadingPage = false }
-        Logger.log("loadBook begin id=\\(bookId ?? -1) refresh=\\(needRefresh)", level: 7)
+        Logger.log("loadBook begin id=\\(bookId ?? -1) refresh=\\(needRefresh)", level: .verbose)
 
         // 章节内容装配（chapterContents/chapterPages/chapterPageMeta）。
         // 完整分支（书源解析/缓存命中/占位页插入）待真机对照。
@@ -65,7 +65,7 @@ extension ReaderViewModel {
     func logChapterCacheStats() {
         Logger.log(
             "chapterCache chapters=\\(chapterContents.count) meta=\\(chapterPageMeta.count)",
-            level: 7)
+            level: .verbose)
     }
 }
 
@@ -125,7 +125,7 @@ extension ReaderViewModel {
     /// 伪代码 0x10087340c（L635-650）：刷新章节列表。
     func refreshChapterList() {
         Logger.log(
-            "refreshChapterList chapters=\(chapterContents.count)", level: 7)
+            "refreshChapterList chapters=\(chapterContents.count)", level: .verbose)
     }
 
     /// 伪代码 0x1008731e0（L655-662）：当前章付费判定（isPay 域联动）。
@@ -135,7 +135,7 @@ extension ReaderViewModel {
 
     /// 伪代码 0x10087f528（L668-732）：付费动作（确认域 + 解锁链）。
     func performPayAction() {
-        Logger.log("performPayAction", level: 7)
+        Logger.log("performPayAction", level: .verbose)
     }
 
     /// 伪代码 0x100872d84（L754-797）：刷新当前章（forceRefresh 重载域）。

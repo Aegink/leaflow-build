@@ -49,6 +49,9 @@ import Foundation
 import UIKit
 
 /// 备份服务（exportBackup/restoreBackup/previewBackup 签名域确证）。
+/// @MainActor：消费方（CloudSyncController/BackupView）均为 MainActor
+/// 域，ReadingSettings/AppThemeManager 状态桥要求隔离（wave-16）。
+@MainActor
 final class BackupService {
 
     static let shared = BackupService()
@@ -190,7 +193,8 @@ final class BackupService {
             try exportHighlightRules(to: directory, counts: &counts)
         }
         if categories.contains(.themes) {
-            try exportThemeResources(to: directory, counts: &counts)
+            try exportThemeResources(
+                to: directory, counts: &counts, incremental: incremental)
             try exportReaderBackgrounds(
                 to: directory, incremental: incremental)
             try exportFontResources(to: directory, counts: &counts)
@@ -266,9 +270,10 @@ final class BackupService {
             to: directory.appendingPathComponent("highlight_rules.json"))
     }
 
-    /// exportThemeResources(to:counts:)（签名域确证）。
+    /// exportThemeResources(to:counts:incremental:)（签名域确证；
+    /// incremental 形参补齐——mirrorDirectory 消费域，wave-16）。
     private func exportThemeResources(
-        to directory: URL, counts: inout [String: Int]
+        to directory: URL, counts: inout [String: Int], incremental: Bool
     ) throws {
         let themes = appSupportDir.appendingPathComponent("Themes")
         guard fileManager.fileExists(atPath: themes.path) else { return }
@@ -582,6 +587,30 @@ final class BackupService {
         try importDataTree(from: staging, categories: categories)
     }
 
+    /// restoreLatestBackup()（BackupView 消费域确证——最近本地备份回灌桥；
+    /// 备份产物域为临时目录 qireader_backup_*.zip，还原推断）。
+    func restoreLatestBackup() async {
+        let files = (try? fileManager.contentsOfDirectory(
+            at: fileManager.temporaryDirectory,
+            includingPropertiesForKeys: [.contentModificationDateKey]))?
+            .filter {
+                $0.lastPathComponent.hasPrefix("qireader_backup_")
+                    && $0.pathExtension == "zip"
+            }
+            .sorted { lhs, rhs in
+                let l = (try? lhs.resourceValues(
+                    forKeys: [.contentModificationDateKey]))?
+                    .contentModificationDate ?? .distantPast
+                let r = (try? rhs.resourceValues(
+                    forKeys: [.contentModificationDateKey]))?
+                    .contentModificationDate ?? .distantPast
+                return l > r
+            }
+        guard let latest = files?.first else { return }
+        try? await restoreBackup(
+            from: latest, categories: Set(SyncCategory.allCases))
+    }
+
     // MARK: 估算域（estimateBackupSize 签名域确证）
 
     /// estimateBackupSize(categories:)（签名域确证：BackupView 域桥）。
@@ -674,7 +703,8 @@ final class BackupService {
         defer { try? fileManager.removeItem(at: staging) }
         try exportDataTree(
             to: staging, categories: categories, incremental: false)
-        try fileManager.contentsOfDirectory(at: staging).forEach { file in
+        try fileManager.contentsOfDirectory(
+            at: staging, includingPropertiesForKeys: nil).forEach { file in
             Task {
                 try? await client.upload(
                     localFile: file, to: file.lastPathComponent)

@@ -102,7 +102,7 @@ extension AnalyzeRule {
     ///   其余 → prepareJavaScriptEvaluationContext + safeEvaluateScript(timeout: 15.0,
     ///   convertLegadoTemplates: true)；
     /// - 命中的模板出现处经 NSRegularExpression 替换为求值结果；
-    /// - 结果为 nil 时 Logger.log(level: 2) 记录 `"nil"`（诊断前缀
+    /// - 结果为 nil 时 Logger.log(level: .warning) 记录 `"nil"`（诊断前缀
     ///   `"[processInnerJs-DIAG] expr=\""`）。
     /// 证据：L488-L495（双常量检查）、L582-L594（trim）、L783-L797（@@/getString）、
     ///       L809-L820（safeEvaluateScript 15.0）、L706-L753（正则替换）、L839-L888（日志）。
@@ -163,7 +163,7 @@ extension AnalyzeRule {
                     // 伪代码 L839-L888：nil 结果记录诊断日志（level=2）。
                     Logger.log(
                         "[processInnerJs-DIAG] expr=\"\(expression)\" -> nil",
-                        level: 2
+                        level: .warning
                     )
                 }
             }

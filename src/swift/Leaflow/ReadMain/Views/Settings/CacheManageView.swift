@@ -105,7 +105,7 @@ struct CacheManageView: View {
         settingsCardRow(topGap: 12) {
             HStack {
                 AppThemeSettingsLabel(
-                    title: section.title, systemImage: section.systemImage)
+                    section.title, systemImage: section.systemImage)
                 Spacer()
                 sizeText(for: section)
                 Button {

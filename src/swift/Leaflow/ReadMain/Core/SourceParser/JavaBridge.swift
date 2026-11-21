@@ -89,11 +89,11 @@ enum JSImportScriptResolver {
             if let url = directSandboxFileURL(variant),
                 let content = try? String(contentsOf: url, encoding: .utf8)
             {
-                Logger.log("[JSImportScript] local hit path=\(url.path)", level: 2)
+                Logger.log("[JSImportScript] local hit path=\(url.path)", level: .warning)
                 return content
             }
         }
-        Logger.log("[JSImportScript] local miss path=\(path)", level: 2)
+        Logger.log("[JSImportScript] local miss path=\(path)", level: .warning)
         return nil
     }
 }

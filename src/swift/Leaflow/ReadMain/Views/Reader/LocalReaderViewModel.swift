@@ -181,7 +181,7 @@ final class LocalReaderViewModel {
                 chapterTitle: chapterTitle,
                 settings: settings, pageBounds: containerSize)
         } catch {
-            Logger.log("local paginate failure \(error)", level: 2)
+            Logger.log("local paginate failure \(error)", level: .warning)
             return []
         }
     }

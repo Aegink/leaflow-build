@@ -29,9 +29,10 @@ enum AppThemeTextLevel: String, Codable, CaseIterable {
     case primary
     case secondary
     case tertiary
-    // wave-16：SwiftUI 风格档（ReadingStatsView/ReplaceRuleCreationSheet
-    // 消费域确证）——映射：headline/body→primary、subheadline→secondary、
-    // caption→tertiary。
+    // wave-16：SwiftUI 风格档（ReadingStatsView/ReplaceRuleCreationSheet/
+    // BookReviewView 消费域确证）——映射：title/headline/body→primary、
+    // subheadline→secondary、caption→tertiary。
+    case title
     case headline
     case body
     case subheadline
@@ -40,7 +41,7 @@ enum AppThemeTextLevel: String, Codable, CaseIterable {
     /// 归一档（颜色域按三档分派）。
     var normalizedLevel: AppThemeTextLevel {
         switch self {
-        case .headline, .body: return .primary
+        case .title, .headline, .body: return .primary
         case .subheadline: return .secondary
         case .primary, .secondary, .tertiary, .caption: return self
         }
@@ -49,6 +50,7 @@ enum AppThemeTextLevel: String, Codable, CaseIterable {
     /// 视觉字号档（settings 标签域）。
     var font: Font {
         switch self {
+        case .title: return .title
         case .primary, .body: return .body
         case .secondary, .subheadline: return .subheadline
         case .tertiary, .caption: return .caption

@@ -118,7 +118,7 @@ final class WebViewVerticalScrollViewController: UIViewController {
             return
         }
         knownChapters.insert(index)
-        Logger.log("load chapter \(index) hash=\(payload.contentHash)", level: 7)
+        Logger.log("load chapter \(index) hash=\(payload.contentHash)", level: .verbose)
     }
 
     /// 可见章回调入口。

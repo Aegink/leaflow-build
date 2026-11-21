@@ -65,14 +65,16 @@ struct BookmarkListView: View {
 }
 
 /// 书签行（伪代码 closure #3）。
+/// Bookmark 模型为 name/chapterIndex/position 域（addBookmark 签名确证）
+/// ——行文案按真实字段映射（格式还原推断，wave-16）。
 struct BookmarkRow: View {
     let bookmark: Bookmark
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(bookmark.chapterTitle ?? "")
+            Text(bookmark.name)
                 .font(.headline)
-            Text(bookmark.content ?? "")
+            Text("章节 \(bookmark.chapterIndex) · 位置 \(bookmark.position)")
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .lineLimit(2)

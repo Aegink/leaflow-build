@@ -343,7 +343,7 @@ extension LoginService {
         guard let rule = source.loginUrl, !rule.isEmpty else { return true }
         Logger.log(
             "[login] source=\(source.sourceName) fields=\(formData.count)",
-            level: 7)
+            level: .verbose)
         return await executeButtonAction(source: source, action: rule, formData: formData)
     }
 

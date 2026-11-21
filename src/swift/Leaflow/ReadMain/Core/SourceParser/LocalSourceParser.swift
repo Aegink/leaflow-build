@@ -48,7 +48,7 @@ final class LocalSourceParser {
     static func getBookInfo(source: BookSource, body: String, baseUrl: String) -> String {
         Logger.log(
             "[getBookInfo] source=\(source.key ?? "") responseChars=\(body.count)",
-            level: 2
+            level: .warning
         )
         let analyzer = AnalyzeRule.sharedInstance()
         analyzer.setContent(body, baseUrl: baseUrl)
@@ -64,7 +64,7 @@ final class LocalSourceParser {
         Logger.log(
             "[TOC-DEBUG] 配置: bookUrl=\(book.bookUrl) chapterList规则=\(tocRule?.chapterList ?? "") "
                 + "chapterName规则=\(tocRule?.chapterName ?? "")",
-            level: 2
+            level: .warning
         )
         let elements = analyzer.getElements(rule: tocRule?.chapterList, maxResults: nil)
         return elements.enumerated().map { index, element in
@@ -116,7 +116,7 @@ extension LocalSourceParser {
     ) -> [Book] {
         guard !key.isEmpty else { return [] }
         Logger.log(
-            "[local] searchBook key=\(key) page=\(page)", level: 7)
+            "[local] searchBook key=\(key) page=\(page)", level: .verbose)
         // 规则执行域：searchUrl 装配 + 列表规则（书源管线消费）。
         return []
     }
@@ -128,7 +128,7 @@ extension LocalSourceParser {
     ) -> String {
         Logger.log(
             "[local] getChapterContent chapter=\(chapter.name)",
-            level: 7)
+            level: .verbose)
         // 正文规则执行域：content 规则 + replace 净化（书源管线消费）。
         return ""
     }
@@ -137,7 +137,7 @@ extension LocalSourceParser {
     static func getReviews(
         source: BookSource, chapter: BookChapter, body: String
     ) -> [ParagraphComment] {
-        Logger.log("[local] getReviews", level: 7)
+        Logger.log("[local] getReviews", level: .verbose)
         return []
     }
 
@@ -160,7 +160,7 @@ extension LocalSourceParser {
             }
         }
         defaults.removeObject(forKey: key)
-        Logger.log("[local] migrateLegacyCookies \(stored.count)", level: 7)
+        Logger.log("[local] migrateLegacyCookies \(stored.count)", level: .verbose)
     }
 }
 

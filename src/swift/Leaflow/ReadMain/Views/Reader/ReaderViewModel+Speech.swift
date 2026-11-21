@@ -155,7 +155,7 @@ extension ReaderViewModel {
         if let anchor = activeReadAloudAnchor {
             Logger.log(
                 "speech commitPageTurn anchor=\(anchor.chapterIndex)",
-                level: 7)
+                level: .verbose)
         }
     }
 

@@ -31,8 +31,8 @@ import Foundation
 enum Logger {
 
     /// 日志级别（raw 比较 < 确证）。
-    /// wave-16：补 verbose/ultraVerbose 档——调用域 40 处 `level: 7`（性能/
-    /// 滚动跟踪域）+ 1 处 `level: 9`（段评命中域），raw 值由调用域确证，
+    /// wave-16：补 verbose/ultraVerbose 档——调用域 40 处 `level: .verbose`（性能/
+    /// 滚动跟踪域）+ 1 处 `level: .ultraVerbose`（段评命中域），raw 值由调用域确证，
     /// 命名为还原推断。
     enum Level: Int, Comparable {
         case debug = 0

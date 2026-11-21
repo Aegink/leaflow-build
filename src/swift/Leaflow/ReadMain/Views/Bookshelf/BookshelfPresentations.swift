@@ -101,7 +101,9 @@ struct BookshelfPresentationsModifier: ViewModifier {
                         }
                         Spacer()
                         Button(role: .destructive) {
-                            vm.deleteSelected()
+                            vm.deleteSelectedBooks(
+                                selection: vm.selectedIds,
+                                items: vm.allBookshelfItems(for: vm.selectedGroup))
                         } label: {
                             Image(systemName: "trash")
                         }

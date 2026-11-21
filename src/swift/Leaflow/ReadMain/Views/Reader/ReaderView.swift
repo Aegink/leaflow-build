@@ -106,7 +106,7 @@ struct CommentBrowserSheetPresentationModifier: ViewModifier {
                 Text("评论")
             }
             .onChange(of: isVisible) { _, newValue in
-                Logger.log("commentBrowser t=\\(newValue)", level: 7)
+                Logger.log("commentBrowser t=\\(newValue)", level: .verbose)
             }
     }
 }

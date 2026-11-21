@@ -164,7 +164,7 @@ func buildReaderBodyAttributedText(
         }.joined(separator: " ")
         Logger.log(
             "images \(totalMs.formatted()) \(detail) \(continuationPreviewText)",
-            level: 7)
+            level: .verbose)
     }
     return mutable
 }
@@ -262,12 +262,12 @@ extension PageContentViewController {
             }
             Logger.log(
                 "Action Line=\(pair.rect) head \"\(preview)\"",
-                level: 9)
+                level: .ultraVerbose)
             onCommentTap?(pair.comment)
             return
         }
         // 未命中评论：Logger.log（45 字符字面量 0x1012717F0，level 2，内容未解码）。
-        Logger.log("tap did not hit any comment rect", level: 2)
+        Logger.log("tap did not hit any comment rect", level: .warning)
     }
 
     /// 评论矩形缓存（伪代码 0x10075edd0，L258-294；closure 0x10076155c，L272-288）。

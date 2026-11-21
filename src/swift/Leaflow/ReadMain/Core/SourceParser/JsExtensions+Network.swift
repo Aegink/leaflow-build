@@ -73,7 +73,7 @@ extension JsExtensions {
         if Self.isOnMainThread {
             Logger.log(
                 "[JS WebView] ⚠️ 在主线程调用 webView()，回退到 ajax 避免死锁",
-                level: 2
+                level: .warning
             )
             return ajax(url ?? "")
         }
@@ -94,7 +94,7 @@ extension JsExtensions {
     func webViewGetSource(_ url: String?, _ html: String?, _ webJs: String?, _ sourceRegex: String?) -> String {
         if Self.isOnMainThread {
             Logger.log(
-                "[webViewGetSource] ⚠️ 在主线程调用，回退到 ajax 避免死锁", level: 2
+                "[webViewGetSource] ⚠️ 在主线程调用，回退到 ajax 避免死锁", level: .warning
             )
             return ajax(url ?? "")
         }
@@ -105,7 +105,7 @@ extension JsExtensions {
     func webViewGetOverrideUrl(_ url: String?, _ html: String?, _ webJs: String?, _ overrideUrlRegex: String?) -> String {
         if Self.isOnMainThread {
             Logger.log(
-                "[webViewGetOverrideUrl] ⚠️ 在主线程调用，回退到 ajax 避免死锁", level: 2
+                "[webViewGetOverrideUrl] ⚠️ 在主线程调用，回退到 ajax 避免死锁", level: .warning
             )
             return ""
         }
@@ -116,7 +116,7 @@ extension JsExtensions {
     func startBrowserAwait(_ url: String, _ title: String) -> String {
         if Self.isOnMainThread {
             Logger.log(
-                "[startBrowserAwait] ⚠️ 在主线程调用，回退到 ajax 避免死锁", level: 2
+                "[startBrowserAwait] ⚠️ 在主线程调用，回退到 ajax 避免死锁", level: .warning
             )
             return ajax(url)
         }

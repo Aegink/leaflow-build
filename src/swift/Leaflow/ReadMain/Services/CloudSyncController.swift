@@ -26,6 +26,9 @@ import Foundation
 @MainActor
 final class CloudSyncController: ObservableObject {
 
+    /// 单例（BackupView 消费域确证，wave-16 补桥）。
+    static let shared = CloudSyncController()
+
     /// 云操作错误（errorDescription 签名域确证）。
     enum CloudOpError: LocalizedError {
         case destinationUnavailable

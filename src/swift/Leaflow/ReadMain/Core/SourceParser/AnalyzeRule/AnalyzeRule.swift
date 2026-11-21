@@ -257,7 +257,7 @@ final class AnalyzeRule {
             )
         }
         if let exception = context.exception, debugMode {
-            Logger.log("[JS-ERROR] 脚本异常 | 脚本: \(script) -> \(exception)", level: 1)
+            Logger.log("[JS-ERROR] 脚本异常 | 脚本: \(script) -> \(exception)", level: .info)
         }
         return value
     }

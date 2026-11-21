@@ -64,8 +64,7 @@ struct BookshelfAppearanceSettingsView: View {
                     Text(style.displayName).tag(style)
                 }
             } label: {
-                AppThemeSettingsLabel(
-                    title: "头部样式", systemImage: "rectangle.topthird")
+                AppThemeSettingsLabel("头部样式", systemImage: "rectangle.topthird")
             }
             .pickerStyle(.menu)
         }
@@ -81,8 +80,7 @@ struct BookshelfAppearanceSettingsView: View {
                     Text("\(count)").tag(count)
                 }
             } label: {
-                AppThemeSettingsLabel(
-                    title: "网格列数", systemImage: "square.grid.2x2")
+                AppThemeSettingsLabel("网格列数", systemImage: "square.grid.2x2")
             }
             .pickerStyle(.menu)
             .onChange(of: gridColumns) { _ in
@@ -97,8 +95,7 @@ struct BookshelfAppearanceSettingsView: View {
     private var listCardSection: some View {
         settingsCardRow(topGap: 12) {
             VStack(alignment: .leading, spacing: 8) {
-                AppThemeSettingsLabel(
-                    title: "卡片大小", systemImage: "rectangle.split.1x2")
+                AppThemeSettingsLabel("卡片大小", systemImage: "rectangle.split.1x2")
                 Slider(
                     value: Binding(
                         get: { listCardHeight },
@@ -123,8 +120,7 @@ struct BookshelfAppearanceSettingsView: View {
                     Text(mode.displayName).tag(mode)
                 }
             } label: {
-                AppThemeSettingsLabel(
-                    title: "文字颜色", systemImage: "paintbrush.pointed")
+                AppThemeSettingsLabel("文字颜色", systemImage: "paintbrush.pointed")
             }
             .pickerStyle(.menu)
             .onChange(of: tagColorMode) { _ in

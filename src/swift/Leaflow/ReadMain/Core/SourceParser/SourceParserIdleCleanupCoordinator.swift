@@ -24,7 +24,7 @@ final class SourceParserIdleCleanupCoordinator {
         defer { lock.unlock() }
         if cleanupScheduled { return }
         cleanupScheduled = true
-        Logger.log("[IdleCleanup] idleCandidate= reason=\(reason)", level: 2)
+        Logger.log("[IdleCleanup] idleCandidate= reason=\(reason)", level: .warning)
         schedule()
     }
 

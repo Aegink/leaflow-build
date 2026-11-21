@@ -36,6 +36,8 @@ struct BrowserPageView: View {
     @State private var isLoading = false
     @State private var isReadingModeActive = false
     @State private var readingBook: LocalBook?
+    /// 阅读模式设置态（LocalReaderView settings 绑定域——wave-16）。
+    @State private var readingModeSettings = ReadingSettings.load()
     @State private var keyboardVisible = false
     @State private var webInputFocused = false
     @State private var bottomChromeHeight: CGFloat = 56
@@ -59,9 +61,9 @@ struct BrowserPageView: View {
     }
 
     /// 伪代码 0x100b46ba0（L61-64）：浏览器背景色
-    ///（systemBackgroundColor/resolvedColorWithTraitCollection: 确证）。
+    ///（systemBackground/resolvedColorWithTraitCollection: 确证）。
     private var browserBackgroundColor: UIColor {
-        UIColor.systemBackgroundColor.resolvedColor(
+        UIColor.systemBackground.resolvedColor(
             with: UITraitCollection(userInterfaceStyle: UITraitCollection.current.userInterfaceStyle))
     }
 
@@ -100,7 +102,7 @@ struct BrowserPageView: View {
     @ViewBuilder
     private func readingModeContent(_ book: LocalBook) -> some View {
         NavigationStack {
-            LocalReaderView(book: book)
+            LocalReaderView(book: book, settings: $readingModeSettings)
                 .id(book.id)
         }
         .toolbar {
@@ -256,7 +258,11 @@ struct BrowserWebView: UIViewRepresentable {
     /// 伪代码 0x100b53614（L682-691）：WKWebView 构建（透明底 + 桥注册域）。
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
-        configuration.allowsContentJavaScript = true
+        // JS 启用走 WKWebpagePreferences.allowsContentJavaScript（iOS 14+
+        // 域——PayActionWebView/ReaderBrowserWebView 同构确证）。
+        let webpagePreferences = WKWebpagePreferences()
+        webpagePreferences.allowsContentJavaScript = true
+        configuration.defaultWebpagePreferences = webpagePreferences
         configuration.userContentController.add(
             context.coordinator, name: "leafflowBridge")
         let webView = WKWebView(frame: .zero, configuration: configuration)
@@ -295,7 +301,7 @@ struct BrowserWebView: UIViewRepresentable {
         /// 伪代码 0x100b53e98（L753-779）：命令处理（leafflowBridge 消息域）。
         private func handleCommands(_ message: WKScriptMessage) {
             Logger.log(
-                "[browser] command body=\(message.body)", level: 7)
+                "[browser] command body=\(message.body)", level: .verbose)
         }
 
         /// 伪代码 0x100b54fa8（L781-783）：底层视图访问。

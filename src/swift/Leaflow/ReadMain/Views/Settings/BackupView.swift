@@ -73,8 +73,7 @@ struct BackupView: View {
     private var destinationSection: some View {
         settingsCardRow(topGap: 16) {
             HStack {
-                AppThemeSettingsLabel(
-                    title: "备份目的地", systemImage: "externaldrive")
+                AppThemeSettingsLabel("备份目的地", systemImage: "externaldrive")
                 Spacer()
                 Text("本机")
                     .foregroundStyle(.secondary)
@@ -91,8 +90,7 @@ struct BackupView: View {
     private var autoBackupSection: some View {
         settingsCardRow(topGap: 12) {
             Toggle(isOn: $autoBackupEnabled) {
-                AppThemeSettingsLabel(
-                    title: "自动备份", systemImage: "clock.arrow.circlepath")
+                AppThemeSettingsLabel("自动备份", systemImage: "clock.arrow.circlepath")
             }
             .onChange(of: autoBackupEnabled) { enabled in
                 AutoBackupCoordinator.shared.setEnabled(enabled)
@@ -105,8 +103,7 @@ struct BackupView: View {
     private var cloudSyncSection: some View {
         settingsCardRow(topGap: 12) {
             Toggle(isOn: $cloudSyncEnabled) {
-                AppThemeSettingsLabel(
-                    title: "网盘同步", systemImage: "cloud")
+                AppThemeSettingsLabel("网盘同步", systemImage: "cloud")
             }
             .onChange(of: cloudSyncEnabled) { enabled in
                 CloudSyncController.shared.setEnabled(enabled)
@@ -119,8 +116,7 @@ struct BackupView: View {
     private var lastBackupSection: some View {
         settingsCardRow(topGap: 12) {
             HStack {
-                AppThemeSettingsLabel(
-                    title: "上次备份", systemImage: "externaldrive.badge.timemachine")
+                AppThemeSettingsLabel("上次备份", systemImage: "externaldrive.badge.timemachine")
                 Spacer()
                 Text(lastBackupText.isEmpty ? "无记录" : lastBackupText)
                     .foregroundStyle(.secondary)
@@ -149,7 +145,7 @@ struct BackupView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     AppThemeSettingsLabel(
-                        title: "同步内容", systemImage: "list.bullet")
+                        "同步内容", systemImage: "list.bullet")
                     Spacer()
                     Text("预估大小 \(estimatedSizeText)")
                         .font(.caption)
@@ -188,7 +184,8 @@ struct BackupView: View {
         } else {
             lastBackupText = ""
         }
-        let size = BackupService.shared.estimatedBackupSize()
+        let size = BackupService.shared.estimateBackupSize(
+            categories: Set(SyncCategory.allCases))
         estimatedSizeText = ByteCountFormatter.string(
             fromByteCount: size, countStyle: .file)
     }
@@ -196,7 +193,8 @@ struct BackupView: View {
     private func performExport() {
         isExporting = true
         Task {
-            let url = try? BackupService.shared.createBackup()
+            let url = try? await BackupService.shared.exportBackup(
+                categories: Set(SyncCategory.allCases))
             isExporting = false
             if let url {
                 let activity = UIActivityViewController(

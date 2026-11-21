@@ -23,7 +23,7 @@ final class LoginCheckExecutor {
         self.context = JSContextPool.acquire()
         context.exceptionHandler = { _, exception in
             if let exception {
-                Logger.log("[LoginCheck] JS 异常: \(exception)", level: 2)
+                Logger.log("[LoginCheck] JS 异常: \(exception)", level: .warning)
             }
         }
         let bridge: [String: Any] = [
@@ -66,7 +66,7 @@ extension LoginCheckExecutor {
         let result = execute(rule)
         Logger.log(
             "[tts-login] result=\(result) source=\(source.sourceName)",
-            level: 7)
+            level: .verbose)
         return result
     }
 
@@ -79,7 +79,7 @@ extension LoginCheckExecutor {
         _ = body
         Logger.log(
             "[tts-login] url action done source=\(source.sourceName)",
-            level: 7)
+            level: .verbose)
         return true
     }
 }

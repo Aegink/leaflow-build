@@ -107,7 +107,7 @@ enum ReaderInlineImageSupport {
 
         Logger.log(
             "[prefetchImages] tags=\(tags.count)",
-            level: 2
+            level: .warning
         )
         for tag in tags {
             guard !Task.isCancelled else { return }

@@ -32,7 +32,8 @@ final class WebViewPool {
     }
 
     /// 伪代码 0x1000c225c（L37-43）：nonPersistent 配置。
-    private func makeConfiguration() -> WKWebViewConfiguration {
+    /// internal：BackstageWebView.init 消费域（wave-16）。
+    func makeConfiguration() -> WKWebViewConfiguration {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = WKWebsiteDataStore.nonPersistent()
         configuration.applicationNameForUserAgent = "qireader"
@@ -94,7 +95,7 @@ final class BackstageWebView: NSObject {
         }
         if !isCompleted {
             webView.stopLoading()
-            Logger.log(Self.timeoutMessage, level: 2)
+            Logger.log(Self.timeoutMessage, level: .warning)
             return nil
         }
         return (try? await webView.evaluateJavaScript("document.body.innerHTML")) as? String

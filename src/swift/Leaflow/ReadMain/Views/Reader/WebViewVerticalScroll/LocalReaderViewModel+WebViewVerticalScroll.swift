@@ -115,7 +115,7 @@ extension LocalReaderViewModel {
     /// 伪代码 0x1006424b0（L243-274）：当前章起点重建。
     func rebuildPagedModeAtCurrentChapterStart(reason: String) {
         Logger.log(
-            "local rebuild paged at start reason=\(reason)", level: 7)
+            "local rebuild paged at start reason=\(reason)", level: .verbose)
     }
 
     /// 伪代码 0x100642a18（L276-280）：WebView 设置变更记录。

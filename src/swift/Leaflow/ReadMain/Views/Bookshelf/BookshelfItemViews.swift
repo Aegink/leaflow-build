@@ -359,7 +359,7 @@ struct BookGridItem: View {
                         Image(systemName: "book.closed")
                             .foregroundColor(.secondary)
                     }
-                if isPinned {
+                if bookService.isPinned(book.id) {
                     // "pin.fill" L3895 域确证。
                     Image(systemName: "pin.fill")
                         .font(.caption)

@@ -175,7 +175,7 @@ struct BatchTestItem: Identifiable {
     var parsingFailures: [(step: String, error: String)] {
         steps.compactMap { step in
             guard step.status == .failed,
-                  !Self.nonParsingFailureKeywords.contains({ keyword in
+                  !Self.nonParsingFailureKeywords.contains(where: { keyword in
                       step.name.contains(keyword)
                   })
             else { return nil }
@@ -782,7 +782,7 @@ struct BatchTestView: View {
             await withTaskGroup(of: Void.self) { group in
                 for idx in targets {
                     group.addTask {
-                        if await Task.isCancelled() { return }
+                        if Task.isCancelled { return }
                         await self.testSingleSource(at: idx)
                     }
                 }
@@ -812,7 +812,7 @@ struct BatchTestView: View {
                     active -= 1
                 }
                 group.addTask {
-                    if await Task.isCancelled() { return }
+                    if Task.isCancelled { return }
                     await self.testSingleSource(at: idx)
                 }
                 active += 1

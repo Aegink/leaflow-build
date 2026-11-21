@@ -33,7 +33,7 @@ enum MemoryTrace {
         let delta = Int64(after) - Int64(before)
         Logger.log(
             "[MemoryTrace] reason=\(reason) residentDelta=\(delta) residentAfter=\(after)",
-            level: 2
+            level: .warning
         )
     }
 }

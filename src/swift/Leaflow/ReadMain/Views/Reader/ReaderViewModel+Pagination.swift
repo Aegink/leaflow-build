@@ -108,7 +108,7 @@ extension ReaderViewModel {
         if preservePosition, let preserved = preservedPageIndex {
             currentPageIndex = preserved
         }
-        Logger.log("mergePages count=\\(newPages.count) preserved=\\(String(describing: preservedPageIndex))", level: 7)
+        Logger.log("mergePages count=\\(newPages.count) preserved=\\(String(describing: preservedPageIndex))", level: .verbose)
     }
 
     /// 伪代码 0x100891ad4（L422-430）：占位抑制（Task 确证）。
@@ -136,7 +136,7 @@ extension ReaderViewModel {
     /// 伪代码 0x10088f87c（L283-298）：分页失败处理（UIApplication 确证）。
     func handlePaginationFailure(_ error: Error, notify: Bool) {
         hasError = true
-        Logger.log("pagination failure \\(error)", level: 2)
+        Logger.log("pagination failure \\(error)", level: .warning)
         if notify {
             Task { @MainActor in
                 NotificationCenter.default.post(
@@ -170,7 +170,7 @@ extension ReaderViewModel {
     /// 提交域。
     func rebuildPagedModeAtCurrentChapterStart(reason: String) async {
         Logger.log(
-            "rebuild paged at chapter start reason=\(reason)", level: 7)
+            "rebuild paged at chapter start reason=\(reason)", level: .verbose)
         let meta = ReaderPaginator.buildChapterPageMeta(from: chapterPages)
         _ = chapterStateStore.commitPages(
             newPages: chapterPages,
@@ -202,12 +202,12 @@ extension ReaderViewModel {
 
     /// 伪代码 0x10088d888（L748-793）：标题高度预测量。
     func premeasureTitleHeightIfNeeded() {
-        Logger.log("premeasureTitleHeightIfNeeded", level: 7)
+        Logger.log("premeasureTitleHeightIfNeeded", level: .verbose)
     }
 
     /// 伪代码 0x10088df3c（L800-847）：章题快照预热。
     func prewarmChapterTitleSnapshots() {
-        Logger.log("prewarmChapterTitleSnapshots", level: 7)
+        Logger.log("prewarmChapterTitleSnapshots", level: .verbose)
     }
 }
 

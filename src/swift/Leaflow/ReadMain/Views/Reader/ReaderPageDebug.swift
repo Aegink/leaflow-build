@@ -48,6 +48,6 @@ enum ReaderPageDebug {
     ) {
         Logger.log(
             "pageSet \(event) count=\(pages.count) target=\(String(describing: targetIndex)) \(extra())",
-            level: 7)
+            level: .verbose)
     }
 }

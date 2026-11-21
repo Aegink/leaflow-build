@@ -135,7 +135,7 @@ final class VolumeButtonPageTurnMonitor {
         wrapper.isUserInteractionEnabled = false
         keyWindow.addSubview(wrapper)
         hiddenVolumeView = wrapper
-        Logger.log("volume monitor attached", level: 7)
+        Logger.log("volume monitor attached", level: .verbose)
     }
 
     /// 伪代码 0x1008df56c（L161-170）+ closure（0x1008df8cc：setValue 确证）：
@@ -163,13 +163,13 @@ final class VolumeButtonPageTurnMonitor {
     /// 伪代码 0x1008de448（L188-199）：激活音频会话（setActive:withOptions:error: 确证）。
     private func activateAudioSessionIfNeeded() {
         try? audioSession.setActive(true, options: [])
-        Logger.log("volume session active", level: 7)
+        Logger.log("volume session active", level: .verbose)
     }
 
     /// 伪代码 0x1008df608（L201-212）：停用音频会话。
     private func deactivateAudioSessionIfNeeded() {
         try? audioSession.setActive(false, options: [.notifyOthersOnDeactivation])
-        Logger.log("volume session inactive", level: 7)
+        Logger.log("volume session inactive", level: .verbose)
     }
 
     /// 伪代码 0x1008e01a0（L216-222）：延迟摘除隐藏视图。

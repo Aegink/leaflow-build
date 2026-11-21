@@ -34,14 +34,14 @@ enum ReaderPerformanceTrace {
     /// 伪代码 0x10070afdc（L34-39）：条件日志（autoclosure 确证）。
     static func log(_ message: @autoclosure () -> String) {
         guard enabled else { return }
-        Logger.log(message(), level: 7)
+        Logger.log(message(), level: .verbose)
     }
 
     /// 条件日志（trace 闭包变体，PageContentViews viewDidLoad 调用方确证）。
     static func log(_ label: String, body: () throws -> Bool) rethrows {
         guard enabled else { return }
         _ = try body()
-        Logger.log(label, level: 7)
+        Logger.log(label, level: .verbose)
     }
 
     /// 毫秒格式（骨架签名 ms(_)）。
@@ -57,7 +57,7 @@ enum ReaderPerformanceTrace {
     /// 页级埋点（beginPage(_:reason:role:)，PageContentViews/Pool 调用方确证）。
     static func beginPage(_ page: PageData?, reason: String, role: PageRole) {
         guard enabled else { return }
-        Logger.log("page \(page?.layoutId ?? "-") reason=\(reason) role=\(role.rawValue)", level: 7)
+        Logger.log("page \(page?.layoutId ?? "-") reason=\(reason) role=\(role.rawValue)", level: .verbose)
     }
 
     enum PageRole: String {
@@ -120,7 +120,7 @@ enum ReaderPerformanceTrace {
     /// SVG 缓存事件（骨架签名 recordSVGCache(_)）。
     static func recordSVGCache(_ event: SVGCacheEvent) {
         guard enabled else { return }
-        Logger.log("svg \(event)", level: 7)
+        Logger.log("svg \(event)", level: .verbose)
     }
 
     enum SVGCacheEvent: String {

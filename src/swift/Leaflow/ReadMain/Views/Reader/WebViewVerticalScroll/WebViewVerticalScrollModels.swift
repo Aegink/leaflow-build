@@ -72,7 +72,7 @@ enum WebViewVerticalScrollPayloadFactory {
     /// 伪代码 0x10064777c（L114-143）：标题高度预量（applicationState 确证）。
     static func premeasureChapterTitleHeightIfNeeded(_ settings: ReadingSettings) {
         guard UIApplication.shared.applicationState == .active else { return }
-        Logger.log("premeasure chapter title height", level: 7)
+        Logger.log("premeasure chapter title height", level: .verbose)
     }
 
     /// 伪代码 0x1006448b8（L154-212）：章节载荷

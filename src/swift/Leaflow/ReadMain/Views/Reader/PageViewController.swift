@@ -562,7 +562,7 @@ struct PageViewController: UIViewControllerRepresentable {
 
         /// 伪代码 0x1007781f0（L1697-1699）：逐出 trace。
         private func tracePageCurlEviction(_ page: PageData?, role: String, reason: String) {
-            Logger.log("evict role=\(role) reason=\(reason)", level: 7)
+            Logger.log("evict role=\(role) reason=\(reason)", level: .verbose)
         }
 
         // 缓存触碰/裁剪（touchBackCache/touchFrontCache closure 确证）。
@@ -793,7 +793,7 @@ struct PageViewController: UIViewControllerRepresentable {
             }
 
             private func logPageCurlPerf(_ event: String) {
-                Logger.log("curl \(event) \(perfNow())", level: 7)
+                Logger.log("curl \(event) \(perfNow())", level: .verbose)
             }
         }
     }

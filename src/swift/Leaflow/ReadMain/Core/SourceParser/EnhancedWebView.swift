@@ -35,8 +35,12 @@ final class EnhancedWebView {
     private var isCompleted = false
     let config: WebViewConfig
 
-    /// 伪代码 0x1000dd5c0（L99-111）。
-    init(url: String?, html: String?, javaScript: String?, config: WebViewConfig = WebViewConfig()) {
+    /// 伪代码 0x1000dd5c0（L99-111）。url/html/javaScript 默认 nil
+    /// （WebViewPool.preWarm 空构造消费域确证，wave-16）。
+    init(
+        url: String? = nil, html: String? = nil, javaScript: String? = nil,
+        config: WebViewConfig = WebViewConfig()
+    ) {
         self.config = config
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = WKWebsiteDataStore.nonPersistent()

@@ -162,7 +162,7 @@ extension JsExtensions {
 
     /// 伪代码 0x1000ff8a8（L238-244）：搜索缓存清理。
     func clearSearchCaches() {
-        Logger.log("[js] clearSearchCaches", level: 7)
+        Logger.log("[js] clearSearchCaches", level: .verbose)
     }
 
     /// 伪代码 0x1000ff9ac（L247-253）：瞬态脚本缓存清理（cacheScript 域）。
@@ -232,7 +232,7 @@ extension JsExtensions {
             try data.write(to: target, options: .atomic)
             return "1"
         } catch {
-            Logger.log("[js] downloadFile error \(error)", level: 2)
+            Logger.log("[js] downloadFile error \(error)", level: .warning)
             return "0"
         }
     }
@@ -280,7 +280,7 @@ extension JsExtensions {
             let target = dest.appendingPathComponent(path)
             return try String(contentsOf: target, encoding: .utf8)
         } catch {
-            Logger.log("[js] getZipStringContent error \(error)", level: 2)
+            Logger.log("[js] getZipStringContent error \(error)", level: .warning)
             return ""
         }
     }
@@ -311,7 +311,7 @@ extension JsExtensions {
             try ZipUtility.extractZip(from: temp, to: dest)
             return dest.path
         } catch {
-            Logger.log("[js] unzipFile error \(error)", level: 2)
+            Logger.log("[js] unzipFile error \(error)", level: .warning)
             return ""
         }
     }

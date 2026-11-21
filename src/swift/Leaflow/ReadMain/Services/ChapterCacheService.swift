@@ -347,7 +347,7 @@ extension ChapterCacheService {
             bookUrl: bookUrl, bookSourceUrl: nil, sourceStorageKind: nil)
         UserDefaults.standard.set(key, forKey: "chapter_cache_map_\(bookUrl)")
         Logger.log(
-            "[chapterCache] mapping updated key=\(key)", level: 7)
+            "[chapterCache] mapping updated key=\(key)", level: .verbose)
     }
 }
 

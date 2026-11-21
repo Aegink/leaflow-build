@@ -47,7 +47,7 @@ extension ReaderViewModel {
         let normalized = normalizedVisiblePageIndices(indices ?? [currentPageIndex])
         guard let first = normalized.first, pages.indices.contains(first) else { return }
         currentPageIndex = first
-        Logger.log("activate d=\\(first) reason=\\(reason)", level: 7)
+        Logger.log("activate d=\\(first) reason=\\(reason)", level: .verbose)
     }
 
     /// 伪代码 0x100888a34（L96-107）：可见页序归一（去重/越界过滤/排序）。
@@ -61,7 +61,7 @@ extension ReaderViewModel {
         let newChapter = pages.indices.contains(currentPageIndex)
             ? pages[currentPageIndex].chapterIndex : currentChapterIndex
         guard newChapter != currentChapterIndex else { return }
-        Logger.log("chapter d=\\(oldIndex)->\\(currentChapterIndex) to \\(newChapter)", level: 7)
+        Logger.log("chapter d=\\(oldIndex)->\\(currentChapterIndex) to \\(newChapter)", level: .verbose)
         currentChapterIndex = newChapter
         Task {
             await loadBoundaryChaptersIfNeeded()

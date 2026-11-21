@@ -72,20 +72,20 @@ struct ReviewRow: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 // 伪代码 closure #1：clipShape(Circle(), FillStyle) → 头像。
-                if let avatarUrl = review.avatarUrl {
-                    AsyncImage(url: URL(string: avatarUrl)) { image in
-                        image.resizable().clipShape(Circle(), style: FillStyle())
-                    } placeholder: {
-                        Circle().foregroundColor(.gray.opacity(0.3))
-                    }
+                // BookReview 无 avatarUrl 域（ExploreModels 签名确证）——
+                // 以作者名首字圆形占位（还原推断）。
+                Circle()
+                    .fill(Color.gray.opacity(0.3))
                     .frame(width: 32, height: 32)
-                }
+                    .overlay(
+                        Text(String(review.authorName.prefix(1)))
+                            .font(.caption))
                 // 伪代码 closure #2：appThemeText(.subheadline)。
-                Text(review.reviewerName ?? "匿名")
+                Text(review.authorName)
                     .appThemeText(.subheadline, opacity: 0.8)
                 Spacer()
             }
-            Text(review.content ?? "")
+            Text(review.content)
                 .appThemeText(.body, opacity: 0.9)
                 .lineLimit(5)
                 .cornerRadius(8, antialiased: true)

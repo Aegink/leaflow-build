@@ -24,7 +24,7 @@ extension AnalyzeRule {
         }
         Logger.log(
             "[getSourceHeaders] resolved \(resolved.keys.joined(separator: ","))",
-            level: 2
+            level: .warning
         )
         if JSONSerialization.isValidJSONObject(resolved),
             let data = try? JSONSerialization.data(withJSONObject: resolved, options: []),

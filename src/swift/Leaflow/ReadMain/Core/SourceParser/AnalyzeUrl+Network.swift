@@ -235,7 +235,7 @@ extension AnalyzeUrl {
         }
         Logger.log(
             "[cookie] saved \(cookies.count) from \(url.host ?? "-")",
-            level: 7)
+            level: .verbose)
     }
 
     /// 伪代码 0x1000ab960（L844-872）：响应数据解码——gzip/deflate/br 三态

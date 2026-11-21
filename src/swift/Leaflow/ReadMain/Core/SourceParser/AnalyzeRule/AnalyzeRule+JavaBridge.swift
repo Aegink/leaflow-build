@@ -68,7 +68,7 @@ extension AnalyzeRule {
                 Data(base64Encoded: input).flatMap { String(data: $0, encoding: .utf8) } ?? ""
             },
             "log": { (message: String) in
-                Logger.log("[java.log] \(message)", level: 2)
+                Logger.log("[java.log] \(message)", level: .warning)
             },
             "toast": { (message: String) in
                 JSToastBridge.post(message, isLong: false)

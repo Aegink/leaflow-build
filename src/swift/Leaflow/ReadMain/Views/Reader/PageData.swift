@@ -127,7 +127,7 @@ struct PageData {
         if isErrorPlaceholder {
             let titlePreview = String(chapterTitle.prefix(20))
             let contentPreview = String(content.prefix(60))
-            Logger.log(" error \(titlePreview) / \(contentPreview)", level: 2)
+            Logger.log(" error \(titlePreview) / \(contentPreview)", level: .warning)
         }
     }
 

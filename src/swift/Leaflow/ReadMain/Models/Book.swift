@@ -112,17 +112,19 @@ struct Book: Codable, Identifiable, Equatable, Hashable {
     /// legacyId getter（0x10022a1d8 L74-79 域确证）。
     var legacyId: String {
         id_
-            ?? normalizedKey(
+            ?? Self.normalizedKey(
                 bookUrl: bookUrl ?? "", bookSourceUrl: bookSourceUrl)
             ?? ""
     }
 
-    /// init(bookUrl:bookname:…22 参)（签名域确证；id_ 不入参——经
+    /// init(bookUrl:…22 参)（签名域确证；id_ 不入参——经
     /// resolvedBookId/save 链回填）。全参默认值——空 Book 构造（`Book()`）
     /// 即本 init 退化调用；默认值取属性声明默认（还原推断）。
+    /// 第二参标签取 name:（BookshelfViewModel 调用域确证；JSON 键仍为
+    /// "bookname"——CodingKeys 域）。
     init(
         bookUrl: String? = nil,
-        bookname name: String = "",
+        name: String = "",
         author: String? = nil,
         coverUrl: String? = nil,
         customCoverUrl: String? = nil,
@@ -324,6 +326,12 @@ struct Book: Codable, Identifiable, Equatable, Hashable {
         case .remote: return "远程"
         case .thirdParty: return "第三方"
         }
+    }
+
+    /// kindList 桥（kind 逗号分档——displayLanguage/displayStatus 消费域
+    /// 确证，wave-16 补成员）。
+    var kindList: [String] {
+        kind?.split(separator: ",").map(String.init) ?? []
     }
 
     /// displayLanguage getter（签名确证）。

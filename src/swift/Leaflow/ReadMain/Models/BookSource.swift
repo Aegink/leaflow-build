@@ -41,15 +41,68 @@ enum RawJSONValue: Codable {
     case null
     case value(Any)
 
-    init() {}
+    init() { self = .null }
+
+    /// Any 归一（容器递归包装；不支持的类型 → nil）。
+    private static func normalize(_ any: Any) -> Any? {
+        switch any {
+        case let v as String: return v
+        case let v as Bool: return v
+        case let v as Int: return v
+        case let v as Double: return v
+        case let v as [Any]:
+            let mapped = v.compactMap { normalize($0) }
+            return mapped.isEmpty && !v.isEmpty ? nil : mapped
+        case let v as [String: Any]:
+            var out: [String: Any] = [:]
+            for (key, item) in v {
+                guard let normalized = normalize(item) else { return nil }
+                out[key] = normalized
+            }
+            return out
+        case is NSNull: return nil
+        default: return nil
+        }
+    }
+
+    /// Any 包装构造（JSONSerialization 域值 → RawJSONValue）。
+    init?(any raw: Any) {
+        guard let normalized = Self.normalize(raw) else { return nil }
+        self = .value(normalized)
+    }
+
+    /// 解包值（stringValue/JSONSerialization 域消费）。
+    var anyValue: Any {
+        switch self {
+        case .null: return NSNull()
+        case .value(let any): return any
+        }
+    }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         if container.decodeNil() {
             self = .null
-        } else {
-            self = .value(try container.decode(Any.self))
+            return
         }
+        // Any 非 Decodable——标量逐档宽容解码 + 容器递归（语义同伪代码）。
+        if let v = try? container.decode(Bool.self) { self = .value(v); return }
+        if let v = try? container.decode(Int.self) { self = .value(v); return }
+        if let v = try? container.decode(Double.self) { self = .value(v); return }
+        if let v = try? container.decode(String.self) { self = .value(v); return }
+        if let arr = try? container.decode([RawJSONValue].self) {
+            self = .value(arr.map { $0.anyValue })
+            return
+        }
+        if let dict = try? container.decode([String: RawJSONValue].self) {
+            var out: [String: Any] = [:]
+            for (key, item) in dict { out[key] = item.anyValue }
+            self = .value(out)
+            return
+        }
+        throw DecodingError.dataCorrupted(DecodingError.Context(
+            codingPath: decoder.codingPath,
+            debugDescription: "Unsupported JSON value kind"))
     }
 
     func encode(to encoder: Encoder) throws {
@@ -59,7 +112,28 @@ enum RawJSONValue: Codable {
         case .null:
             try container.encodeNil()
         case .value(let any):
-            try container.encode(any)
+            // Any 非 Encodable——按具体类型分派（Bool 先于 Int 防 NSNumber 重叠）。
+            switch any {
+            case let v as String:
+                try container.encode(v)
+            case let v as Bool:
+                try container.encode(v)
+            case let v as Int:
+                try container.encode(v)
+            case let v as Double:
+                try container.encode(v)
+            case let v as [Any]:
+                try container.encode(v.compactMap(RawJSONValue.init(any:)))
+            case let v as [String: Any]:
+                var out: [String: RawJSONValue] = [:]
+                for (key, item) in v {
+                    guard let wrapped = RawJSONValue(any: item) else { continue }
+                    out[key] = wrapped
+                }
+                try container.encode(out)
+            default:
+                try container.encodeNil()
+            }
         }
     }
 
@@ -100,22 +174,25 @@ enum LenientJSONString {
         if let string = try? container.decode(String.self) {
             return string
         }
-        let any = try container.decode(Any.self)
-        guard let data = try? JSONSerialization.data(withJSONObject: any, options: [.fragmentsAllowed]),
-              let string = String(data: data, encoding: .utf8) else {
-            throw DecodingError.dataCorrupted(
-                DecodingError.Context(
-                    codingPath: decoder.codingPath,
-                    debugDescription: "Value is neither String nor JSON object"))
+        // 对象/数组 → JSON 串（Any 非 Decodable——经 RawJSONValue 递归桥）。
+        if let value = try? container.decode(RawJSONValue.self),
+           case .value(let any) = value,
+           let data = try? JSONSerialization.data(
+               withJSONObject: any, options: [.fragmentsAllowed]),
+           let string = String(data: data, encoding: .utf8) {
+            return string
         }
-        return string
+        throw DecodingError.dataCorrupted(
+            DecodingError.Context(
+                codingPath: decoder.codingPath,
+                debugDescription: "Value is neither String nor JSON object"))
     }
 }
 
 private extension KeyedDecodingContainer {
     /// 伪代码 0x100231f7c（L99-102）：宽容字符串（nil → nil）。
     func decodeLenientStringIfPresent(forKey key: K) throws -> String? {
-        guard contains(key), !try decodeNil(forKey: key) else { return nil }
+        guard contains(key), !(try decodeNil(forKey: key)) else { return nil }
         return try LenientJSONString.decode(from: superDecoder())
     }
 
@@ -124,7 +201,7 @@ private extension KeyedDecodingContainer {
     func decodeObjectOrJSONStringIfPresent<A: Decodable>(
         _ type: A.Type, forKey key: K
     ) throws -> A? {
-        guard contains(key), !try decodeNil(forKey: key) else { return nil }
+        guard contains(key), !(try decodeNil(forKey: key)) else { return nil }
         do {
             return try decode(A.self, forKey: key)
         } catch {
@@ -290,6 +367,12 @@ struct BookSource: Codable, Identifiable, Equatable {
     var enabledContent: Bool = false
     var enabledReview: Bool = false
 
+    /// 源级初始化规则（35 字段解码链 + == 比较域确证，wave-16 补成员）。
+    var initRule: String = ""
+
+    /// 源级变量（legado 兼容 JSON 串域——BookActionSheetView 消费域确证）。
+    var variable: String = ""
+
     var header: String?
     var loginUrl: String?
     var bookUrlPattern: String?
@@ -360,7 +443,8 @@ struct BookSource: Codable, Identifiable, Equatable {
         respondTime = try container.decodeIfPresent(Int64.self, forKey: .respondTime) ?? 180000
 
         // 6 个规则对象：对象/JSON 字符串双路径（0x10023205c 族确证）。
-        initRule = try container.decodeStringIfPresent(forKey: .initRule) ?? ""
+        initRule = try container.decodeLenientStringIfPresent(forKey: .initRule) ?? ""
+        variable = try container.decodeLenientStringIfPresent(forKey: .variable) ?? ""
         ruleSearch = try container.decodeObjectOrJSONStringIfPresent(SearchRule.self, forKey: .ruleSearch) ?? SearchRule()
         ruleToc = try container.decodeObjectOrJSONStringIfPresent(TocRule.self, forKey: .ruleToc) ?? TocRule()
         ruleContent = try container.decodeObjectOrJSONStringIfPresent(ContentRule.self, forKey: .ruleContent) ?? ContentRule()
@@ -376,6 +460,8 @@ struct BookSource: Codable, Identifiable, Equatable {
         case bookSourceUrl, bookSourceName, bookSourceGroup, bookSourceType, bookSourceComment
         case enabled, enabledExplore, enabledCookieJar, enabledBookInfo, enabledToc
         case enabledContent, enabledReview
+        case initRule
+        case variable
         case header, loginUrl, bookUrlPattern, loginUi, concurrentRate, coverDecodeUrl
         case lastUpdateTime, customOrder, weight, expireTime, respondTime
         case ruleSearch, ruleToc, ruleContent, ruleBookInfo, ruleExplore, ruleReview

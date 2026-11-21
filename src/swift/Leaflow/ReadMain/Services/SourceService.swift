@@ -109,6 +109,9 @@ final class ParserConcurrencyLimiter {
 /// 书源服务（增删改/分组/远程摘要主链；存储域在 +Storage 扩展）。
 final class SourceService: SourceServiceProtocol, ObservableObject {
 
+    /// 单例（BatchTestView 消费域确证，wave-16 补桥）。
+    static let shared = SourceService()
+
     /// 伪代码 0x1003acd54（L79）：初值表达式（ObservationRegistrar 域确证）。
     @Published private(set) var bookSources: [BookSource] = []
 
