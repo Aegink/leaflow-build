@@ -17,7 +17,7 @@ extension JSContext {
     /// 伪代码 0x10007e330（L5-7）：安装无返回值的字符串函数（@convention(block)）。
     func installVoidStringFunction(
         named name: String,
-        block: @convention(block) (String) -> Void
+        block: @escaping @convention(block) (String) -> Void
     ) {
         setObject(block, forKeyedSubscript: name as NSString)
     }

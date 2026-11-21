@@ -17,18 +17,20 @@ enum HttpRequestRouting {
     private static var proxyStore: [String: String] = [:]
     private static let lock = NSLock()
 
-    /// 伪代码 0x1000bb90c（L8-10）。
+    /// 伪代码 0x1000bb90c（L8-10）。proxyStore 为 [String: String] 键值域。
     static func setProxy(_ proxy: String, forKey key: String) {
         lock.lock()
         defer { lock.unlock() }
-        proxyStore[ObjectIdentifier(request)] = proxy
+        proxyStore[key] = proxy
     }
 
-    /// 伪代码 0x1000e25e8（L12-14）。
+    /// 伪代码 0x1000e25e8（L12-14）。请求键取请求 URL 串（键域桥，
+    /// wave-16）。
     static func proxy(from request: URLRequest) -> String? {
         lock.lock()
         defer { lock.unlock() }
-        return proxyStore[ObjectIdentifier(request)]
+        let key = request.url?.absoluteString ?? ""
+        return proxyStore[key]
     }
 
     /// 伪代码 0x1000e2524（L31-35）。
@@ -70,10 +72,11 @@ final class URLSessionTransport {
         from request: URLRequest, into target: URLRequest
     ) -> URLRequest {
         var synced = target
-        if let cookies = HTTPCookie.cookies(
+        // cookies(withResponseHeaderFields:for:) 返回非可选数组（wave-16）。
+        let cookies = HTTPCookie.cookies(
             withResponseHeaderFields:
                 request.allHTTPHeaderFields ?? [:],
-            for: request.url ?? URL(string: "https://localhost")!) {
+            for: request.url ?? URL(string: "https://localhost")!)
             let existing = HTTPCookieStorage.shared.cookies(
                 for: synced.url ?? URL(string: "https://localhost")!) ?? []
             for cookie in cookies {

@@ -93,7 +93,7 @@ struct ImageRequestDescriptor: Hashable {
         if urlString?.hasPrefix("data:") == true {
             return nil
         }
-        if needsBaseUrlResolution(urlString ?? "") {
+        if Self.needsBaseUrlResolution(urlString ?? "") {
             if let base = sourceUrl, let baseURL = URL(string: base) {
                 return URL(
                     string: urlString ?? "", relativeTo: baseURL)?.absoluteURL
@@ -289,6 +289,20 @@ final class ImageCacheService {
     }
 
     /// cachedImageSync(for:preferredSize:scale:)（0x100326f5c L377-435 域）。
+    /// String 变体（视图域直接 URL 串调用，wave-16 补桥）。
+    func cachedImageSync(
+        for url: String,
+        preferredSize: CGSize?, scale: CGFloat
+    ) -> UIImage? {
+        guard let descriptor = ImageRequestDescriptor(
+            urlString: url, sourceUrl: nil,
+            storageKind: nil, baseUrl: nil) else {
+            return nil
+        }
+        return cachedImageSync(
+            for: descriptor, preferredSize: preferredSize, scale: scale)
+    }
+
     func cachedImageSync(
         for descriptor: ImageRequestDescriptor,
         preferredSize: CGSize?, scale: CGFloat
@@ -580,7 +594,7 @@ struct CachedAsyncImage: View {
     /// 伪代码 0x10032f114（L1069-1104）：缓存命中直显 + 异步加载域。
     var body: some View {
         if let cached = urlString.flatMap({
-            ImageCacheService.cachedImageSync(
+            ImageCacheService.shared.cachedImageSync(
                 for: $0, preferredSize: targetSize, scale: 1.0)
         }) {
             AnyView(Image(uiImage: cached).resizable())

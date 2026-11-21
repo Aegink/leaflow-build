@@ -80,10 +80,12 @@ final class HttpTtsPreviewPlayer {
     ) {
         let driver = makeDriver(source, 1.0)
         self.driver = driver
-        // 试听段（单段 + 章节标题域）。
+        // 试听段（单段 + 章节标题域）。ReadAloudLocation 为结构体
+        // （pageIndex/chapterIndex 域）——零页锚点 + isChapterTitle 标志
+        // （wave-16）。
         let anchor = ReadAloudAnchor(
-            location: .chapterTitle, rangeInPage: NSRange(location: 0,
-                                                          length: 0),
+            location: ReadAloudLocation(pageIndex: 0),
+            rangeInPage: NSRange(location: 0, length: 0),
             rangeInChapter: nil, startUTF16Offset: 0,
             isChapterTitle: true)
         let segment = ReadAloudSegment(

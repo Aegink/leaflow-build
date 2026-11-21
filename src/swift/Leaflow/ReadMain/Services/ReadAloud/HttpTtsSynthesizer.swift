@@ -63,7 +63,7 @@ final class HttpTtsSynthesizer: HttpTtsSynthesizing {
         try rethrowCancellation(URLRequestError.invalidUrl)
         // 限流域（HttpTtsRateLimiterRegistry limiter(for:) 域桥）。
         let limiter = rateLimiterRegistry.limiter(for: source)
-        await limiter.waitForPermission()
+        try await limiter.waitForPermission()
         let request = URLRequest(url: URL(string: source.url)!)
         let (data, response) = try await transport.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {

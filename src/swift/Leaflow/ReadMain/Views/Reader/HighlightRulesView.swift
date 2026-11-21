@@ -94,8 +94,12 @@ struct HighlightRulesView: View {
     }
 
     /// 伪代码 0x1006d0b54（L39-43）：内置 id 集。
+    /// 表达式拆分（type-check 超时域，wave-16）。
     private var builtinRuleIDs: [String] {
-        mergedRules.filter { HighlightRule.builtinRule(for: $0.id) != nil }.map(\.id)
+        let builtinOnly = mergedRules.filter { rule in
+            HighlightRule.builtinRule(for: rule.id) != nil
+        }
+        return builtinOnly.map(\.id)
     }
 
     /// 伪代码 0x1006d1590（L45-47）：自定义 id 集。
@@ -280,13 +284,13 @@ struct HighlightRulesView: View {
                     settings: settings)
                 let message = highlightRuleImportMessage(summary)
                 if let message {
-                    AppErrorPresenter.show(message, level: .success)
+                    AppErrorPresenter.shared.show(message, level: .success)
                 }
             } catch {
-                AppErrorPresenter.show(error.localizedDescription, level: .error)
+                AppErrorPresenter.shared.show(error.localizedDescription, level: .error)
             }
         case .failure(let error):
-            AppErrorPresenter.show(error.localizedDescription, level: .error)
+            AppErrorPresenter.shared.show(error.localizedDescription, level: .error)
         }
     }
 
@@ -298,7 +302,7 @@ struct HighlightRulesView: View {
                 assetManager: HighlightBackgroundImageAssetManager())
             presentShareSheet(url: url)
         } catch {
-            AppErrorPresenter.show(error.localizedDescription, level: .error)
+            AppErrorPresenter.shared.show(error.localizedDescription, level: .error)
         }
     }
 

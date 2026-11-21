@@ -86,12 +86,12 @@ final class HttpTtsRuntimeStore {
 
     /// value(for:sourceID:)（签名域确证：cache_<sourceID>_<key> 键）。
     func value(for key: String, sourceID: Int64) -> String? {
-        defaults.string(forKey: Self.cacheKey(key, sourceID: sourceID))
+        defaults.string(forKey: cacheKey(key, sourceID: sourceID))
     }
 
     /// setValue(_:for:sourceID:)（签名域确证）。
     func setValue(_ value: String?, for key: String, sourceID: Int64) {
-        set(value, forKey: Self.cacheKey(key, sourceID: sourceID))
+        set(value, forKey: cacheKey(key, sourceID: sourceID))
     }
 
     /// setCacheValue(_:for:sourceID:)（签名域确证：value 别名）。

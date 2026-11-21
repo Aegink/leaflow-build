@@ -58,18 +58,16 @@ struct HttpTtsLoginConfigurationEvaluator {
         let analyzer = try configuredAnalyzer(for: source)
         // 已登录信息域（loginInfo 域桥）。
         if let loginInfo = store.loginInfo(sourceID: source.id) {
-            analyzer.putVariable(
-                name: "loginInfo", value: loginInfo)
+            analyzer.putVariable("loginInfo", value: loginInfo)
         }
         if let header = store.loginHeader(sourceID: source.id) {
-            analyzer.putVariable(name: "header", value: header)
+            analyzer.putVariable("header", value: header)
         }
         for (key, value) in store.loginInfoMap(sourceID: source.id) {
-            analyzer.putVariable(name: key, value: value)
+            analyzer.putVariable(key, value: value)
         }
         if let variable = store.sourceVariable(sourceID: source.id) {
-            analyzer.putVariable(name: "sourceVariable",
-                                 value: variable)
+            analyzer.putVariable("sourceVariable", value: variable)
         }
         return analyzer.getString(rule: expression, isUrl: false)
     }

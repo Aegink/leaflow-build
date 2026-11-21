@@ -51,7 +51,8 @@ final class JSContextPool {
     /// 伪代码 CachedContext（L17-22，ownerThread 线程亲和）。
     private struct CachedContext {
         let context: JSContext
-        let ownerThread: UInt64
+        // ownerThread 可变（ PoolState 装配域写回，wave-16）。
+        var ownerThread: UInt64
         var inUse: Bool = false
     }
 
@@ -62,8 +63,10 @@ final class JSContextPool {
     private let lock = NSLock()
 
     /// 伪代码 currentThreadID（骨架尾部条目）。
+    /// hashValue Int → Int64 桥（UInt64(bitPattern:) 域，wave-16）。
     static func currentThreadID() -> UInt64 {
-        UInt64(bitPattern: pthread_self().hashValue & 0x7FFF_FFFF_FFFF_FFFF)
+        let hashed = pthread_self().hashValue
+        return UInt64(bitPattern: Int64(hashed)) & 0x7FFF_FFFF_FFFF_FFFF
     }
 
     /// 伪代码 ContextHandle（L67-100，release 走 @Sendable 闭包归还）。
@@ -108,7 +111,8 @@ final class JSContextPool {
             return ContextHandle(pool: self, context: state[index].context)
         }
         let context = JSContext()
-        context.setValue("qireader-pool")
+        // JSContext 无单参 setValue——name 属性域标识（wave-16）。
+        context.name = "qireader-pool"
         state.append(CachedContext(context: context, ownerThread: threadID, inUse: true))
         checkedOut += 1
         maxInFlight = max(maxInFlight, checkedOut)
@@ -143,7 +147,7 @@ final class JSContextPool {
         lock.unlock()
         for _ in 0..<missing {
             let context = JSContext()
-            context.setValue("qireader-pool")
+            context.name = "qireader-pool"
             lock.lock()
             state.append(
                 CachedContext(context: context, ownerThread: Self.currentThreadID(), inUse: false)
@@ -317,7 +321,8 @@ extension JSContext {
         convertLegadoTemplates: Bool
     ) -> JSValue? {
         let prepared = convertLegadoTemplates
-            ? sanitizeJavaScriptForCompatibility(body, convertLegadoTemplates: true)
+            ? JSScriptCompatibility.sanitizeJavaScriptForCompatibility(
+                body, convertLegadoTemplates: true)
             : body
         return evaluateWrappedSanitizedString(prepared)
     }
@@ -326,7 +331,8 @@ extension JSContext {
     func evaluateSanitized(_ script: String, convertLegadoTemplates: Bool) -> JSValue? {
         exception = nil
         let prepared = convertLegadoTemplates
-            ? sanitizeJavaScriptForCompatibility(script, convertLegadoTemplates: true)
+            ? JSScriptCompatibility.sanitizeJavaScriptForCompatibility(
+                script, convertLegadoTemplates: true)
             : script
         if let compiled = compiledExpressionFunction(prepared) {
             return compiled

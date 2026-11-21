@@ -42,7 +42,7 @@ final class HttpTtsAudioCache {
         hasher.combine(text)
         hasher.combine(speechRate)
         return String(
-            format: "%016x", UInt64(bitPattern: hasher.finalize()))
+            format: "%016x", UInt64(bitPattern: Int64(hasher.finalize())))
     }
 
     /// data(source:text:speechRate:)（签名域确证）。
@@ -87,15 +87,13 @@ final class HttpTtsAudioCache {
     }
 
     /// remove(sourceID: Int64)（签名域确证：按源清除）。
+    /// 前缀键为 sourceID 数值域（key 三元键还原桥，wave-16）。
     func remove(sourceID: Int64) {
         lock.lock()
         defer { lock.unlock() }
         let keys = storage.keys.filter { key in
-            // 源 ID 前缀域（key 三元键还原桥）。
-            storage[key] != nil && key.hasPrefix("\(source.id)")
+            storage[key] != nil && key.hasPrefix("\(sourceID)")
         }
-        // 三元键无源前缀时按源全清（remove(sourceID:) 域还原桥）。
-        _ = keys
         if let first = sources(from: sourceID) {
             for cacheKey in first {
                 storage.removeValue(forKey: cacheKey)

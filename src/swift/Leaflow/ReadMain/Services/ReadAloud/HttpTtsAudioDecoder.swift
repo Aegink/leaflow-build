@@ -43,9 +43,9 @@ final class HttpTtsAudioDecoder: HttpTtsAudioDecoding {
             throw ReadAloudDriverFactoryError.outputPreparationFailed
         }
         try file.read(into: sourceBuffer)
-        guard let target = targetFormat ?? sourceFormat else {
-            throw ReadAloudDriverFactoryError.outputPreparationFailed
-        }
+        // targetFormat 可选 + sourceFormat 非可选——?? 已得非可选值
+        // （wave-16 去 guard let）。
+        let target = targetFormat ?? sourceFormat
         if target == sourceFormat {
             return ReadAloudAudioBuffer(sourceBuffer)
         }
@@ -93,8 +93,10 @@ final class HttpTtsAudioDecoder: HttpTtsAudioDecoding {
         from source: AVAudioPCMBuffer, sourceOffset: Int,
         to target: AVAudioPCMBuffer, frameCount: Int
     ) {
-        let channels = Swift.min(
-            source.format.channelCount, target.format.channelCount)
+        // AVAudioChannelCount (UInt32) → Int 归一（floatChannelData
+        // 下标域，wave-16）。
+        let channels = Int(Swift.min(
+            source.format.channelCount, target.format.channelCount))
         let safeCount = Swift.min(
             frameCount,
             source.frameLength - AVAudioFrameCount(sourceOffset))

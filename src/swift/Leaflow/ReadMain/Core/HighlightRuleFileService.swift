@@ -281,7 +281,7 @@ enum HighlightRuleImportService {
     }
 }
 
-private extension ReadingSettings {
+extension ReadingSettings {
     /// 规则持久化桥（compiledHighlightRules 扩展消费；落盘细节随分册推进）。
     func saveHighlightRules(_ rules: [HighlightRule]) {
         // 持久化域随 T-303-02 HighlightRuleFileService 推进（UserDefaults 域）。

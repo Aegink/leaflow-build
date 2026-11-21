@@ -37,13 +37,16 @@ enum AppThemeTextLevel: String, Codable, CaseIterable {
     case body
     case subheadline
     case caption
+    // footnote：ImportSourceView 状态行域确证（wave-16 补档，归一 tertiary）。
+    case footnote
 
-    /// 归一档（颜色域按三档分派；caption → tertiary，wave-16 补归一）。
+    /// 归一档（颜色域按三档分派；caption/footnote → tertiary，
+    /// wave-16 补归一）。
     var normalizedLevel: AppThemeTextLevel {
         switch self {
         case .title, .headline, .body: return .primary
         case .subheadline: return .secondary
-        case .caption: return .tertiary
+        case .caption, .footnote: return .tertiary
         case .primary, .secondary, .tertiary: return self
         }
     }
@@ -54,7 +57,7 @@ enum AppThemeTextLevel: String, Codable, CaseIterable {
         case .title: return .title
         case .primary, .body: return .body
         case .secondary, .subheadline: return .subheadline
-        case .tertiary, .caption: return .caption
+        case .tertiary, .caption, .footnote: return .caption
         case .headline: return .headline
         }
     }

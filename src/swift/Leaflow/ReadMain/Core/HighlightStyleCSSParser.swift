@@ -209,7 +209,8 @@ enum HighlightStyleCSSParser {
     /// 伪代码 0x1001dee70（L250-265）：圆角。
     private static func parseBorderRadius(_ value: String) -> CGFloat? {
         let number = value.trimmingCharacters(in: CharacterSet(charactersIn: "px %"))
-        return CGFloat(Double(number))
+        guard let parsed = Double(number) else { return nil }
+        return CGFloat(parsed)
     }
 
     /// 伪代码 0x1001df07c（L569-604）：text-decoration 简写。
@@ -267,12 +268,13 @@ enum HighlightStyleCSSParser {
         }
         guard let number = UInt64(value, radix: 16) else { return nil }
         if value.count == 8 {
-            let alpha = CGFloat((number & 0xFF) / 255.0)
+            // UInt64 → Double 显式转换（位域掩码结果域，wave-16）。
+            let alpha = CGFloat(Double(number & 0xFF) / 255.0)
             let rgb = number >> 8
             return UIColor(
-                red: CGFloat((rgb >> 16) & 0xFF) / 255.0,
-                green: CGFloat((rgb >> 8) & 0xFF) / 255.0,
-                blue: CGFloat(rgb & 0xFF) / 255.0,
+                red: CGFloat(Double((rgb >> 16) & 0xFF) / 255.0),
+                green: CGFloat(Double((rgb >> 8) & 0xFF) / 255.0),
+                blue: CGFloat(Double(rgb & 0xFF) / 255.0),
                 alpha: alpha)
         }
         return UIColor(
@@ -289,8 +291,12 @@ enum HighlightStyleCSSParser {
         }).flatMap({ outer in
             outer.firstRange(of: ")").map { outer[..<$0.lowerBound] }
         }) else { return nil }
-        let components = splitTopLevelCommaList(String(inner))
-            .compactMap { CGFloat(Double($0.trimmingCharacters(in: .whitespaces))) }
+        let components = splitTopLevelCommaList(String(inner)).compactMap {
+            component in
+            guard let parsed = Double(component.trimmingCharacters(
+                in: .whitespaces)) else { return nil }
+            return CGFloat(parsed)
+        }
         guard components.count >= 3 else { return nil }
         // rgb()/rgba() 两种：第四位 alpha（0-1 或百分比）。
         let alpha = components.count > 3 ? min(max(components[3], 0), 1) : 1.0
