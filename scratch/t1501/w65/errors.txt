@@ -1,0 +1,1 @@
+error: escaping closure captures non-escaping parameter 'onFinished'

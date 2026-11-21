@@ -242,7 +242,7 @@ final class ReaderPresentationDismissController {
 
     /// 伪代码 0x10080d2f8（L806-826）：完成标志置位 → setUserInteractionEnabled:0
     /// → spring(0.32) 域 + addCompletion 域 → onFinished 回调。
-    func complete(onFinished: () -> Void) {
+    func complete(onFinished: @escaping () -> Void) {
         guard !isCompleting else { return }
         isCompleting = true
         guard let view = presentedView else {
