@@ -76,6 +76,12 @@ enum RuleSampleSelfTest {
             rule: "@js:java.put('k','v');java.get('k')",
             expect: ["v"],
             asList: false),
+        Sample(
+            name: "js_list",
+            content: "",
+            rule: "@js:['a','b']",
+            expect: ["a", "b"],
+            asList: true),
     ]
 
     /// -selfTestRules 时运行、打印并退出（仅 CI 参数触发）。

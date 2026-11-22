@@ -127,17 +127,19 @@ extension AnalyzeRule {
             return applyPostProcessing(rule: rule, result: replaced, isUrl: isUrl)
         }
 
-        // 事实 16：常规执行（计时 + shouldExecute 门 + ParseDiagnostic）。
+        // 事实 16：常规执行（计时 + ParseDiagnostic）。
+        // T-1601-B2：**单值链不再过 shouldExecute 门**——该门对 .js/.mode6
+        // 返回 false，导致 `@js:...` 单值规则从未执行（getString 回退为
+        // 原文；js_upper/js_java_var 假失败根因）。门仅用于列表链
+        //（executeRuleForList，按需判断 previousResult）。
         let start = CFAbsoluteTimeGetCurrent()
         var result: String?
-        if shouldExecuteAgainstPreviousResult(rule.mode, previousResult: previousResult) {
-            result = executeRuleBody(
-                effectiveRule,
-                rule,
-                previousResult: previousResult,
-                previousResultIsCurrentContent: previousResultIsCurrentContent
-            )
-        }
+        result = executeRuleBody(
+            effectiveRule,
+            rule,
+            previousResult: previousResult,
+            previousResultIsCurrentContent: previousResultIsCurrentContent
+        )
         let elapsed = CFAbsoluteTimeGetCurrent() - start
 
         // 伪代码 L917-L924：模式 3/4 → 诊断标志 2，否则 1。
