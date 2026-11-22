@@ -57,7 +57,30 @@ struct ReaderView: View {
         .overlay(alignment: .top) {
             if showTopMoreActions {
                 ReaderTopMoreActionsPanel(
-                    onHeaderTap: { showTopMoreActions = false })
+                    title: viewModel.bookName.isEmpty
+                        ? "更多操作" : viewModel.bookName,
+                    subtitle: nil,
+                    details: [],
+                    actions: [
+                        ReaderMoreActionItem(
+                            id: "chapterList", title: "目录",
+                            systemImage: "list.bullet") {
+                            showChapterList = true
+                        },
+                        ReaderMoreActionItem(
+                            id: "search", title: "搜索",
+                            systemImage: "magnifyingglass") {
+                            showSearch = true
+                        },
+                        ReaderMoreActionItem(
+                            id: "settings", title: "设置",
+                            systemImage: "textformat") {
+                            showSettings = true
+                        },
+                    ],
+                    onHeaderTap: { showTopMoreActions = false },
+                    onDismiss: { showTopMoreActions = false },
+                    cover: { EmptyView() })
                     .padding(.top, 8)
                     .transition(
                         .move(edge: .top).combined(with: .opacity))

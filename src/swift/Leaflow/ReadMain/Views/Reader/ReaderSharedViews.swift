@@ -364,22 +364,200 @@ extension View {
     }
 }
 
-/// 顶部更多操作面板（onHeaderTap 0x100717364 varinit 域）。
-struct ReaderTopMoreActionsPanel: View {
-    /// 头部点击回调（varinit 域；默认空闭包确证）。
-    var onHeaderTap: () -> Void = {}
+/// 更多操作信息行（类型树 ReaderMoreInfoItem L11182-11187）。
+struct ReaderMoreInfoItem: Identifiable {
+    let id: String
+    let title: String
+    let value: String
+    let systemImage: String
+}
+
+/// 更多操作动作项（类型树 ReaderMoreActionItem L11173-11180）。
+struct ReaderMoreActionItem: Identifiable {
+    let id: String
+    let title: String
+    let systemImage: String
+    var isEnabled: Bool = true
+    var isSelected: Bool = false
+    let action: () -> Void
+}
+
+/// 顶部更多操作面板（类型树 L11089-11098；PGO 13 个成员 getter）。
+struct ReaderTopMoreActionsPanel<Cover: View>: View {
+    let title: String
+    var subtitle: String?
+    var details: [ReaderMoreInfoItem] = []
+    let actions: [ReaderMoreActionItem]
+    var onHeaderTap: (() -> Void)?
+    let onDismiss: () -> Void
+    let cover: () -> Cover
+    @Environment(\.colorScheme) private var colorScheme
+    var actionDismissDelay: Double = 0.12
 
     var body: some View {
         VStack(spacing: 0) {
-            Button {
-                onHeaderTap()
-            } label: {
-                Text("更多操作")
-                    .font(.subheadline.weight(.medium))
-                    .frame(maxWidth: .infinity)
-            }
-            .padding(.vertical, 10)
+            header
+            actionGrid
         }
+        .background(
+            AppThemeSurface.fill(
+                opacity: 0.94, followsAppearance: true))
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(
+                    Color.primary.opacity(0.08), lineWidth: 0.5))
+        .readerToolbarCard(cornerRadius: 20, level: .regular)
+    }
+
+    /// header getter（PGO 签名确证）。
+    @ViewBuilder
+    private var header: some View {
+        if let onHeaderTap {
+            Button(action: onHeaderTap) {
+                headerContent
+            }
+            .buttonStyle(.plain)
+        } else {
+            headerContent
+        }
+    }
+
+    /// headerContent getter（PGO 签名确证）：封面 + 标题/副标题 + 详情行。
+    private var headerContent: some View {
+        HStack(spacing: 12.0) {
+            coverView
+            VStack(alignment: .leading, spacing: 3.0) {
+                Text(title)
+                    .appThemeText(.headline)
+                    .lineLimit(1)
+                if let subtitle, !subtitle.isEmpty {
+                    Text(subtitle)
+                        .appThemeText(.caption, opacity: 0.6)
+                        .lineLimit(1)
+                }
+                ForEach(visibleDetails) { item in
+                    detailRow(item)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14.0)
+        .padding(.vertical, 12.0)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+    }
+
+    /// coverView getter（PGO 签名确证）。
+    private var coverView: some View {
+        cover()
+            .frame(width: 44.0, height: 58.0)
+            .clipShape(RoundedRectangle(cornerRadius: 6.0))
+    }
+
+    /// visibleDetails getter（PGO 签名确证）：最多三行。
+    private var visibleDetails: [ReaderMoreInfoItem] {
+        Array(details.prefix(3))
+    }
+
+    /// detailRow(_:)（PGO 签名确证）。
+    private func detailRow(_ item: ReaderMoreInfoItem) -> some View {
+        HStack(spacing: 4.0) {
+            Image(systemName: item.systemImage)
+                .font(.system(size: 10.0))
+                .appThemeAccent(opacity: 0.8)
+            Text(item.title)
+                .appThemeText(.caption, opacity: 0.55)
+            Text(item.value)
+                .appThemeText(.caption, opacity: 0.75)
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+    }
+
+    /// actionGrid getter（PGO 签名确证）。
+    private var actionGrid: some View {
+        actionGridContent
+            .padding(.horizontal, 10.0)
+            .padding(.bottom, 12.0)
+    }
+
+    /// actionGridContent getter（PGO 签名确证）。
+    private var actionGridContent: some View {
+        LazyVGrid(
+            columns: [GridItem(.adaptive(minimum: 72.0), spacing: 8.0)],
+            spacing: 8.0) {
+            ForEach(actions) { item in
+                actionButton(item)
+            }
+        }
+    }
+
+    /// actionButton(_:)（PGO 签名确证）。
+    private func actionButton(_ item: ReaderMoreActionItem) -> some View {
+        Button {
+            dismissThenPerform(item.action)
+        } label: {
+            VStack(spacing: 5.0) {
+                Image(systemName: item.systemImage)
+                    .font(.system(size: 18.0))
+                    .foregroundStyle(
+                        item.isSelected
+                            ? AnyShapeStyle(AppThemeManager.shared.accentColor(
+                                for: colorScheme))
+                            : AnyShapeStyle(Color.primary))
+                    .frame(height: 22.0)
+                Text(item.title)
+                    .appThemeText(.caption, opacity: 0.8)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8.0)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!item.isEnabled)
+    }
+
+    /// dismissThenPerform(_:)（PGO 签名确证）。
+    private func dismissThenPerform(_ action: @escaping () -> Void) {
+        onDismiss()
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + actionDismissDelay) {
+            action()
+        }
+    }
+}
+
+/// 阅读菜单覆盖层（类型树 ReaderMenuOverlay L11102-11107）。
+struct ReaderMenuOverlay<TopBar: View, BottomBar: View>: View {
+    @Binding var showMenu: Bool
+    var onDismissRequest: (() -> Void)?
+    let topBar: TopBar
+    let bottomBar: BottomBar
+
+    var body: some View {
+        ZStack {
+            if showMenu {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        if let onDismissRequest {
+                            onDismissRequest()
+                        } else {
+                            showMenu = false
+                        }
+                    }
+                VStack(spacing: 0) {
+                    topBar
+                    Spacer(minLength: 0)
+                    bottomBar
+                }
+                .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.18), value: showMenu)
     }
 }
 
