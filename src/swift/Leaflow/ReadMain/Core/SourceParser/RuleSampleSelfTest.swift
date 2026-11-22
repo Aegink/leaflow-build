@@ -63,7 +63,9 @@ enum RuleSampleSelfTest {
     static func runIfRequested() {
         guard ProcessInfo.processInfo.arguments.contains("-selfTestRules")
         else { return }
+        beginOutput()
         run()
+        emitRaw("SELFTEST_END")
         exit(0)
     }
 
@@ -225,13 +227,46 @@ enum RuleSampleSelfTest {
                 .map { [$0] } ?? [])
     }
 
-    /// 稳定输出（CI grep `SELFTEST` + `pass=`）。
+    /// 稳定输出（CI grep `SELFTEST` + `pass=`）。同时逐行落盘——控制台
+    /// 输出在进程异常退出时会因 stdio 缓冲丢失（run6 无输出根因防护）。
     private static func emit(
         name: String, expected: [String], actual: [String]
     ) {
         let pass = expected == actual
-        print(
+        emitRaw(
             "SELFTEST \(name) pass=\(pass) "
                 + "expected=\(expected) actual=\(actual)")
+    }
+
+    private static func emitRaw(_ line: String) {
+        print(line)
+        fflush(stdout)
+        appendToFile(line + "\n")
+    }
+
+    private static var outputURL: URL {
+        let dir = FileManager.default.urls(
+            for: .documentDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        return dir.appendingPathComponent("selftest.txt")
+    }
+
+    private static func beginOutput() {
+        try? "SELFTEST_BEGIN\n".write(
+            to: outputURL, atomically: true, encoding: .utf8)
+    }
+
+    private static func appendToFile(_ text: String) {
+        guard let data = text.data(using: .utf8) else { return }
+        if !FileManager.default.fileExists(atPath: outputURL.path) {
+            try? data.write(to: outputURL, options: .atomic)
+            return
+        }
+        guard let handle = try? FileHandle(forWritingTo: outputURL) else {
+            return
+        }
+        handle.seekToEndOfFile()
+        handle.write(data)
+        try? handle.close()
     }
 }
