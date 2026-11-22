@@ -395,7 +395,7 @@ struct ReaderTopMoreActionsPanel<Cover: View>: View {
     var actionDismissDelay: Double = 0.12
 
     var body: some View {
-        VStack(spacing: 0) {
+        GlassBatchContainer(spacing: 0) {
             header
             actionGrid
         }
@@ -566,5 +566,95 @@ extension Animation {
     static var readerTopMoreActionDismiss: Animation {
         .spring(response: 0.32, dampingFraction: 0.9, blendDuration: 0)
     }
+}
+
+// MARK: - 共享空态/加载/手势（类型树 L11053-11214）
+
+/// 阅读空态（类型树 ReaderEmptyView L11206-11209）。
+struct ReaderEmptyView: View {
+    let textColor: Color
+    var onDismiss: (() -> Void)?
+
+    var body: some View {
+        VStack(spacing: 12.0) {
+            Image(systemName: "doc.text")
+                .font(.largeTitle)
+                .foregroundStyle(textColor.opacity(0.6))
+            Text("本章暂无内容")
+                .foregroundStyle(textColor.opacity(0.7))
+            if let onDismiss {
+                Button("返回", action: onDismiss)
+                    .foregroundStyle(textColor)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// 阅读加载页（类型树 ReaderLoadingPageView L11211-11214）。
+struct ReaderLoadingPageView: View {
+    let textColor: Color
+    let message: String
+
+    var body: some View {
+        VStack(spacing: 10.0) {
+            ProgressView()
+                .tint(textColor)
+            Text(message.isEmpty ? "正在加载…" : message)
+                .foregroundStyle(textColor.opacity(0.65))
+                .appThemeText(.caption, opacity: 0.7)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// 下拉关闭手势状态（类型树 L11084-11087）。
+struct ReaderGestureDismissState {
+    let translation: CGPoint
+    let initialTouchLocation: CGPoint
+}
+
+/// 玻璃批量容器（类型树 L11168-11171）。
+struct GlassBatchContainer<Content: View>: View {
+    var spacing: CGFloat = 8.0
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        VStack(spacing: spacing) {
+            content()
+        }
+    }
+}
+
+/// 动作表玻璃背景（类型树 L11159 空结构，样式承载域）。
+struct ActionSheetGlassBackground {}
+
+/// 卡片背景图视图（类型树 L11161-11166）。
+struct AppThemeCardBackgroundImageView: View {
+    let image: UIImage
+    let layout: HighlightBackgroundImageLayout
+    let imageMode: AppThemeCardBackgroundImageMode
+    let cacheIdentifier: String?
+
+    var body: some View {
+        Image(uiImage: image)
+            .resizable()
+            .scaledToFill()
+            .clipped()
+            .accessibilityHidden(true)
+    }
+}
+
+/// 已解析卡片背景（类型树 L2265-2275）。
+struct AppThemeResolvedCardBackground {
+    let image: UIImage?
+    let layout: HighlightBackgroundImageLayout
+    let imageMode: AppThemeCardBackgroundImageMode
+    let cacheIdentifier: String?
+    let color: Color
+    let opacity: Double
+    let borderColor: Color
+    let borderOpacity: Double
+    let borderWidth: CGFloat
 }
 
