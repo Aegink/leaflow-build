@@ -194,9 +194,24 @@ extension AnalyzeRule {
         }, forKeyedSubscript: "__javaGet" as NSString)
         context.evaluateScript(
             """
+            var __qireaderVars = (typeof __qireaderVars !== 'undefined' && __qireaderVars) ? __qireaderVars : {};
             var java = (typeof java !== 'undefined' && java) ? java : {};
-            java.put = function(k, v) { return __javaPut(k, v); };
-            java.get = function(k) { return __javaGet(k); };
+            java.put = function(k, v) {
+                __qireaderVars[k] = v;
+                if (typeof __javaPut === 'function') {
+                    try { __javaPut(k, v); } catch (e) {}
+                }
+                return v;
+            };
+            java.get = function(k) {
+                if (Object.prototype.hasOwnProperty.call(__qireaderVars, k)) {
+                    return __qireaderVars[k];
+                }
+                if (typeof __javaGet === 'function') {
+                    try { var v = __javaGet(k); return (v === undefined || v === null) ? '' : v; } catch (e) {}
+                }
+                return '';
+            };
             """)
     }
 }
