@@ -262,6 +262,37 @@ enum RuleSampleSelfTest {
             expected: ["https://e.com/x"],
             actual: attr.getString(rule: "//a/@href", isUrl: true)
                 .map { [$0] } ?? [])
+
+        // C-0：ChangeSourceView 纯函数样本（匹配/排序/缓存键）。
+        let matched = Book(
+            bookUrl: "/b1", name: "Book A", author: "Author A",
+            bookSourceUrl: "https://s1")
+        let unmatched = Book(
+            bookUrl: "/b2", name: "Other", author: "X",
+            bookSourceUrl: "https://s2")
+        emit(
+            name: "change_source_match",
+            expected: ["true", "false"],
+            actual: [
+                String(ChangeSourceView.isChangeSourceMatch(
+                    matched, targetName: "Book A", targetAuthor: "Author A")),
+                String(ChangeSourceView.isChangeSourceMatch(
+                    unmatched, targetName: "Book A", targetAuthor: "Author A")),
+            ])
+        let sourceA = BookSource(
+            bookSourceUrl: "https://s1", bookSourceName: "A")
+        let sourceB = BookSource(
+            bookSourceUrl: "https://s2", bookSourceName: "B")
+        let sorted = ChangeSourceView.sortedChangeSources(
+            [sourceB, sourceA], speedSnapshot: ["https://s1": 0.5])
+        emit(
+            name: "change_source_sorted",
+            expected: ["https://s1,https://s2"],
+            actual: [sorted.map(\.bookSourceUrl).joined(separator: ",")])
+        emit(
+            name: "change_source_key",
+            expected: ["book a|author a"],
+            actual: [ChangeSourceCacheIdentity.cacheKey(for: matched)])
     }
 
     /// 稳定输出（CI grep `SELFTEST` + `pass=`）。同时逐行落盘——控制台
