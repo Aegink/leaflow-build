@@ -109,6 +109,111 @@ enum RuleSampleSelfTest {
         } else {
             emit(name: "mode8_normalize", expected: ["Alice"], actual: [])
         }
+
+        runBridgeSamples()
+    }
+
+    // MARK: - B-5 三链离线样本（AnalyzeRuleBridge）
+
+    /// 固定页面 → 搜索/详情/目录/正文四链可复算。
+    private static func runBridgeSamples() {
+        let html = """
+        <html><body>
+        <h1>Book T</h1>
+        <span class="author">Author T</span>
+        <div class="intro">Intro T</div>
+        <a class="toc" href="/toc/1">目录</a>
+        <div class="content">Content T</div>
+        <div class="book"><h3>Book A</h3>\
+        <span class="author">Author A</span>\
+        <a href="/book/a">详情</a></div>
+        <div class="book"><h3>Book B</h3>\
+        <span class="author">Author B</span>\
+        <a href="/book/b">详情</a></div>
+        <ul class="toc"><li><a href="/c/1">Chapter 1</a></li>\
+        <li><a href="/c/2">Chapter 2</a></li></ul>
+        </body></html>
+        """
+        var source = BookSource(
+            bookSourceUrl: "https://example.com/", bookSourceName: "sample")
+
+        var searchRule = SearchRule()
+        searchRule.bookList = "//div[@class='book']"
+        searchRule.name = "//h3/text()"
+        searchRule.author = "//span[@class='author']/text()"
+        searchRule.bookUrl = "//a/@href"
+        let books = (try? AnalyzeRuleBridge.parseSearchBooks(
+            from: html, source: source, rule: searchRule)) ?? []
+        emit(
+            name: "bridge_search",
+            expected: [
+                "Book A|Author A|https://example.com/book/a",
+                "Book B|Author B|https://example.com/book/b",
+            ],
+            actual: books.map {
+                "\($0.name)|\($0.author ?? "")|\($0.bookUrl ?? "")"
+            })
+
+        var infoRule = BookInfoRule()
+        infoRule.name = "//h1/text()"
+        infoRule.author = "//span[@class='author']/text()"
+        infoRule.intro = "//div[@class='intro']/text()"
+        infoRule.tocUrl = "//a[@class='toc']/@href"
+        source.ruleBookInfo = infoRule
+        let info = (try? AnalyzeRuleBridge.parseBookInfo(
+            from: html, source: source, book: Book())) ?? Book()
+        emit(
+            name: "bridge_bookinfo",
+            expected: [
+                "Book T|Author T|Intro T|https://example.com/toc/1",
+            ],
+            actual: [
+                "\(info.name)|\(info.author ?? "")|\(info.intro ?? "")|"
+                    + "\(info.tocUrl ?? "")",
+            ])
+
+        var tocRule = TocRule()
+        tocRule.chapterList = "//ul[@class='toc']/li"
+        tocRule.chapterName = "//a/text()"
+        tocRule.chapterUrl = "//a/@href"
+        let chapters = (try? AnalyzeRuleBridge.parseChapters(
+            from: html, source: source, rule: tocRule)) ?? []
+        emit(
+            name: "bridge_toc",
+            expected: [
+                "Chapter 1|https://example.com/c/1|0",
+                "Chapter 2|https://example.com/c/2|1",
+            ],
+            actual: chapters.map {
+                "\($0.name)|\($0.url)|\($0.index)"
+            })
+
+        var contentRule = ContentRule()
+        contentRule.content = "@css:.content@text"
+        let content = AnalyzeRuleBridge.parseContent(
+            from: html, source: source, rule: contentRule)
+        emit(
+            name: "bridge_content",
+            expected: ["Content T"],
+            actual: content.isEmpty ? [] : [content])
+
+        // B-4：搜索 URL `{{key}}`/`{{page}}` 替换（关键字 URL 编码）。
+        let analyzedURL = AnalyzeUrl(
+            ruleUrl: "https://e.com/s?q={{key}}&p={{page}}",
+            key: "中文 a", page: 3, baseUrl: "https://e.com")
+        emit(
+            name: "url_key_page",
+            expected: [
+                "https://e.com/s?q=%E4%B8%AD%E6%96%87%20a&p=3",
+            ],
+            actual: [analyzedURL.url])
+
+        // B-3：java.put/get 变量域（inout 字典闭包签名确证）。
+        _ = JavaBridge.put("selftest.key", "selftest.value")
+        emit(
+            name: "java_var",
+            expected: ["selftest.value"],
+            actual: [JavaBridge.get("selftest.key")])
     }
 
     /// 稳定输出（CI grep `SELFTEST` + `pass=`）。

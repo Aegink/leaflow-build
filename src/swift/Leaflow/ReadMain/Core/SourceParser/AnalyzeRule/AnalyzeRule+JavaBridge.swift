@@ -116,6 +116,17 @@ extension AnalyzeRule {
     func setupJavaObject() {
         let context = jsContextHandle()
         let java: [String: Any] = [
+            // T-1601-B3：ajax 单请求（legado 源常用入口）。
+            "ajax": { (url: String) -> String in
+                JavaBridge.ajax(url)
+            },
+            // java.get/put 为**变量域**（JavaBridge 签名 + inout 字典闭包确证）。
+            "get": { (key: String) -> String in
+                JavaBridge.get(key)
+            },
+            "put": { (key: String, value: String) -> String in
+                JavaBridge.put(key, value)
+            },
             "ajaxAll": { (urls: [String]) -> [String] in
                 JavaBridge.ajaxAll(urls)
             },
@@ -142,6 +153,20 @@ extension AnalyzeRule {
             },
             "base64Encode": { (input: String) -> String in
                 JavaBridge.base64Encode(input)
+            },
+            "base64Decode": { (input: String) -> String in
+                Data(base64Encoded: input)
+                    .flatMap { String(data: $0, encoding: .utf8) } ?? ""
+            },
+            // T-1601-B3：cookie.*（JavaBridge get/set/removeCookie 域）。
+            "getCookie": { (url: String, name: String) -> String in
+                JavaBridge.getCookie(url, name: name)
+            },
+            "setCookie": { (url: String, name: String, value: String) in
+                JavaBridge.setCookie(url, name: name, value: value)
+            },
+            "removeCookie": { (url: String, name: String) in
+                JavaBridge.removeCookie(url, name: name)
             },
             "hexDecodeToString": { (input: String) -> String in
                 JavaBridge.hexDecodeToString(input)

@@ -112,6 +112,25 @@ final class JavaBridge {
         JsExtensions().ajaxAll(urls)
     }
 
+    /// T-1601-B3：`java.ajax(url)` 单请求域（JsExtensions.ajax 同源；
+    /// java 对象此前未注册 ajax → 依赖 ajax 的 Legado JS 规则抛错）。
+    static func ajax(_ url: String) -> String {
+        JsExtensions().ajax(url)
+    }
+
+    /// 伪代码 JavaBridge.put(String, String) -> String（inout
+    /// [String: String] 闭包确证）：**变量写入**，不是 HTTP PUT。
+    static func put(_ key: String, _ value: String) -> String {
+        AnalyzeRule.sharedInstance().putVariable(key, value: value)
+        return value
+    }
+
+    /// 伪代码 JavaBridge.get(String) -> String（inout [String: String]
+    /// 闭包确证）：变量读取，缺失返回空串。
+    static func get(_ key: String) -> String {
+        AnalyzeRule.sharedInstance().getVariable(key) ?? ""
+    }
+
     /// 伪代码 0x1000ecc18（L393-401）：POST 域。
     static func post(_ url: String, body: String, headers: [String: String]) -> String {
         JsExtensions().post(url, body, headers).body

@@ -94,6 +94,16 @@ jobs:
             | grep -c "UIKitApplication:com.leaflow.app" || true)
           echo "sources_alive=$SRC_ALIVE" >> smoke-result.txt
           xcrun simctl io "$UDID" screenshot sim-sources.png 2>/dev/null
+          # T-1601-C2：默认书架首屏（无参数启动）空态冒烟。
+          xcrun simctl terminate "$UDID" com.leaflow.app 2>/dev/null
+          sleep 2
+          SHELF_OUT=$(xcrun simctl launch "$UDID" com.leaflow.app 2>&1)
+          echo "launch_bookshelf=$SHELF_OUT" >> smoke-result.txt
+          sleep 10
+          SHELF_ALIVE=$(xcrun simctl spawn "$UDID" launchctl list 2>/dev/null \
+            | grep -c "UIKitApplication:com.leaflow.app" || true)
+          echo "bookshelf_alive=$SHELF_ALIVE" >> smoke-result.txt
+          xcrun simctl io "$UDID" screenshot sim-bookshelf.png 2>/dev/null
           xcrun simctl shutdown "$UDID" 2>/dev/null
           cat smoke-result.txt
 
@@ -161,4 +171,5 @@ jobs:
             sim-screenshot.png
             sim-settings.png
             sim-sources.png
+            sim-bookshelf.png
           if-no-files-found: warn
