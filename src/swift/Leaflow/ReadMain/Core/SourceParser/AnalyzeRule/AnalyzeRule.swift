@@ -399,7 +399,9 @@ extension AnalyzeRule {
     var contentOf: (Any?) -> String { { Self.stringFromRuleResult($0 ?? "") } }
 
     /// 共享单例槽（pipeline 家族使用）。
-    private static weak var sharedInstanceRef: AnalyzeRule?
+    /// T-1601-B5：改为强引用——weak 槽在两次调用之间会被释放，
+    /// sharedInstance 每次新建实例，java.put 与 @get: 变量不共享。
+    private static var sharedInstanceRef: AnalyzeRule?
 
     static func sharedInstance() -> AnalyzeRule {
         if let shared = sharedInstanceRef {

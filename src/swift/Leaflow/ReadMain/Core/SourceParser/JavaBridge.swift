@@ -120,7 +120,13 @@ final class JavaBridge {
 
     /// 伪代码 JavaBridge.put(String, String) -> String（inout
     /// [String: String] 闭包确证）：**变量写入**，不是 HTTP PUT。
+    /// 静态字典承载（原实现的 weak sharedInstance 会在两次调用之间
+    /// 释放，put/get 不共享存储——自测 java_var 失败根因）。
     static func put(_ key: String, _ value: String) -> String {
+        variableLock.lock()
+        variableStore[key] = value
+        variableLock.unlock()
+        // 同步到共享实例 variableMap，使 @get:key 规则可见。
         AnalyzeRule.sharedInstance().putVariable(key, value: value)
         return value
     }
@@ -128,8 +134,15 @@ final class JavaBridge {
     /// 伪代码 JavaBridge.get(String) -> String（inout [String: String]
     /// 闭包确证）：变量读取，缺失返回空串。
     static func get(_ key: String) -> String {
-        AnalyzeRule.sharedInstance().getVariable(key) ?? ""
+        variableLock.lock()
+        let stored = variableStore[key]
+        variableLock.unlock()
+        if let stored { return stored }
+        return AnalyzeRule.sharedInstance().getVariable(key) ?? ""
     }
+
+    private static let variableLock = NSLock()
+    private static var variableStore: [String: String] = [:]
 
     /// 伪代码 0x1000ecc18（L393-401）：POST 域。
     static func post(_ url: String, body: String, headers: [String: String]) -> String {

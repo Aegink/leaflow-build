@@ -130,7 +130,19 @@ extension AnalyzeRule {
         // 外层函数非 throws——try? 承接 rethrows 域（wave-16）。
         try? AnalyzeRule.withLibxmlStderrSuppressed {
             let prepared = preparedXPathSource(source)
-            return try Kanna.XML(xml: prepared, encoding: .utf8)
+            let trimmed = prepared.trimmingCharacters(
+                in: .whitespacesAndNewlines)
+            let lower = trimmed.lowercased()
+            // T-1601-B5：元素片段（innerHTML 多根：<h3>…</h3><span>…）
+            // 用 XML 解析会丢根/失败，子规则 XPath 全空。完整文档
+            // （<html>/<?xml>/<!doctype）保持 XML 解析（大小写敏感）；
+            // 其余片段走 HTML 解析（自动补 html/body，多根安全）。
+            if lower.hasPrefix("<html") || lower.hasPrefix("<?xml")
+                || lower.hasPrefix("<!doctype") {
+                return try Kanna.XML(xml: prepared, encoding: .utf8)
+            }
+            return try Kanna.HTML(html: prepared, encoding: .utf8)
+                as KannaXMLDocument
         }
     }
 
