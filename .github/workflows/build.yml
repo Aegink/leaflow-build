@@ -55,6 +55,7 @@ jobs:
           PASS=$(grep -c "SELFTEST .* pass=true" selftest.log || true)
           FAIL=$(grep -c "SELFTEST .* pass=false" selftest.log || true)
           echo "selftest_pass=$PASS selftest_fail=$FAIL" | tee -a selftest-result.txt
+          cat selftest-result.txt
           xcrun simctl shutdown "$UDID" 2>/dev/null
 
       - name: Smoke test (boot simulator, install, launch, check alive)
@@ -172,6 +173,7 @@ jobs:
           fi
 
       - name: Upload artifacts (IPA + logs + smoke)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: leaflow-build-output

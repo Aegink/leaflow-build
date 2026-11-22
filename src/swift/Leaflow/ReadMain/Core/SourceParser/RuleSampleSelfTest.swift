@@ -214,6 +214,15 @@ enum RuleSampleSelfTest {
             name: "java_var",
             expected: ["selftest.value"],
             actual: [JavaBridge.get("selftest.key")])
+
+        // B-5：XPath 属性选择 + 相对 URL 归一（baseUrl 继承域）。
+        let attr = AnalyzeRule(source: nil, parent: nil)
+        attr.setContent("<a href='/x'>L</a>", baseUrl: "https://e.com/")
+        emit(
+            name: "xpath_attr_url",
+            expected: ["https://e.com/x"],
+            actual: attr.getString(rule: "//a/@href", isUrl: true)
+                .map { [$0] } ?? [])
     }
 
     /// 稳定输出（CI grep `SELFTEST` + `pass=`）。

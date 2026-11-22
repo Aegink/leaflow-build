@@ -197,14 +197,18 @@ extension AnalyzeRule {
                 let analyzer = LegadoJSoupAnalyzer(source: self)
                 let nodes = analyzer.getElements(effective.rule)
                 let capped = limit.isUnlimited ? nodes : Array(nodes.prefix(limit.value))
-                appendCapped(AnalyzeRule.wrapJsonItemsAsChildRules(capped), to: &result, limit: limit)
+                appendCapped(
+                    AnalyzeRule.wrapSoupNodesAsChildRules(
+                        capped, parent: self),
+                    to: &result, limit: limit)
             case .xpath:
                 // 事实 25：XPath（空结果按伪代码记 `[XPath] -> 匹配 0` 日志）。
                 // 节点装箱走 childRule 路径（wrapNodesAsChildRules 同域，wave-16）。
                 let nodes = executeXPathRuleForNodes(effective.rule)
                 if let nodes {
                     let wrapped = nodes.map { node in
-                        AnalyzeRule.wrapNodesAsChildRules([node])
+                        AnalyzeRule.wrapNodesAsChildRules(
+                            [node], parent: self)
                     }
                     appendCapped(
                         Array(wrapped.joined()), to: &result, limit: limit)
@@ -219,7 +223,8 @@ extension AnalyzeRule {
                 let value = readJsonPath(contentString, rule: effective.rule, engine: engine)
                 if let anyValue = value {
                     appendCapped(
-                        AnalyzeRule.wrapJsonItemsAsChildRules([anyValue]),
+                        AnalyzeRule.wrapJsonItemsAsChildRules(
+                            [anyValue], parent: self),
                         to: &result,
                         limit: limit
                     )
@@ -237,7 +242,10 @@ extension AnalyzeRule {
                     [effective.rule]
                 ).flatMap { $0 }
                 let capped = limit.isUnlimited ? matches : Array(matches.prefix(limit.value))
-                appendCapped(AnalyzeRule.wrapJsonItemsAsChildRules(capped), to: &result, limit: limit)
+                appendCapped(
+                    AnalyzeRule.wrapJsonItemsAsChildRules(
+                        capped, parent: self),
+                    to: &result, limit: limit)
             default:
                 continue
             }
@@ -382,7 +390,10 @@ extension AnalyzeRule {
             let nodes = executeXPathRuleForNodes(rule)
             // 节点装箱走 wrapNodesAsChildRules（childRule 域，wave-16）。
             result.append(
-                contentsOf: nodes.map { AnalyzeRule.wrapNodesAsChildRules($0) } ?? [])
+                contentsOf: nodes.map {
+                    AnalyzeRule.wrapNodesAsChildRules(
+                        $0, parent: analyzer)
+                } ?? [])
         }
         return result
     }
@@ -612,7 +623,9 @@ extension AnalyzeRule {
         var result: [AnalyzeRule] = []
         for analyzer in analyzersForElementPipeline(currentResult) {
             let nodes = LegadoJSoupAnalyzer(source: analyzer).getElements(rule)
-            result.append(contentsOf: wrapJsonItemsAsChildRules(nodes))
+            result.append(
+                contentsOf: wrapSoupNodesAsChildRules(
+                    nodes, parent: analyzer))
         }
         return result
     }
@@ -626,7 +639,9 @@ extension AnalyzeRule {
         var result: [AnalyzeRule] = []
         for analyzer in analyzersForElementPipeline(currentResult) {
             let nodes = LegadoJSoupAnalyzer(source: analyzer).getElements(rule)
-            result.append(contentsOf: wrapJsonItemsAsChildRules(nodes))
+            result.append(
+                contentsOf: wrapSoupNodesAsChildRules(
+                    nodes, parent: analyzer))
         }
         return result
     }
@@ -670,34 +685,43 @@ extension AnalyzeRule {
     /// 关联存储（节点 +168）命中 LRU 则复用；否则复制父级上下文
     /// （memcpy 0x578）→ `init(source:parent:)` → 继承 book/baseUrl →
     /// `setContent(_:baseUrl:)` → 写回关联存储。
-    static func wrapNodesAsChildRules(_ nodes: [KannaXMLElement]) -> [AnalyzeRule] {
+    static func wrapNodesAsChildRules(
+        _ nodes: [KannaXMLElement], parent: AnalyzeRule? = nil
+    ) -> [AnalyzeRule] {
         nodes.compactMap { node in
             // Kanna XMLElement 无 xmlString——innerHTML 等价桥（协议域）。
-            childRule(for: node, contentClosure: { node.innerHTML ?? "" })
+            childRule(
+                for: node, parent: parent,
+                contentClosure: { node.innerHTML ?? "" })
         }
     }
 
     /// 伪代码 0x10001dd10（闭包 #1 in wrapSoupNodesAsChildRules，L539-551）：
     /// SwiftSoup.Element → html（throws）→ 同上构造子规则；
     /// v12[22] = element、v12[21] 链接父级关联对象。
-    static func wrapSoupNodesAsChildRules(_ nodes: [SwiftSoupElement]) -> [AnalyzeRule] {
+    static func wrapSoupNodesAsChildRules(
+        _ nodes: [SwiftSoupElement], parent: AnalyzeRule? = nil
+    ) -> [AnalyzeRule] {
         nodes.compactMap { node in
             guard let html = try? node.html(), !html.isEmpty else {
                 return nil
             }
-            return childRule(for: node, contentClosure: { html })
+            return childRule(
+                for: node, parent: parent, contentClosure: { html })
         }
     }
 
     /// 伪代码 0x10001ad8c（L560-573）+ 闭包 #1（0x10001dfec）：
     /// [Any] → 逐项构造子规则：String → setContent；其他 → JSON 序列化
     /// 到内容（sub_100011994）；nil 项丢弃。
-    static func wrapJsonItemsAsChildRules(_ items: [Any]) -> [AnalyzeRule] {
+    static func wrapJsonItemsAsChildRules(
+        _ items: [Any], parent: AnalyzeRule? = nil
+    ) -> [AnalyzeRule] {
         items.compactMap { item in
             if item is NSNull {
                 return nil
             }
-            return childRule(for: item, contentClosure: {
+            return childRule(for: item, parent: parent, contentClosure: {
                 Self.stringFromRuleResult(item)
             })
         }
@@ -765,9 +789,13 @@ extension AnalyzeRule {
     /// init source 为 BookSource?——泛型载荷经 as? 降取（wave-16）。
     static func childRule(
         for source: Any,
+        parent: AnalyzeRule? = nil,
         contentClosure: () -> String
     ) -> AnalyzeRule? {
-        let parent = sharedInstance()
+        // T-1601-B5：父级必须是被求值的实例（baseUrl/book 继承域）；
+        // 此前固定 sharedInstance() → 子元素 baseUrl 为空，相对
+        // bookUrl/chapterUrl 无法解析为绝对地址。
+        let parent = parent ?? sharedInstance()
         let child = AnalyzeRule(source: source as? BookSource, parent: parent)
         child.book = parent.book
         let content = contentClosure()
