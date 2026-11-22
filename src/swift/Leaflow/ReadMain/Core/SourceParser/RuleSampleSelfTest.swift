@@ -77,6 +77,18 @@ enum RuleSampleSelfTest {
             expect: ["v"],
             asList: false),
         Sample(
+            name: "js_put_type",
+            content: "",
+            rule: "@js:typeof java.put",
+            expect: ["function"],
+            asList: false),
+        Sample(
+            name: "js_put_ret",
+            content: "",
+            rule: "@js:java.put('k','v')",
+            expect: ["v"],
+            asList: false),
+        Sample(
             name: "js_list",
             content: "",
             rule: "@js:['a','b']",

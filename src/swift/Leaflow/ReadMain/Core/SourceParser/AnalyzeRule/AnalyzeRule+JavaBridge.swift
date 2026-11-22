@@ -182,6 +182,22 @@ extension AnalyzeRule {
             bridgeObject.setObject(value, forKeyedSubscript: key as NSString)
         }
         context.setObject(bridgeObject, forKeyedSubscript: "java" as NSString)
+
+        // T-1601-B3：put/get 的 JS 包装兜底——闭包经 [String: Any] 装箱后
+        // 在 JSContext 对象属性上的桥接不稳定（run12 java_var 仍为空）。
+        // 全局函数桥（context.setObject）是已验证可用路径，JS 侧再包一层。
+        context.setObject({ (key: String, value: String) -> String in
+            JavaBridge.put(key, value)
+        }, forKeyedSubscript: "__javaPut" as NSString)
+        context.setObject({ (key: String) -> String in
+            JavaBridge.get(key)
+        }, forKeyedSubscript: "__javaGet" as NSString)
+        context.evaluateScript(
+            """
+            var java = (typeof java !== 'undefined' && java) ? java : {};
+            java.put = function(k, v) { return __javaPut(k, v); };
+            java.get = function(k) { return __javaGet(k); };
+            """)
     }
 }
 
