@@ -108,11 +108,7 @@ struct CardBackgroundSettingsView: View {
                 if let image = resolvedPreview(
                     currentCard, target: selectedTarget) {
                     // T-1601-C0：共享背景图视图（类型树 L11161-11166）。
-                    AppThemeCardBackgroundImageView(
-                        image: image,
-                        layout: currentCard.lightLayout,
-                        imageMode: currentCard.lightImageMode,
-                        cacheIdentifier: nil)
+                    AppThemeCardBackgroundImageView(image: image)
                         .frame(height: 120)
                         .cornerRadius(currentCard.clampedCornerRadius)
                         .clipped()
