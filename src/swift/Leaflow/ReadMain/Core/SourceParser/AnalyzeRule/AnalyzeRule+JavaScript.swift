@@ -35,21 +35,48 @@ import SwiftSoup
 /// 字符串规则的 JS 求值器（0x10004ef8c，L29-38）：
 /// safeEvaluateScript(timeout: 15.0, convertLegadoTemplates: true) +
 /// ruleEvaluationTemplateOutcome；nil → 空结果。
+///
+/// T-1601-B2：求值必须发生在**当前 AnalyzeRule 实例**的 JSContext 上
+/// （此前面向 sharedInstance 空上下文——`result` 未绑定、java.* 未安装，
+/// 导致 `@js:result` 之外的脚本全部失败并回退为原文）。
 struct AnalyzeRuleStringRuleEvaluator {
     struct Result {
         var text: String?
         var ok: Bool
     }
 
+    let context: AnalyzeRule
+
+    init(context: AnalyzeRule) {
+        self.context = context
+    }
+
     func evaluate(_ script: String) throws -> Result {
-        guard let evaluated = AnalyzeRule.sharedInstance().safeEvaluateScript(
+        context.prepareJavaScriptEvaluationContext()
+        let input = context.contentString
+        AnalyzeRule.setJavaScriptRuntimeBindingValue(
+            named: "result",
+            value: input,
+            rawJSONString: nil,
+            preferJSONObjectBinding: false)
+
+        guard let evaluated = context.safeEvaluateScript(
             script,
             timeout: 15.0,
             convertLegadoTemplates: true
         ) else {
             return Result(text: nil, ok: false)
         }
-        let outcome = ruleEvaluationStringValue(from: evaluated)
+        var outcome = ruleEvaluationStringValue(from: evaluated)
+        if outcome == nil || evaluated.isUndefined || evaluated.isNull {
+            // 多语句脚本（结尾 `;`）最后值为 undefined：取回 result 变量。
+            let resultValue = context.jsContextHandle()
+                .objectForKeyedSubscript("result")
+            if let resultValue,
+               !resultValue.isUndefined, !resultValue.isNull {
+                outcome = ruleEvaluationStringValue(from: resultValue)
+            }
+        }
         return Result(text: outcome, ok: outcome != nil)
     }
 }
@@ -279,7 +306,7 @@ extension AnalyzeRule {
 
         // 事实 12：字符串规则求值器（timeout 15.0）。
         // Result 装箱域——AnalyzeRuleStringRuleEvaluator.Result（wave-16）。
-        let evaluator = AnalyzeRuleStringRuleEvaluator()
+        let evaluator = AnalyzeRuleStringRuleEvaluator(context: self)
         let result = (try? evaluator.evaluate(processed))
             ?? AnalyzeRuleStringRuleEvaluator.Result(text: nil, ok: false)
 

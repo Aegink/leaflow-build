@@ -127,6 +127,9 @@ struct BookActionSheetView: View {
     @State private var bookVariableText: String = ""
     @State private var showDeleteConfirm = false
     @State private var showChangeCover = false
+    /// T-1601-E2：编辑书籍/换封面入口（BookEditView/ChangeCoverView
+    /// 此前零引用）。
+    @State private var showBookEdit = false
 
     private let bookService = BookService()
     private let sourceService = SourceService()
@@ -196,6 +199,15 @@ struct BookActionSheetView: View {
             }
             .sheet(isPresented: $showBookVariableEditor) {
                 bookVariableEditorSheet
+            }
+            .sheet(isPresented: $showChangeCover) {
+                ChangeCoverView(book: book)
+            }
+            .sheet(isPresented: $showBookEdit) {
+                BookEditView(book: book, isLocal: false) { updated in
+                    bookService.updateBook(updated)
+                    showBookEdit = false
+                }
             }
             .confirmationDialog(
                 "确定要从书架中删除《\(book.name)》",
@@ -281,8 +293,12 @@ struct BookActionSheetView: View {
             actionButton(icon: "info.circle", title: "刷新书籍信息") {
                 refreshBookInfo()
             }
+            actionButton(icon: "photo", title: "换封面") {
+                showChangeCover = true
+            }
             actionButton(icon: "pencil", title: "编辑书籍") {
-                // 编辑域（"编辑书籍" L314 确证）。
+                // 编辑域（"编辑书籍" L314 确证）→ BookEditView。
+                showBookEdit = true
             }
         }
     }
