@@ -1,0 +1,14 @@
+app=build/device/Build/Products/Release-iphoneos/Leaflow.app
+-rw-r--r--  1 runner  staff  3320331 Nov 21 19:16 Leaflow-unsigned.ipa
+Archive:  Leaflow-unsigned.ipa
+  Length      Date    Time    Name
+---------  ---------- -----   ----
+        0  11-21-2026 19:16   Payload/
+        0  11-21-2026 19:16   Payload/Leaflow.app/
+ 11174312  11-21-2026 19:16   Payload/Leaflow.app/Leaflow
+        0  11-21-2026 19:16   Payload/Leaflow.app/Kanna_Kanna.bundle/
+      373  11-21-2026 19:16   Payload/Leaflow.app/Kanna_Kanna.bundle/PrivacyInfo.xcprivacy
+      663  11-21-2026 19:16   Payload/Leaflow.app/Kanna_Kanna.bundle/Info.plist
+      706  11-21-2026 19:16   Payload/Leaflow.app/Info.plist
+        8  11-21-2026 19:16   Payload/Leaflow.app/PkgInfo
+---------                     -------

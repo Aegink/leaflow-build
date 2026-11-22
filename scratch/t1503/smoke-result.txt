@@ -1,0 +1,5 @@
+udid=DA1C9012-81EC-4C70-B52A-068AEAFBA1DE
+app=/Users/runner/Library/Developer/Xcode/DerivedData/Leaflow-eskaocdvwgrbhbbnocngvroqpozd/Build/Products/Debug-iphonesimulator/Leaflow.app
+launch=com.leaflow.app: 6987
+alive=1
+crash_reports=0
