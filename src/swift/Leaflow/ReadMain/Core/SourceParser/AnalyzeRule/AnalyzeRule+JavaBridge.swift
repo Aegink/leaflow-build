@@ -136,9 +136,8 @@ extension AnalyzeRule {
             "connect": { (url: String, body: String, headers: [String: String]) -> String in
                 JavaBridge.connect(url, body: body, headers: headers)
             },
-            "put": { (url: String, body: String, headers: [String: String]) -> String in
-                JavaBridge.put(url, body: body, headers: headers)
-            },
+            // 注意：java.put 为变量域（上方已注册）；HTTP PUT 无独立键，
+            // 字典字面量不可重复键（run11 Fatal error 根因）。
             "md5Encode": { (input: String) -> String in
                 JavaBridge.md5Encode(input)
             },

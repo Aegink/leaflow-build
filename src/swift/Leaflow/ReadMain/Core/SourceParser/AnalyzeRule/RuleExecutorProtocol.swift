@@ -83,8 +83,11 @@ struct JsRuleExecutor: RuleExecutor {
 
     /// 伪代码 0x10007ba30（L74-100）：String → 单元素数组；
     /// 数组 → 逐元素 String cast / JSON 字符串化 / legadoString 过滤空。
+    /// T-1601-B2：结构化求值保留数组形态。
     func executeForList(rule: String, context: AnalyzeRule) -> [String]? {
-        guard let evaluated = context.executeJsRule(rule, input: context.contentString) else {
+        guard let evaluated = context.executeJsRuleStructured(
+            rule, input: context.contentString
+        ) else {
             return nil
         }
         return AnalyzeRule.stringListFromJsRuleResult(evaluated)

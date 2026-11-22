@@ -42,6 +42,7 @@ import SwiftSoup
 struct AnalyzeRuleStringRuleEvaluator {
     struct Result {
         var text: String?
+        var value: Any?
         var ok: Bool
     }
 
@@ -65,8 +66,9 @@ struct AnalyzeRuleStringRuleEvaluator {
             timeout: 15.0,
             convertLegadoTemplates: true
         ) else {
-            return Result(text: nil, ok: false)
+            return Result(text: nil, value: nil, ok: false)
         }
+        var structured = ruleEvaluationStructuredValue(from: evaluated)
         var outcome = ruleEvaluationStringValue(from: evaluated)
         if outcome == nil || evaluated.isUndefined || evaluated.isNull {
             // 多语句脚本（结尾 `;`）最后值为 undefined：取回 result 变量。
@@ -75,9 +77,10 @@ struct AnalyzeRuleStringRuleEvaluator {
             if let resultValue,
                !resultValue.isUndefined, !resultValue.isNull {
                 outcome = ruleEvaluationStringValue(from: resultValue)
+                structured = ruleEvaluationStructuredValue(from: resultValue)
             }
         }
-        return Result(text: outcome, ok: outcome != nil)
+        return Result(text: outcome, value: structured, ok: outcome != nil)
     }
 }
 
@@ -308,7 +311,7 @@ extension AnalyzeRule {
         // Result 装箱域——AnalyzeRuleStringRuleEvaluator.Result（wave-16）。
         let evaluator = AnalyzeRuleStringRuleEvaluator(context: self)
         let result = (try? evaluator.evaluate(processed))
-            ?? AnalyzeRuleStringRuleEvaluator.Result(text: nil, ok: false)
+            ?? AnalyzeRuleStringRuleEvaluator.Result(text: nil, value: nil, ok: false)
 
         guard isExecutionCancelled == false else {
             return nil
@@ -333,6 +336,29 @@ extension AnalyzeRule {
             binding.store(text)
         }
         return Self.stringValueForJavaScriptRuleResult(text)
+    }
+
+    /// T-1601-B2：结构化 JS 求值（列表链用）——保留 JSValue 数组/对象
+    /// 形态，避免 `executeJsRule` 的字符串化丢失列表边界。
+    func executeJsRuleStructured(_ rule: String, input: Any?) -> Any? {
+        var script = rule
+        if let open = script.range(of: "<js>") {
+            if let close = script.range(of: "</js>", range: open.upperBound..<script.endIndex) {
+                script = String(script[open.upperBound..<close.lowerBound])
+            } else {
+                script = String(script[open.upperBound...])
+            }
+        } else if script.hasPrefix("<"), script.hasSuffix(">") {
+            let body = String(script.dropFirst().dropLast())
+            guard Self.isValidJsCode(body) else { return nil }
+            script = body
+        }
+        let processed = processInnerJs(script)
+        let evaluator = AnalyzeRuleStringRuleEvaluator(context: self)
+        guard let result = try? evaluator.evaluate(processed), result.ok else {
+            return nil
+        }
+        return result.value ?? result.text
     }
 
     // MARK: - 列表 JS 执行

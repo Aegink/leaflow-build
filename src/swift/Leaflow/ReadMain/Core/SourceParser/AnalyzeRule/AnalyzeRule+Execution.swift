@@ -53,11 +53,9 @@ extension AnalyzeRule {
         _ mode: RuleMode,
         previousResult: Any?
     ) -> Bool {
-        guard previousResult != nil else { return false }
-        if mode == .js || mode == .mode6 {
-            return false
-        }
-        return true
+        // T-1601-B2：JS/变量模式同样需要执行（其输入经 JS `result`/
+        // 变量域取得，不依赖 previousResult 但也不能跳过）。
+        previousResult != nil
     }
 
     // MARK: - 单值执行
@@ -371,6 +369,10 @@ extension AnalyzeRule {
         _ rule: String,
         previousResult: Any?
     ) -> [String]? {
+        // T-1601-B2：结构化求值优先（数组/对象不字符串化）。
+        if let value = executeJsRuleStructured(rule, input: previousResult) {
+            return Self.stringListFromJsRuleResult(value)
+        }
         guard let value = executeJsRule(rule, input: previousResult) else {
             return nil
         }
