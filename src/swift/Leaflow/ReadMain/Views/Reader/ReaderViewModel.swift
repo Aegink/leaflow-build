@@ -34,8 +34,10 @@ final class ReaderViewModel {
     var currentChapterIndex = 0
     var currentPageIndex = 0
     private(set) var currentBookSource: BookSource?
-    private(set) var bookName = ""
-    private(set) var totalChapters = 0
+    // T-1601-C0：本地阅读桥需要写入展示域（原 private(set) 阻止跨视图
+    // 适配；与 pages 等字段同域放宽）。
+    var bookName = ""
+    var totalChapters = 0
 
     var currentPage: PageData? {
         pages.indices.contains(currentPageIndex) ? pages[currentPageIndex] : nil

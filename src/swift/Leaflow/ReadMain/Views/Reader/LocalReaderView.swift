@@ -24,12 +24,14 @@ struct LocalReaderView: View {
     var book: LocalBook
 
     @State private var viewModel: LocalReaderViewModel?
+    @State private var adapter = ReaderViewModel()
     @Binding var settings: ReadingSettings
     @State private var chapterSliderValue: Double = 0
     @State private var showSearch = false
     @State private var showChapterList = false
     @State private var showSettings = false
     @State private var menuVisible = false
+    @Environment(\.colorScheme) private var systemColorScheme
 
     init(book: LocalBook, settings: Binding<ReadingSettings>) {
         self.book = book
@@ -38,7 +40,8 @@ struct LocalReaderView: View {
 
     /// 伪代码 0x10072610c（L43-45）：阅读配色（随主题）。
     private var readerColorScheme: ColorScheme {
-        settings.verticalJustify ? .dark : .light
+        AppThemeManager.shared.effectiveColorScheme(
+            for: systemColorScheme)
     }
 
     var body: some View {
@@ -86,19 +89,32 @@ struct LocalReaderView: View {
     private func localReaderScene(
         viewModel: LocalReaderViewModel, geometry: GeometryProxy
     ) -> some View {
-        VStack(spacing: 0) {
+        // 桥接本地 VM → ReaderContentSurface 消费的 ReaderViewModel。
+        syncAdapter(viewModel)
+        return VStack(spacing: 0) {
             chapterSlider
             ReaderContentSurface(
-                viewModel: readerViewModelAdapter(viewModel),
+                viewModel: adapter,
                 settings: settings,
                 onRetry: { await viewModel.retryLoading() })
         }
     }
 
     /// VM 适配（ReaderContentSurface 消费 ReaderViewModel 域）。
-    private func readerViewModelAdapter(_ vm: LocalReaderViewModel) -> ReaderViewModel {
-        // 类型桥（ReaderViewModel 与 LocalReaderViewModel 域并集，待真机对照）。
-        ReaderViewModel()
+    /// T-1601-C0：此前每次 body 返回全新 ReaderViewModel（页面永远为空）；
+    /// 改为常驻 adapter + 状态同步（@Observable 变更驱动 body 重算）。
+    private func syncAdapter(_ vm: LocalReaderViewModel) {
+        adapter.pages = vm.pages
+        adapter.chapterPages = vm.pages
+        adapter.chapterContents = vm.chapterContents
+        adapter.currentChapterIndex = vm.currentChapterIndex
+        adapter.currentPageIndex = vm.currentPageIndex
+        adapter.bookName = book.name
+        adapter.totalChapters = vm.chapterContents.count
+        adapter.isLoadingPage = vm.isLoading
+        adapter.hasError = vm.hasError
+        adapter.menuVisible = menuVisible
+        adapter.containerSize = vm.containerSize
     }
 
     /// 章节滑条（_chapterSliderValue 初始化确证）。
