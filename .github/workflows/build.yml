@@ -154,6 +154,23 @@ jobs:
           echo "---- total error lines ----"
           cat error_count.txt || true
 
+      # 硬门禁：构建错误 > 0 或自测有 fail → job 失败（此前 set +e
+      # 会把含错误的构建也标 success）。
+      - name: Enforce gates (zero errors + zero self-test failures)
+        run: |
+          COUNT=$(cat error_count.txt 2>/dev/null || echo 0)
+          PASS=$(grep -c "SELFTEST .* pass=true" selftest.log 2>/dev/null || true)
+          FAIL=$(grep -c "SELFTEST .* pass=false" selftest.log 2>/dev/null || true)
+          echo "errors=$COUNT selftest_pass=$PASS selftest_fail=$FAIL"
+          if [ "${COUNT:-0}" -ne 0 ]; then
+            echo "::error::build errors=$COUNT"
+            exit 1
+          fi
+          if [ "${FAIL:-0}" -ne 0 ]; then
+            echo "::error::self-test failures=$FAIL"
+            exit 1
+          fi
+
       - name: Upload artifacts (IPA + logs + smoke)
         uses: actions/upload-artifact@v4
         with:

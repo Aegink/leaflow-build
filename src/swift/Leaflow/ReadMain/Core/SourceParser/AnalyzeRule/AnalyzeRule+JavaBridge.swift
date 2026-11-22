@@ -158,15 +158,15 @@ extension AnalyzeRule {
                 Data(base64Encoded: input)
                     .flatMap { String(data: $0, encoding: .utf8) } ?? ""
             },
-            // T-1601-B3：cookie.*（JavaBridge get/set/removeCookie 域）。
+            // T-1601-B3：cookie.*（CookieBridge get/set/remove 域）。
             "getCookie": { (url: String, name: String) -> String in
-                JavaBridge.getCookie(url, name: name)
+                CookieBridge.getCookie(url, name: name)
             },
             "setCookie": { (url: String, name: String, value: String) in
-                JavaBridge.setCookie(url, name: name, value: value)
+                CookieBridge.setCookie(url, name: name, value: value)
             },
             "removeCookie": { (url: String, name: String) in
-                JavaBridge.removeCookie(url, name: name)
+                CookieBridge.removeCookie(url, name: name)
             },
             "hexDecodeToString": { (input: String) -> String in
                 JavaBridge.hexDecodeToString(input)
