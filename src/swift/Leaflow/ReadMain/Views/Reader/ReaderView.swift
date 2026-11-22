@@ -30,6 +30,9 @@ struct ReaderView: View {
     @State private var showSearch = false
     @State private var showSettings = false
     @State private var showCommentBrowser = false
+    /// T-1601-C0：顶部“更多操作”面板（ReaderView.Body 类型树确证包含
+    /// ReaderTopMoreActionsPanel；此前该面板零引用）。
+    @State private var showTopMoreActions = false
 
     var body: some View {
         // 伪代码 0x1008477c0（L107-218）。
@@ -51,6 +54,17 @@ struct ReaderView: View {
                     settings: $settings,
                     viewModel: viewModel))
         }
+        .overlay(alignment: .top) {
+            if showTopMoreActions {
+                ReaderTopMoreActionsPanel(
+                    onHeaderTap: { showTopMoreActions = false })
+                    .padding(.top, 8)
+                    .transition(
+                        .move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .animation(
+            .readerTopMoreActionDismiss, value: showTopMoreActions)
         .onAppear {
             Task {
                 await viewModel.loadBookWithProgress(
@@ -78,13 +92,19 @@ struct ReaderView: View {
                 Image(systemName: "textformat")
             }
         }
+        // T-1601-C0：顶部更多操作入口（ReaderTopMoreActionsPanel）。
+        ToolbarItem(placement: .navigationBarTrailing) {
+            Button(action: { showTopMoreActions.toggle() }) {
+                Image(systemName: "ellipsis.circle")
+            }
+        }
     }
 
 
     /// 伪代码 0x10084b8cc（L230-249）：任一呈现层可见判定。
     private var isAnyReaderPresentationVisible: Bool {
         showChapterList || showSearch || showSettings || showCommentBrowser
-            || viewModel.menuVisible
+            || showTopMoreActions || viewModel.menuVisible
     }
 }
 
