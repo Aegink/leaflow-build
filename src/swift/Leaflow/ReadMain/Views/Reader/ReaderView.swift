@@ -33,6 +33,11 @@ struct ReaderView: View {
     /// T-1601-C0：顶部“更多操作”面板（ReaderView.Body 类型树确证包含
     /// ReaderTopMoreActionsPanel；此前该面板零引用）。
     @State private var showTopMoreActions = false
+    /// 底部工具栏/快捷面板状态（类型树 ReaderBottomToolbar 域）。
+    @State private var sliderValue: Double = 0
+    @State private var sliderDraftValue: Double?
+    @State private var isSliderChanging = false
+    @State private var showQuickSettings = false
 
     var body: some View {
         // 伪代码 0x1008477c0（L107-218）。
@@ -86,8 +91,88 @@ struct ReaderView: View {
                         .move(edge: .top).combined(with: .opacity))
             }
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if viewModel.menuVisible || showTopMoreActions {
+                VStack(spacing: 0) {
+                    if showQuickSettings {
+                        ReaderQuickSettingsPanel(
+                            settings: settings,
+                            onDisplay: {
+                                showQuickSettings = false
+                                showSettings = true
+                            },
+                            onSpacing: { showQuickSettings = true },
+                            onSpeech: {
+                                showQuickSettings = false
+                                showSettings = true
+                            },
+                            onHighlight: {
+                                showQuickSettings = false
+                                showSettings = true
+                            },
+                            onBrowser: {
+                                showQuickSettings = false
+                                showSettings = true
+                            },
+                            onChapterTitle: {
+                                showQuickSettings = false
+                                showSettings = true
+                            },
+                            onMore: {
+                                showQuickSettings = false
+                                showTopMoreActions = true
+                            })
+                            .padding(.bottom, 4.0)
+                    }
+                    ReaderBottomToolbar(
+                        settings: settings,
+                        chapterTitle: viewModel.bookName,
+                        displayedPageInChapter:
+                            viewModel.currentPageInChapter,
+                        chapterPageCount:
+                            viewModel.currentChapterPageRange.count,
+                        safeAreaBottom: 0,
+                        isSpeaking: false,
+                        isPreparing: false,
+                        isPaused: false,
+                        isSettingsActive: showSettings,
+                        sliderValue: $sliderValue,
+                        sliderDraftValue: $sliderDraftValue,
+                        isSliderChanging: $isSliderChanging,
+                        onSliderCommit: { pageIndex in
+                            viewModel.jumpToChapter(
+                                viewModel.currentChapterIndex,
+                                pageIndex: pageIndex)
+                        },
+                        onSliderDragging: { pageIndex in
+                            viewModel.jumpToChapter(
+                                viewModel.currentChapterIndex,
+                                pageIndex: pageIndex)
+                        },
+                        onPrevChapter: {
+                            viewModel.jumpToChapter(
+                                max(0, viewModel.currentChapterIndex - 1),
+                                pageIndex: nil)
+                        },
+                        onNextChapter: {
+                            viewModel.jumpToChapter(
+                                min(max(0, viewModel.totalChapters - 1),
+                                    viewModel.currentChapterIndex + 1),
+                                pageIndex: nil)
+                        },
+                        onChapterList: { showChapterList = true },
+                        onToggleSpeech: { viewModel.toggleSpeech() },
+                        onStopSpeech: { viewModel.stopSpeech() },
+                        onSearch: { showSearch = true },
+                        onSettings: { showSettings = true })
+                }
+                .transition(.move(edge: .bottom))
+            }
+        }
         .animation(
             .readerTopMoreActionDismiss, value: showTopMoreActions)
+        .animation(
+            .easeInOut(duration: 0.2), value: viewModel.menuVisible)
         .onAppear {
             Task {
                 await viewModel.loadBookWithProgress(
