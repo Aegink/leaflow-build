@@ -78,6 +78,20 @@ struct ReaderSettingsView: View {
                 }
             }
             .buttonStyle(.plain)
+            // T-1601-E2：章节标题样式页入口（ChapterTitleStyleSettingsView
+            // 此前零引用）。
+            NavigationLink {
+                ChapterTitleStyleSettingsView(settings: $settings)
+            } label: {
+                HStack {
+                    Label("章节标题", systemImage: "textformat.size")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .buttonStyle(.plain)
         }
         .padding(.all)
         .safeAreaPadding(.all)
