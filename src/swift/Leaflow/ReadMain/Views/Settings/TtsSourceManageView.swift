@@ -39,6 +39,8 @@ struct TtsSourceManageView: View {
     @State private var importURLString = ""
     @State private var statusMessage = ""
     @State private var isParsing = false
+    /// T-1601-E2：帮助页入口（TtsHelpSheet 此前零引用）。
+    @State private var showHelp = false
 
     var body: some View {
         List {
@@ -85,12 +87,20 @@ struct TtsSourceManageView: View {
                     Image(systemName: "ellipsis.circle")
                 }
                 Button {
+                    showHelp = true
+                } label: {
+                    Image(systemName: "questionmark.circle")
+                }
+                Button {
                     editTarget = nil
                     showEdit = true
                 } label: {
                     Image(systemName: "plus")
                 }
             }
+        }
+        .sheet(isPresented: $showHelp) {
+            TtsHelpSheet()
         }
         .sheet(isPresented: $showEdit) {
             TtsEditView(

@@ -181,8 +181,8 @@ jobs:
             exit 1
           fi
           # 自测未跑起来（0 pass）同样视为失败（run6 静默 0/0 防护）。
-          if [ "${PASS:-0}" -lt 14 ]; then
-            echo "::error::self-test did not complete ($PASS/14)"
+          if [ "${PASS:-0}" -lt 17 ]; then
+            echo "::error::self-test did not complete ($PASS/17)"
             exit 1
           fi
 

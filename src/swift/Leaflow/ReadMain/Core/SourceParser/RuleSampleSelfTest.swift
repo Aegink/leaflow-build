@@ -57,6 +57,25 @@ enum RuleSampleSelfTest {
             rule: "$.data.list",
             expect: ["a", "b"],
             asList: true),
+        // B-2/B-3：JS 链（result 绑定 + java.put/get 混用）。
+        Sample(
+            name: "js_result",
+            content: "hello",
+            rule: "@js:result",
+            expect: ["hello"],
+            asList: false),
+        Sample(
+            name: "js_upper",
+            content: "abc",
+            rule: "@js:result.toUpperCase()",
+            expect: ["ABC"],
+            asList: false),
+        Sample(
+            name: "js_java_var",
+            content: "",
+            rule: "@js:java.put('k','v');java.get('k')",
+            expect: ["v"],
+            asList: false),
     ]
 
     /// -selfTestRules 时运行、打印并退出（仅 CI 参数触发）。

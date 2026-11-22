@@ -64,6 +64,20 @@ struct ReaderSettingsView: View {
                 presentation: Binding(
                     get: { settings.paragraphCommentBrowser },
                     set: { settings.paragraphCommentBrowser = $0 }))
+            // T-1601-E2：工具栏图标设置入口（ReaderToolbarIconSettingsView
+            // 此前零引用）。
+            NavigationLink {
+                ReaderToolbarIconSettingsView()
+            } label: {
+                HStack {
+                    Label("工具栏图标", systemImage: "wrench.and.screwdriver")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .buttonStyle(.plain)
         }
         .padding(.all)
         .safeAreaPadding(.all)
