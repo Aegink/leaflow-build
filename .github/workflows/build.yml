@@ -50,7 +50,7 @@ jobs:
             -path "*Debug-iphonesimulator/Leaflow.app" -maxdepth 6 | head -1)
           echo "app=$APP" >> smoke-result.txt
           xcrun simctl install "$UDID" "$APP" 2>&1 | tee -a smoke-result.txt
-          LAUNCH_OUT=$(xcrun simctl launch "$UDID" com.leaflow.app 2>&1)
+          LAUNCH_OUT=$(xcrun simctl launch "$UDID" com.leaflow.app -smokeSettings 2>&1)
           echo "launch=$LAUNCH_OUT" >> smoke-result.txt
           sleep 15
           ALIVE=$(xcrun simctl spawn "$UDID" launchctl list 2>/dev/null \
@@ -59,6 +59,8 @@ jobs:
           CRASH=$(ls ~/Library/Logs/DiagnosticReports 2>/dev/null | grep -ci leaflow || true)
           echo "crash_reports=$CRASH" >> smoke-result.txt
           xcrun simctl io "$UDID" screenshot sim-screenshot.png 2>/dev/null
+          sleep 3
+          xcrun simctl io "$UDID" screenshot sim-settings.png 2>/dev/null
           xcrun simctl shutdown "$UDID" 2>/dev/null
           cat smoke-result.txt
 
@@ -122,4 +124,5 @@ jobs:
             smoke-result.txt
             ipa-result.txt
             sim-screenshot.png
+            sim-settings.png
           if-no-files-found: warn

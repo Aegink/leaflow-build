@@ -44,7 +44,11 @@ enum AppTab: String, Hashable, CaseIterable {
 /// 风格 + 滚动收起条件域）。
 struct MainTabView: View {
 
-    @State private var selection: AppTab = .bookshelf
+    /// 默认 Tab（冒烟域：CI 传 -smokeSettings 直启设置页——
+    /// T-1601-A2 闪退回归验证入口）。
+    @State private var selection: AppTab =
+        ProcessInfo.processInfo.arguments.contains("-smokeSettings")
+            ? .settings : .bookshelf
     @State private var showStatisticsTab = true
     @Environment(\.colorScheme) private var systemColorScheme
 
