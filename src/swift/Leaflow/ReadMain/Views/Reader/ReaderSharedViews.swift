@@ -608,12 +608,6 @@ struct ReaderLoadingPageView: View {
     }
 }
 
-/// 下拉关闭手势状态（类型树 L11084-11087）。
-struct ReaderGestureDismissState {
-    let translation: CGPoint
-    let initialTouchLocation: CGPoint
-}
-
 /// 玻璃批量容器（类型树 L11168-11171）。
 struct GlassBatchContainer<Content: View>: View {
     var spacing: CGFloat = 8.0
@@ -628,22 +622,6 @@ struct GlassBatchContainer<Content: View>: View {
 
 /// 动作表玻璃背景（类型树 L11159 空结构，样式承载域）。
 struct ActionSheetGlassBackground {}
-
-/// 卡片背景图视图（类型树 L11161-11166）。
-struct AppThemeCardBackgroundImageView: View {
-    let image: UIImage
-    let layout: HighlightBackgroundImageLayout
-    let imageMode: AppThemeCardBackgroundImageMode
-    let cacheIdentifier: String?
-
-    var body: some View {
-        Image(uiImage: image)
-            .resizable()
-            .scaledToFill()
-            .clipped()
-            .accessibilityHidden(true)
-    }
-}
 
 /// 已解析卡片背景（类型树 L2265-2275）。
 struct AppThemeResolvedCardBackground {
