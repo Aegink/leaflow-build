@@ -34,6 +34,29 @@ jobs:
             build 2>&1 | tee build.log
           echo "xcodebuild exit: $?" >> build.log
 
+      - name: Rule sample self-test (-selfTestRules)
+        id: selftest
+        run: |
+          set +e
+          UDID=$(xcrun simctl list devices available | grep -m1 "iPhone" | grep -oE '[0-9A-F-]{36}')
+          echo "udid=$UDID" | tee selftest-result.txt
+          if [ -z "$UDID" ]; then
+            echo "selftest=SKIP (no simulator)" >> selftest-result.txt
+            exit 0
+          fi
+          xcrun simctl boot "$UDID" 2>/dev/null
+          sleep 20
+          APP=$(find ~/Library/Developer/Xcode/DerivedData \
+            -path "*Debug-iphonesimulator/Leaflow.app" -maxdepth 6 | head -1)
+          xcrun simctl install "$UDID" "$APP" 2>&1 | tee -a selftest-result.txt
+          xcrun simctl launch --console --terminate-running-process \
+            "$UDID" com.leaflow.app -selfTestRules > selftest.log 2>&1
+          cat selftest.log >> selftest-result.txt
+          PASS=$(grep -c "SELFTEST .* pass=true" selftest.log || true)
+          FAIL=$(grep -c "SELFTEST .* pass=false" selftest.log || true)
+          echo "selftest_pass=$PASS selftest_fail=$FAIL" | tee -a selftest-result.txt
+          xcrun simctl shutdown "$UDID" 2>/dev/null
+
       - name: Smoke test (boot simulator, install, launch, check alive)
         id: smoke
         run: |
@@ -61,6 +84,16 @@ jobs:
           xcrun simctl io "$UDID" screenshot sim-screenshot.png 2>/dev/null
           sleep 3
           xcrun simctl io "$UDID" screenshot sim-settings.png 2>/dev/null
+          # T-1601-E1：书源管理整链直启冒烟（-smokeSources）。
+          xcrun simctl terminate "$UDID" com.leaflow.app 2>/dev/null
+          sleep 2
+          SRC_OUT=$(xcrun simctl launch "$UDID" com.leaflow.app -smokeSources 2>&1)
+          echo "launch_sources=$SRC_OUT" >> smoke-result.txt
+          sleep 12
+          SRC_ALIVE=$(xcrun simctl spawn "$UDID" launchctl list 2>/dev/null \
+            | grep -c "UIKitApplication:com.leaflow.app" || true)
+          echo "sources_alive=$SRC_ALIVE" >> smoke-result.txt
+          xcrun simctl io "$UDID" screenshot sim-sources.png 2>/dev/null
           xcrun simctl shutdown "$UDID" 2>/dev/null
           cat smoke-result.txt
 
@@ -122,7 +155,10 @@ jobs:
             errors.txt
             error_count.txt
             smoke-result.txt
+            selftest-result.txt
+            selftest.log
             ipa-result.txt
             sim-screenshot.png
             sim-settings.png
+            sim-sources.png
           if-no-files-found: warn

@@ -196,6 +196,25 @@ extension AnalyzeRule {
             return false
         }
 
+        // T-1601-B1：CSS 后缀记号（@text/@html/...）只属于取串阶段，
+        // 选择子校验只看后缀之前的选择子本体（LegadoJSoupAnalyzer
+        // parseSuffix 同源后缀表）。
+        var selectorPart = rest
+        if let at = selectorPart.lastIndex(of: "@") {
+            let suffix = selectorPart[
+                selectorPart.index(after: at)...].lowercased()
+            let suffixes = [
+                "html", "text", "textnodes", "all", "id", "tag",
+                "children",
+            ]
+            if suffixes.contains(suffix) {
+                selectorPart = String(selectorPart[..<at])
+            }
+        }
+        if selectorPart.isEmpty {
+            return false
+        }
+
         // 推断 2：历史无效选择子负缓存（LRU 命中即 false）。
         if rejectedSelectors.contains(rest) {
             return false
@@ -206,7 +225,7 @@ extension AnalyzeRule {
             return false
         }
         do {
-            _ = try document.select(rest)
+            _ = try document.select(selectorPart)
         } catch {
             rejectedSelectors.insert(rest)
             return false

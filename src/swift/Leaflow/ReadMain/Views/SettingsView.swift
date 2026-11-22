@@ -14,6 +14,20 @@
 //     pushSettingsRoute(_: SettingsRoute)（NavigationPath.append 域
 //     L462）/ settingsDestination(for: SettingsRoute)
 //     （&type metadata for SettingsRoute L128-150 路由域）
+//   - 路由全量（index/swift_types_dump.txt L35620 settingsDestination
+//     返回类型树，六对 _ConditionalContent 叶）：
+//     SourceManageView / TtsSourceManageView /
+//     ReplaceRuleView / ChapterRuleSettingsView /
+//     ReaderSettingsView / FontManageView /
+//     AppThemeSettingsView / StatsSettingsView /
+//     BackupView / CacheManageView /
+//     OtherSettingsView / AboutSettingsView
+//   - body 形状（同上 L35620）：NavigationStack + List
+//     （PlainListStyle + scrollContentBackground hidden +
+//     ColorMixedBackground + ignoresSafeArea）——**不是**
+//     ScrollView/VStack（T-1601-E3 首点被滚动手势吞掉的根因候选）。
+//   - 行数（PGO closure 域）：settingsCardRow label 闭包编号
+//     #2/#4/#6/#8/#10/#12/#14/#16/#18/#20/#22/#24 共 12 行。
 //   - 字符串域（位模式+指针，scratch/t70111_strings.txt）：
 //     '设置' L196 / '已关闭' L979 / '高级设置' L1106 / '搜索' L1267 /
 //     '阅读' L1288 / '网络' L1333 / '搜索模式' L1717/L1723 /
@@ -21,12 +35,17 @@
 //     '章节预缓存' L3061 / '远程后端' L3475 / '连接' L3780 /
 //     '提示' L3802 / '服务器地址' L4282 / '测试连接' L4988 /
 //     '成功' L5040
-//   - 事实：设置主页 = 路由表（阅读/网络/备份/主题/字体/缓存/关于/
-//     替换规则）+ RemoteBackendSettingsView（服务器地址/测试连接）+
-//     OtherSettingsView（高级设置/搜索模式/并发/超时/预缓存）
+//   - 远程后端提示域（0x12801d0-0x1280339）：'主题 / 显示 / 朗读' /
+//     '服务端统一执行配置规则…' / '在「配置管理」中可切换本地 / 远程
+//     标签页' / '导入配置文件时自动存储到当前标签页' /
+//     '可在「高级设置」中配置搜索优先级'——远程后端区随高级设置页。
 // 状态: 语义级还原（不是原始源码；变量名/注释为还原者所加）
-// 置信度: high（九签名域 + 路由域 + 字符串全链确证）
-// 还原: 2026-11-20
+// 置信度:
+//   - 路由 12 case / 12 行: high（类型树 + 闭包编号双确证）
+//   - 行文案/图标/颜色: high（各页 navigationTitle 字符串确证）/ medium
+//     （SF Symbol 与颜色为结构性还原）
+//   - 远程后端挂载位置: medium（提示字符串域指向高级设置页；待真机）
+// 还原: 2026-11-20（T-1601-E1/E3 重写路由与 body，2026-11-22）
 
 import SwiftUI
 
@@ -35,12 +54,6 @@ struct SettingsView: View {
 
     @Binding var navigationPath: NavigationPath?
     @State private var localNavigationPath = NavigationPath()
-    @State private var searchMode: SearchMode = .all
-    @State private var concurrentThreads = 4
-    @State private var timeoutSeconds = 15
-    @State private var chapterPrecache = true
-    @State private var remoteBackendURL = ""
-    @State private var remoteTestStatus = ""
 
     /// init(navigationPath:)（签名域确证：外层可选路由绑定）。
     init(navigationPath: Binding<NavigationPath>?) {
@@ -80,40 +93,58 @@ struct SettingsView: View {
     }
 
     var body: some View {
+        // body getter（0x100d25ce4 L32-43 / closure #1 0x100d25e7c
+        // L33-42 域确证：NavigationStack → List(plain) → 背景域）。
         NavigationStack(path: activeNavigationPath) {
-            ScrollView {
-                VStack(spacing: 0) {
-                    settingsList
-                }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 24)
+            List {
+                settingsList
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(ColorMixedBackground().ignoresSafeArea())
             .navigationTitle("设置")
             .navigationDestination(for: SettingsRoute.self) { route in
                 // settingsDestination(for:) 签名域确证。
                 settingsDestination(for: route)
             }
         }
+        .onAppear {
+            // 冒烟直启（-smokeSources）：书源管理入口可达性验证。
+            if ProcessInfo.processInfo.arguments.contains("-smokeSources"),
+               activeNavigationPath.wrappedValue.isEmpty {
+                pushSettingsRoute(.sourceManage)
+            }
+        }
     }
 
-    /// settingsList getter（签名域确证：设置路由表域）。
+    /// settingsList getter（签名域确证：设置路由表域，12 行）。
+    /// 行序与 settingsDestination 类型树叶序一致（六对）。
     @ViewBuilder
     private var settingsList: some View {
         routeRow(
-            route: .reader, title: "阅读", systemImage: "book",
+            route: .sourceManage, title: "配置管理", systemImage:
+                "server.rack", color: .blue)
+        routeRow(
+            route: .ttsSourceManage, title: "朗读管理", systemImage:
+                "waveform", color: .pink)
+        routeRow(
+            route: .replaceRules, title: "替换规则", systemImage:
+                "arrow.triangle.swap", color: .orange)
+        routeRow(
+            route: .chapterRule, title: "章节规则", systemImage:
+                "list.bullet.rectangle", color: .brown)
+        routeRow(
+            route: .reader, title: "阅读设置", systemImage: "book",
             color: .blue)
-        routeRow(
-            route: .appearance, title: "外观主题", systemImage:
-                "paintpalette", color: .purple)
-        routeRow(
-            route: .tabIcon, title: "底部图标", systemImage:
-                "square.grid.2x2", color: .teal)
         routeRow(
             route: .fontManage, title: "字体管理", systemImage:
                 "textformat", color: .indigo)
         routeRow(
-            route: .replaceRules, title: "替换规则", systemImage:
-                "arrow.triangle.swap", color: .orange)
+            route: .appearance, title: "外观主题", systemImage:
+                "paintpalette", color: .purple)
+        routeRow(
+            route: .stats, title: "统计", systemImage: "chart.bar",
+            color: .cyan)
         routeRow(
             route: .backup, title: "备份与同步", systemImage:
                 "externaldrive", color: .green)
@@ -121,10 +152,11 @@ struct SettingsView: View {
             route: .cacheManage, title: "缓存管理", systemImage:
                 "cylinder.split.1x2", color: .mint)
         routeRow(
+            route: .otherSettings, title: "高级设置", systemImage:
+                "gearshape", color: .gray)
+        routeRow(
             route: .about, title: "关于", systemImage: "info.circle",
             color: .gray)
-        OtherSettingsView()
-        RemoteBackendSettingsView()
     }
 
     /// settingsRowLabel(_:systemImage:)（签名域确证）。
@@ -149,6 +181,7 @@ struct SettingsView: View {
     }
 
     /// routeRow（settingsCardRow + pushSettingsRoute 域确证）。
+    /// T-1601-C1：单图标（彩色 icon 域），不再叠加 Label 图标。
     @ViewBuilder
     private func routeRow(
         route: SettingsRoute, title: String, systemImage: String,
@@ -162,7 +195,7 @@ struct SettingsView: View {
                 Image(systemName: systemImage)
                     .foregroundStyle(color)
                     .frame(width: 26)
-                settingsRowLabel(title, systemImage: systemImage)
+                Text(title)
                     .foregroundStyle(.primary)
                 Spacer()
                 Image(systemName: "chevron.right")
@@ -181,49 +214,62 @@ struct SettingsView: View {
         activeNavigationPath.wrappedValue.append(route)
     }
 
-    /// settingsDestination(for:)（签名域确证：路由目标域）。
+    /// settingsDestination(for:)（签名域确证：12 路目标域）。
     @ViewBuilder
     private func settingsDestination(for route: SettingsRoute)
         -> some View {
         switch route {
+        case .sourceManage:
+            SourceManageView()
+        case .ttsSourceManage:
+            TtsSourceManageView()
+        case .replaceRules:
+            ReplaceRuleView()
+        case .chapterRule:
+            ChapterRuleSettingsView()
         case .reader:
             // ReaderSettingsView 全参装配域桥（settings 常量域，
             // 真机核清项）。
             ReaderSettingsView(
                 settings: .constant(ReadingSettings.load()),
                 onDismiss: {})
-        case .appearance:
-            AppThemeSettingsView()
-        case .tabIcon:
-            TabIconSettingsView()
         case .fontManage:
             FontManageView()
-        case .replaceRules:
-            ReplaceRuleView()
+        case .appearance:
+            AppThemeSettingsView()
+        case .stats:
+            StatsSettingsView()
         case .backup:
             BackupView()
         case .cacheManage:
             CacheManageView()
+        case .otherSettings:
+            OtherSettingsView()
         case .about:
             AboutSettingsView()
         }
     }
 }
 
-/// 设置路由（&type metadata for SettingsRoute L128 域确证；case 域按
-/// settingsList 行域还原）。
+/// 设置路由（&type metadata for SettingsRoute L128 域确证；12 case 按
+/// settingsDestination 类型树叶序：六对 _ConditionalContent）。
 enum SettingsRoute: String, Hashable {
-    case reader
-    case appearance
-    case tabIcon
-    case fontManage
+    case sourceManage
+    case ttsSourceManage
     case replaceRules
+    case chapterRule
+    case reader
+    case fontManage
+    case appearance
+    case stats
     case backup
     case cacheManage
+    case otherSettings
     case about
 }
 
 /// 高级设置域（OtherSettingsView.body 0x100d2e11c L194-297 域确证）。
+/// 远程后端区随本页（0x12801d0 提示字符串域，medium）。
 struct OtherSettingsView: View {
 
     @State private var searchMode: SearchMode = .all
@@ -232,63 +278,67 @@ struct OtherSettingsView: View {
     @State private var chapterPrecache = true
 
     var body: some View {
-        VStack(spacing: 0) {
-            settingsCardRow(topGap: 16) {
-                Picker(selection: $searchMode) {
-                    ForEach(SearchMode.allCases, id: \.self) { mode in
-                        Text(mode.description).tag(mode)
+        List {
+            Section("高级设置") {
+                settingsCardRow(topGap: 16) {
+                    Picker(selection: $searchMode) {
+                        ForEach(SearchMode.allCases, id: \.self) { mode in
+                            Text(mode.description).tag(mode)
+                        }
+                    } label: {
+                        // '搜索模式' L1717/L1723 域确证。
+                        settingsRowLabel(
+                            "搜索模式", systemImage: "magnifyingglass")
                     }
-                } label: {
-                    // '搜索模式' L1717/L1723 域确证。
-                    settingsRowLabel(
-                        "搜索模式", systemImage: "magnifyingglass")
-                }
-                .pickerStyle(.menu)
-                .onChange(of: searchMode) { _ in
-                    persistReaderSettings()
-                }
-            }
-            settingsCardRow(topGap: 12) {
-                Picker(selection: $concurrentThreads) {
-                    ForEach(1...8, id: \.self) { count in
-                        Text("\(count)").tag(count)
+                    .pickerStyle(.menu)
+                    .onChange(of: searchMode) { _ in
+                        persistReaderSettings()
                     }
-                } label: {
-                    // '并发线程数' L2176 域确证。
-                    settingsRowLabel(
-                        "并发线程数", systemImage: "square.stack.3d.up")
                 }
-                .pickerStyle(.menu)
-                .onChange(of: concurrentThreads) { _ in
-                    persistReaderSettings()
-                }
-            }
-            settingsCardRow(topGap: 12) {
-                Picker(selection: $timeoutSeconds) {
-                    ForEach([5, 10, 15, 30, 60], id: \.self) { seconds in
-                        Text("\(seconds) 秒").tag(seconds)
+                settingsCardRow(topGap: 12) {
+                    Picker(selection: $concurrentThreads) {
+                        ForEach(1...8, id: \.self) { count in
+                            Text("\(count)").tag(count)
+                        }
+                    } label: {
+                        // '并发线程数' L2176 域确证。
+                        settingsRowLabel(
+                            "并发线程数", systemImage: "square.stack.3d.up")
                     }
-                } label: {
-                    // '超时时间' L2713 域确证。
-                    settingsRowLabel(
-                        "超时时间", systemImage: "clock.badge.exclamationmark")
+                    .pickerStyle(.menu)
+                    .onChange(of: concurrentThreads) { _ in
+                        persistReaderSettings()
+                    }
                 }
-                .pickerStyle(.menu)
-                .onChange(of: timeoutSeconds) { _ in
-                    persistReaderSettings()
+                settingsCardRow(topGap: 12) {
+                    Picker(selection: $timeoutSeconds) {
+                        ForEach([5, 10, 15, 30, 60], id: \.self) { seconds in
+                            Text("\(seconds) 秒").tag(seconds)
+                        }
+                    } label: {
+                        // '超时时间' L2713 域确证。
+                        settingsRowLabel(
+                            "超时时间", systemImage: "clock.badge.exclamationmark")
+                    }
+                    .pickerStyle(.menu)
+                    .onChange(of: timeoutSeconds) { _ in
+                        persistReaderSettings()
+                    }
+                }
+                settingsCardRow(topGap: 12) {
+                    Toggle(isOn: $chapterPrecache) {
+                        // '章节预缓存' L3061 域确证。
+                        settingsRowLabel(
+                            "章节预缓存", systemImage: "arrow.down.circle")
+                    }
+                    .onChange(of: chapterPrecache) { _ in
+                        persistReaderSettings()
+                    }
                 }
             }
-            settingsCardRow(topGap: 12) {
-                Toggle(isOn: $chapterPrecache) {
-                    // '章节预缓存' L3061 域确证。
-                    settingsRowLabel(
-                        "章节预缓存", systemImage: "arrow.down.circle")
-                }
-                .onChange(of: chapterPrecache) { _ in
-                    persistReaderSettings()
-                }
-            }
+            RemoteBackendSettingsView()
         }
+        .navigationTitle("高级设置")
         .onAppear {
             loadReaderSettings()
         }

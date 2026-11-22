@@ -196,15 +196,19 @@ extension AnalyzeRule {
             let list = executeCssRuleForList(trimmed)
             return Self.extractByIndex(list, index: rule.indexExtract)
         default:
-            // 事实 17：其余模式经类型元数据 witness 执行；取不到 → nil。
-            guard let executor = Self.pipelineExecutor(for: rule.mode) else {
+            // 事实 17：其余模式经协议分派表执行（T-1601-B1：mode 0/1/2/6/8
+            // 全部接入——原先 witness 表只接 regex/mode6/mode4，
+            // xpath/json/default_/mode8 直接返回 nil 的缺口已闭合）。
+            guard let executor = RuleExecutorRegistry.executor(for: rule.mode) else {
                 return nil
             }
-            let result = executor(trimmed, previousResult, previousResultIsCurrentContent)
-            if let string = result as? String {
+            if let string = executor.execute(rule: trimmed, context: self) {
                 return string
             }
-            return Self.extractByIndex(result as? [String], index: rule.indexExtract)
+            return Self.extractByIndex(
+                executor.executeForList(rule: trimmed, context: self),
+                index: rule.indexExtract
+            )
         }
     }
 
@@ -273,18 +277,18 @@ extension AnalyzeRule {
             }
             return [single]
         default:
-            // 事实 21：其余模式 witness 执行；nil 回退单值执行再装箱。
-            guard let executor = Self.pipelineListExecutor(for: rule.mode) else {
+            // 事实 21：其余模式经协议分派表执行（T-1601-B1 四模式接线）；
+            // 取不到列表 → 单值执行再装箱。
+            guard let executor = RuleExecutorRegistry.executor(for: rule.mode) else {
                 return nil
             }
-            if let list = executor(rule.rule, previousResult, previousResultIsCurrentContent) {
+            if let list = executor.executeForList(
+                rule: rule.rule, context: self
+            ) {
                 return postProcessList(rule, list)
             }
-            guard let single = executeRule(
-                rule,
-                isUrl: false,
-                previousResult: previousResult,
-                previousResultIsCurrentContent: previousResultIsCurrentContent
+            guard let single = executor.execute(
+                rule: rule.rule, context: self
             ) else {
                 return nil
             }

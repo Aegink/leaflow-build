@@ -123,7 +123,10 @@ extension AnalyzeRule {
 
         var result: [LegadoSourceRule] = [
             LegadoSourceRule(
-                rule: body,
+                // T-1601-B1：显式前缀（@css:/@xpath:/@json: 等）在模式
+                // 探测后剥离（removePrefix 0x10006a8c0 L516-533 接线；
+                // 此前函数存在但零调用，@css: 选择子会带前缀进 JSoup）。
+                rule: Self.removePrefix(body),
                 mode: mode,
                 replaceRegex: replaceRegex,
                 replacement: replacement,

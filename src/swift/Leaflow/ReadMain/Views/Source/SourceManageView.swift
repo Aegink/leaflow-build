@@ -101,6 +101,10 @@ struct SourceManageView: View {
     @State private var mergeTarget: String?
     @State private var mergeSourceGroup: String = ""
     @State private var showMergeSheet = false
+    /// E-1c：列表 → 详情 →（编辑/测试）链（SourceDetailView 签名域）。
+    @State private var detailSource: BookSource?
+    /// E-1c：context menu「编辑配置」直入编辑器（SourceEditView 域）。
+    @State private var editSource: BookSource?
 
     private let sourceService = SourceService()
 
@@ -143,6 +147,25 @@ struct SourceManageView: View {
         }
         .sheet(item: $activeSheet) { sheet in
             sourceManageSheetContent(sheet)
+        }
+        // E-1c：列表行 → 详情（详情内工具栏 → 编辑/全链测试）。
+        .sheet(item: $detailSource) { source in
+            NavigationStack {
+                SourceDetailView(source: source)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button("关闭") { detailSource = nil }
+                        }
+                    }
+            }
+        }
+        // E-1c：行菜单「编辑配置」直入编辑器。
+        .sheet(item: $editSource) { source in
+            NavigationStack {
+                EditableSourceView(
+                    source: source, dismissOnSave: true,
+                    onSaved: { scheduleRebuildCache(delay: 0) })
+            }
         }
         .sheet(isPresented: $showURLImport) {
             URLImportView { count in
@@ -373,7 +396,8 @@ struct SourceManageView: View {
                 activeSheet = .batchTest
             },
             onEdit: {
-                exportSources = [source]
+                // E-1c：「编辑配置」→ 编辑器（原误接导出域）。
+                editSource = source
             },
             onSelect: {
                 toggleSelection(source.bookSourceUrl)
@@ -387,6 +411,15 @@ struct SourceManageView: View {
             onDelete: {
                 deleteSource(source)
             })
+            // E-1c：行点按 → 详情（选择模式下行点按改为勾选）。
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if selectionMode {
+                    toggleSelection(source.bookSourceUrl)
+                } else {
+                    detailSource = source
+                }
+            }
     }
 
     // MARK: 工具栏

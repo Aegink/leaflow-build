@@ -72,6 +72,8 @@ struct LeaflowApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        // T-1601-B1：固定样本自测（-selfTestRules，CI 抓 console）。
+        RuleSampleSelfTest.runIfRequested()
         // 伪代码 0x100d3bd54（L72-113）：WebViewPool.release + 观察器装配。
         AppDebugConfiguration.apply()
         WebViewPool.release()

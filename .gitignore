@@ -2,3 +2,6 @@
 *.xcodeproj
 build/
 *.log
+
+# 一次性构建产物
+scratch/

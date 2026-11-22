@@ -128,6 +128,23 @@ struct VariableRuleExecutor: RuleExecutor {
     }
 }
 
+/// 管道 JSON 归一执行器（mode 8）：按 `referenceJSONPipelineValues`
+/// 把值归一为 `[String]`（AnalyzeRule+ElementExtraction L299-306 域）。
+struct Mode8RuleExecutor: RuleExecutor {
+    func execute(rule: String, context: AnalyzeRule) -> String? {
+        executeForList(rule: rule, context: context)?.first
+    }
+
+    func executeForList(rule: String, context: AnalyzeRule) -> [String]? {
+        AnalyzeRule.executeElementPipelineJson(
+            rule,
+            currentResult: context.contentString,
+            nextMode: .mode8,
+            maxResults: nil
+        ) as? [String]
+    }
+}
+
 /// 模式 → 执行器分派（pipelineExecutor 家族的协议化承载）。
 enum RuleExecutorRegistry {
     static func executor(for mode: RuleMode) -> RuleExecutor? {
@@ -147,7 +164,7 @@ enum RuleExecutorRegistry {
         case .mode6:
             return VariableRuleExecutor()
         case .mode8:
-            return nil
+            return Mode8RuleExecutor()
         }
     }
 }
