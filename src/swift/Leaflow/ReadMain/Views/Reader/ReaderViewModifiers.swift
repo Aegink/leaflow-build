@@ -132,3 +132,146 @@ extension View {
     }
 }
 
+// MARK: - 主呈现层（类型树 L11773-11783）
+
+/// 阅读器主呈现层：目录/设置/浏览器设置/高亮/章节标题/TTS/换源。
+struct ReaderPrimarySheetsModifier: ViewModifier {
+    let vm: ReaderViewModel
+    @Binding var showChapterList: Bool
+    @Binding var showSettings: Bool
+    @Binding var readerSettingsInitialTabOverride: Int?
+    @Binding var showBrowserSettings: Bool
+    @Binding var showHighlightSettings: Bool
+    @Binding var showChapterTitleSettings: Bool
+    @Binding var showTtsPlayer: Bool
+    @Binding var showChangeSource: Bool
+
+    @State private var fallbackSettings = ReadingSettings.load()
+
+    private var settingsBinding: Binding<ReadingSettings> {
+        Binding(
+            get: { vm.settings ?? fallbackSettings },
+            set: { newValue in
+                fallbackSettings = newValue
+                vm.settings = newValue
+            })
+    }
+
+    private var chapterList: [ReaderChapterListChapter] {
+        vm.chapterContents.enumerated().map { index, _ in
+            ReaderChapterListChapter(
+                index: index, title: "第\(index + 1)章")
+        }
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .sheet(isPresented: $showChapterList) {
+                ReaderChapterListView(
+                    chapters: .constant(chapterList),
+                    currentChapterIndex: .constant(
+                        vm.currentChapterIndex),
+                    onPickChapter: { index in
+                        vm.jumpToChapter(index, pageIndex: nil)
+                    })
+            }
+            .sheet(isPresented: $showSettings) {
+                ReaderSettingsView(
+                    settings: settingsBinding,
+                    onDismiss: { showSettings = false })
+            }
+            .sheet(isPresented: $showBrowserSettings) {
+                ReaderBrowserSettingsView(
+                    presentation: Binding(
+                        get: {
+                            settingsBinding.wrappedValue
+                                .paragraphCommentBrowser
+                        },
+                        set: {
+                            settingsBinding.wrappedValue
+                                .paragraphCommentBrowser = $0
+                        }))
+            }
+            .sheet(isPresented: $showHighlightSettings) {
+                HighlightRulesView(settings: settingsBinding)
+            }
+            .sheet(isPresented: $showChapterTitleSettings) {
+                ChapterTitleStyleSettingsView(settings: settingsBinding)
+            }
+            .sheet(isPresented: $showTtsPlayer) {
+                TtsPlayerView()
+            }
+            .sheet(isPresented: $showChangeSource) {
+                ContentUnavailableView(
+                    "换源", systemImage: "arrow.triangle.2.circlepath",
+                    description: Text("需要书籍上下文后可用"))
+            }
+    }
+}
+
+// MARK: - 辅助呈现层（类型树 L11748-11771）
+
+/// 阅读器辅助呈现层：搜索/书评/详情/书签/支付/登录/浏览器。
+struct ReaderAuxiliaryPresentationModifier: ViewModifier {
+    let vm: ReaderViewModel
+    let openableUrl: String?
+    let dismissReader: () -> Void
+    let commentBrowserSheet: (JSBrowserRequest, BookSource) -> AnyView
+    @Binding var showSettings: Bool
+    @Binding var loginSource: BookSource?
+    @Binding var currentBrowserRequest: JSBrowserRequest?
+    @Binding var lastBrowserRequest: JSBrowserRequest?
+    @Binding var showSearch: Bool
+    @Binding var showReview: Bool
+    @Binding var showBookDetail: Bool
+    @Binding var showBookmarkList: Bool
+    @Binding var showPayConfirm: Bool
+    @Binding var payResultUrl: URL?
+    @Binding var showPayWebView: Bool
+
+    private var chapters: [ReaderChapterListChapter] {
+        vm.chapterContents.enumerated().map { index, _ in
+            ReaderChapterListChapter(
+                index: index, title: "第\(index + 1)章")
+        }
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .sheet(isPresented: $showSearch) {
+                FullTextSearchView(
+                    chapters: .constant(chapters),
+                    chapterContentProvider: { index in
+                        vm.chapterContents.indices.contains(index)
+                            ? vm.chapterContents[index] : ""
+                    },
+                    onPickResult: { chapterIndex, _ in
+                        vm.jumpToChapter(chapterIndex, pageIndex: nil)
+                    })
+            }
+            .sheet(isPresented: $showReview) {
+                BookReviewView(
+                    bookUrl: vm.currentBookSource?.bookSourceUrl ?? "")
+            }
+            .sheet(isPresented: $showBookmarkList) {
+                BookmarkListView()
+            }
+            .sheet(isPresented: $showBookDetail) {
+                ContentUnavailableView(
+                    "书籍详情", systemImage: "book",
+                    description: Text("详情页待接入"))
+            }
+            .sheet(isPresented: $showPayConfirm) {
+                ContentUnavailableView(
+                    "购买确认", systemImage: "cart",
+                    description: Text("支付链待接入"))
+            }
+            .sheet(isPresented: $showPayWebView) {
+                ContentUnavailableView(
+                    "支付页", systemImage: "creditcard",
+                    description: Text("支付链待接入"))
+            }
+    }
+}
+
+

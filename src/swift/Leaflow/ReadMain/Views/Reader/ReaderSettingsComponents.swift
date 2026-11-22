@@ -21,6 +21,7 @@
 
 import SwiftUI
 import UniformTypeIdentifiers
+import UIKit
 
 /// 主题色卡按钮（伪代码 0x1007cd420，L16-58）。
 struct ThemeButton: View {
@@ -59,12 +60,38 @@ struct FontPickerView: View {
     var fonts: [CustomFontService.FontInfo]
     @Binding var selectedFontName: String
     var onImport: () -> Void
+    @State private var searchText = ""
+
+    private var filteredCustomFonts: [CustomFontService.FontInfo] {
+        guard !searchText.isEmpty else { return fonts }
+        return fonts.filter {
+            $0.displayName.localizedCaseInsensitiveContains(searchText)
+                || $0.name.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+
+    private var filteredSystemFamilies: [String] {
+        let families = UIFont.familyNames.sorted()
+        guard !searchText.isEmpty else { return families }
+        return families.filter {
+            $0.localizedCaseInsensitiveContains(searchText)
+        }
+    }
 
     var body: some View {
         List {
-            Section("字体") {
+            Section("系统字体") {
                 systemFontRow(name: "System", displayName: "系统字体")
-                ForEach(fonts) { font in
+                ForEach(filteredSystemFamilies, id: \.self) { family in
+                    systemFontRow(name: family, displayName: family)
+                }
+            }
+            Section("自定义字体") {
+                if filteredCustomFonts.isEmpty {
+                    Text(searchText.isEmpty ? "暂无自定义字体" : "无匹配字体")
+                        .appThemeText(.caption, opacity: 0.55)
+                }
+                ForEach(filteredCustomFonts) { font in
                     fontRow(name: font.name, displayName: font.displayName)
                 }
             }
@@ -77,6 +104,7 @@ struct FontPickerView: View {
                 .tint(Color.accentColor)
             }
         }
+        .searchable(text: $searchText, prompt: "搜索字体")
     }
 
     /// 系统字体行。

@@ -31,6 +31,9 @@ struct LocalReaderView: View {
     @State private var showChapterList = false
     @State private var showSettings = false
     @State private var menuVisible = false
+    @State private var sliderValue: Double = 0
+    @State private var sliderDraftValue: Double?
+    @State private var isSliderChanging = false
     @Environment(\.colorScheme) private var systemColorScheme
 
     init(book: LocalBook, settings: Binding<ReadingSettings>) {
@@ -82,6 +85,57 @@ struct LocalReaderView: View {
         .sheet(isPresented: $showSettings) {
             ReaderSettingsView(settings: $settings, onDismiss: { showSettings = false })
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if menuVisible, let viewModel {
+                ReaderBottomToolbar(
+                    settings: settings,
+                    chapterTitle: book.name,
+                    displayedPageInChapter:
+                        viewModel.currentPageInChapter,
+                    chapterPageCount:
+                        max(1, viewModel.pages.filter {
+                            $0.chapterIndex == viewModel.currentChapterIndex
+                        }.count),
+                    safeAreaBottom: 0,
+                    isSpeaking: false,
+                    isPreparing: false,
+                    isPaused: false,
+                    isSettingsActive: showSettings,
+                    sliderValue: $sliderValue,
+                    sliderDraftValue: $sliderDraftValue,
+                    isSliderChanging: $isSliderChanging,
+                    onSliderCommit: { pageIndex in
+                        Task {
+                            await viewModel.jumpToChapter(
+                                viewModel.currentChapterIndex,
+                                coordinateReadAloud: false)
+                            _ = pageIndex
+                        }
+                    },
+                    onPrevChapter: {
+                        Task {
+                            await viewModel.jumpToChapter(
+                                max(0, viewModel.currentChapterIndex - 1),
+                                coordinateReadAloud: false)
+                        }
+                    },
+                    onNextChapter: {
+                        Task {
+                            await viewModel.jumpToChapter(
+                                min(max(0, viewModel.chapterContents.count - 1),
+                                    viewModel.currentChapterIndex + 1),
+                                coordinateReadAloud: false)
+                        }
+                    },
+                    onChapterList: { showChapterList = true },
+                    onToggleSpeech: {},
+                    onStopSpeech: {},
+                    onSearch: { showSearch = true },
+                    onSettings: { showSettings = true })
+                    .transition(.move(edge: .bottom))
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: menuVisible)
     }
 
     /// 伪代码 0x10072798c（L247-266）：阅读场景（PageContent 承载）。
