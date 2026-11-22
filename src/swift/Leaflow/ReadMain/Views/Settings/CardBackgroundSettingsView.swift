@@ -107,9 +107,12 @@ struct CardBackgroundSettingsView: View {
                     .foregroundStyle(.secondary)
                 if let image = resolvedPreview(
                     currentCard, target: selectedTarget) {
-                    Image(uiImage: image)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
+                    // T-1601-C0：共享背景图视图（类型树 L11161-11166）。
+                    AppThemeCardBackgroundImageView(
+                        image: image,
+                        layout: currentCard.lightLayout,
+                        imageMode: currentCard.lightImageMode,
+                        cacheIdentifier: nil)
                         .frame(height: 120)
                         .cornerRadius(currentCard.clampedCornerRadius)
                         .clipped()

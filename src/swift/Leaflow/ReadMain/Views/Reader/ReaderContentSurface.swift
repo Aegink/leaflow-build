@@ -95,6 +95,15 @@ struct ReaderContentSurface: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(.all)
+        } else if viewModel.pages.isEmpty {
+            // T-1601-C0：空/加载页共享组件（ReaderEmptyView /
+            // ReaderLoadingPageView 类型树 L11206-11214）。
+            if viewModel.isLoadingPage {
+                ReaderLoadingPageView(
+                    textColor: .primary, message: "正在加载…")
+            } else {
+                ReaderEmptyView(textColor: .primary)
+            }
         } else {
             // 正文承载（PageViewController 承载层；布局细节待真机对照）。
             PageViewController(

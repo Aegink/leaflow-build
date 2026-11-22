@@ -163,12 +163,47 @@ struct HighlightRulesView: View {
 
     var body: some View {
         List {
+            Section {
+                Toggle(
+                    "启用高亮",
+                    isOn: highlightRulesEnabledToggleBinding)
+            } footer: {
+                Text(highlightRulesStatusText)
+            }
             builtInSection
             customRulesSection
+            importExportSection
         }
         .navigationTitle("高亮规则")
         .toolbar {
             EditButton()
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button {
+                        showImporter = true
+                    } label: {
+                        Label("导入规则", systemImage: "square.and.arrow.down")
+                    }
+                    Button {
+                        exportAllRules()
+                    } label: {
+                        Label("导出全部", systemImage: "square.and.arrow.up")
+                    }
+                    Divider()
+                    Button {
+                        resetAllBuiltinRules()
+                    } label: {
+                        Label("重置内置规则", systemImage: "arrow.counterclockwise")
+                    }
+                    Button(role: .destructive) {
+                        deleteAllCustomRules()
+                    } label: {
+                        Label("删除自定义规则", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+            }
         }
         .sheet(item: $editingRule, onDismiss: { settings.saveHighlightRules(mergedRules) }) { rule in
             // 高亮规则编辑表单（HighlightRule 域 name/pattern——内联编辑器；
@@ -242,6 +277,22 @@ struct HighlightRulesView: View {
                 }
             } label: {
                 Image(systemName: "ellipsis")
+            }
+        }
+    }
+
+    /// 导入导出区（PGO import/export 域入口）。
+    private var importExportSection: some View {
+        Section("导入导出") {
+            Button {
+                showImporter = true
+            } label: {
+                Label("导入规则文件", systemImage: "square.and.arrow.down")
+            }
+            Button {
+                exportAllRules()
+            } label: {
+                Label("导出全部规则", systemImage: "square.and.arrow.up")
             }
         }
     }
@@ -344,6 +395,36 @@ struct HighlightRulesView: View {
         } catch {
             AppErrorPresenter.shared.show(error.localizedDescription, level: .error)
         }
+    }
+
+    /// 导出全部规则（PGO export 域扩展）。
+    private func exportAllRules() {
+        do {
+            let url = try HighlightRuleFileService.exportFile(
+                rules: mergedRules, suggestedFileName: "高亮规则",
+                assetManager: HighlightBackgroundImageAssetManager())
+            presentShareSheet(url: url)
+        } catch {
+            AppErrorPresenter.shared.show(
+                error.localizedDescription, level: .error)
+        }
+    }
+
+    /// 重置全部内置规则（resetBuiltinRule 批量域）。
+    private func resetAllBuiltinRules() {
+        let builtins = builtinRuleIDs.compactMap {
+            HighlightRule.builtinRule(for: $0)
+        }
+        let customs = mergedRules.filter {
+            !builtinRuleIDs.contains($0.id)
+        }
+        settings.saveHighlightRules(builtins + customs)
+    }
+
+    /// 删除全部自定义规则（deleteCustomRules 全量域）。
+    private func deleteAllCustomRules() {
+        settings.saveHighlightRules(
+            mergedRules.filter { builtinRuleIDs.contains($0.id) })
     }
 
     /// 伪代码 0x1006dc61c（L450-462）：分享面板。
