@@ -90,8 +90,9 @@ enum RuleSampleSelfTest {
         html.setContent(
             "<html><body><div class=\"x\">hello</div></body></html>",
             baseUrl: "")
-        if let css = RuleExecutorRegistry.executor(for: .default_)?
-            .execute(rule: ".x@text", context: html) {
+        let defaultExecutor = RuleExecutorRegistry.executor(for: .default_)
+        if let css = defaultExecutor?.execute(
+            rule: ".x@text", context: html) {
             emit(name: "default_jsoup", expected: ["hello"],
                  actual: [css])
         } else {
@@ -100,8 +101,9 @@ enum RuleSampleSelfTest {
 
         let json = AnalyzeRule(source: nil, parent: nil)
         json.setContent("{\"data\":{\"name\":\"Alice\"}}", baseUrl: "")
-        if let list = RuleExecutorRegistry.executor(for: .mode8)?
-            .executeForList(rule: "$.data.name", context: json) {
+        let mode8Executor = RuleExecutorRegistry.executor(for: .mode8)
+        if let list = mode8Executor?.executeForList(
+            rule: "$.data.name", context: json) {
             emit(name: "mode8_normalize", expected: ["Alice"],
                  actual: list)
         } else {

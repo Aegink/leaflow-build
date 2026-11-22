@@ -920,6 +920,7 @@ struct SourceEditView: View {
             }.count
         case "search":
             return [
+                draft.searchUrl ?? "",
                 draft.ruleSearch.bookList, draft.ruleSearch.name,
                 draft.ruleSearch.author, draft.ruleSearch.coverUrl,
                 draft.ruleSearch.intro, draft.ruleSearch.kind,
@@ -928,7 +929,7 @@ struct SourceEditView: View {
             ].filter { !$0.isEmpty }.count
         case "explore":
             return [
-                draft.ruleExplore.exploreUrl, draft.ruleExplore.bookList,
+                draft.resolvedExploreUrl, draft.ruleExplore.bookList,
                 draft.ruleExplore.name, draft.ruleExplore.author,
                 draft.ruleExplore.coverUrl, draft.ruleExplore.intro,
             ].filter { !$0.isEmpty }.count
@@ -1103,6 +1104,11 @@ struct SourceEditView: View {
     private var searchRuleSection: some View {
         Group {
             CodeTextField(
+                "搜索URL", key: "searchUrl",
+                text: Binding(
+                    get: { draft.searchUrl ?? "" },
+                    set: { draft.searchUrl = $0 }))
+            RuleTextField(
                 "书籍列表", key: "bookList",
                 text: ruleBinding(\.ruleSearch, \.bookList))
             RuleTextField(
@@ -1137,7 +1143,9 @@ struct SourceEditView: View {
         Group {
             CodeTextField(
                 "发现URL", key: "exploreUrl",
-                text: ruleBinding(\.ruleExplore, \.exploreUrl))
+                text: Binding(
+                    get: { draft.exploreUrl ?? "" },
+                    set: { draft.exploreUrl = $0 }))
             RuleTextField(
                 "筛选规则", key: "bookList",
                 text: ruleBinding(\.ruleExplore, \.bookList))

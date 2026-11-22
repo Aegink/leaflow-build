@@ -195,6 +195,16 @@ final class AnalyzeUrl {
         // 事实 9：JS 前缀剥离。
         working = Self.processJsPrefix(working)
 
+        // T-1601-B4：搜索关键字替换（legado `{{key}}` → URL 编码关键字）。
+        // 必须在 `{{...}}` JS 表达式求值之前完成；否则 key 会按未定义
+        // JS 变量求值为空，搜索 URL 丢失关键字。
+        if working.contains("{{key}}") || working.contains("{{Key}}") {
+            let encoded = keyEncoded()
+            working = working
+                .replacingOccurrences(of: "{{key}}", with: encoded)
+                .replacingOccurrences(of: "{{Key}}", with: encoded)
+        }
+
         // 事实 9：`{{...}}` 表达式求值。
         working = evaluateJsExpressions(working) ?? working
 

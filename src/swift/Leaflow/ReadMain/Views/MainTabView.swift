@@ -44,11 +44,17 @@ enum AppTab: String, Hashable, CaseIterable {
 /// 风格 + 滚动收起条件域）。
 struct MainTabView: View {
 
-    /// 默认 Tab（冒烟域：CI 传 -smokeSettings 直启设置页——
-    /// T-1601-A2 闪退回归验证入口）。
-    @State private var selection: AppTab =
-        ProcessInfo.processInfo.arguments.contains("-smokeSettings")
-            ? .settings : .bookshelf
+    /// 默认 Tab（冒烟域：CI 传 -smokeSettings 直启设置页；
+    /// -smokeSources 也需先选设置 Tab，由 SettingsView.onAppear 追加
+    /// 书源管理路由——T-1601-E1 验收入口）。
+    @State private var selection: AppTab = {
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("-smokeSettings")
+            || arguments.contains("-smokeSources") {
+            return .settings
+        }
+        return .bookshelf
+    }()
     @State private var showStatisticsTab = true
     @Environment(\.colorScheme) private var systemColorScheme
 

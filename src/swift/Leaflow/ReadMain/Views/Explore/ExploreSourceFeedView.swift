@@ -258,7 +258,7 @@ struct ExploreSourceFeedView: View {
         do {
             let fetched = try await sourceService.exploreBook(
                 source: source,
-                exploreUrl: source.ruleExplore.exploreUrl, page: 1)
+                exploreUrl: source.resolvedExploreUrl, page: 1)
             await MainActor.run {
                 sections = [ExploreFeedSection(
                     title: "书签", books: fetched)]

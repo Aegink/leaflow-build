@@ -27,8 +27,11 @@ extension SourceService {
         source: BookSource, keyword: String, page: Int
     ) async throws -> [Book] {
         let rule = source.ruleSearch
-        let searchUrl = rule.bookList.isEmpty
-            ? "" : source.bookSourceUrl
+        // T-1601-B5：searchUrl 为原版 BookSource 字段（此前误用
+        // bookSourceUrl——源首页地址不是搜索地址）。
+        guard !rule.bookList.isEmpty else { return [] }
+        let searchUrl = (source.searchUrl ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !searchUrl.isEmpty else { return [] }
         let body = try await fetchBody(
             source: source, url: searchUrl, keyword: keyword, page: page)
@@ -77,14 +80,17 @@ extension SourceService {
         var chapters = try parseChapters(from: body, source: source, rule: tocRule)
         // 反向目录（nextTocUrl 链确证）。
         if tocRule.nextTocUrl.isEmpty == false {
-            var nextUrl = firstNextTocUrl(from: body, rule: tocRule)
+            var nextUrl = firstNextTocUrl(
+                from: body, rule: tocRule,
+                baseUrl: book.tocUrl ?? book.bookUrl ?? "")
             var guardCount = 0
             while let next = nextUrl, !next.isEmpty, guardCount < 50 {
                 let pageBody = try await fetchBody(
                     source: source, url: next, keyword: nil, page: 1)
                 let more = try parseChapters(from: pageBody, source: source, rule: tocRule)
                 chapters.append(contentsOf: more)
-                nextUrl = firstNextTocUrl(from: pageBody, rule: tocRule)
+                nextUrl = firstNextTocUrl(
+                    from: pageBody, rule: tocRule, baseUrl: next)
                 guardCount += 1
             }
         }
@@ -99,14 +105,16 @@ extension SourceService {
         let body = try await fetchBody(
             source: source, url: chapter.url, keyword: nil, page: 1)
         var content = parseContent(from: body, source: source, rule: contentRule)
-        var nextUrl = firstNextContentUrl(from: body, rule: contentRule)
+        var nextUrl = firstNextContentUrl(
+            from: body, rule: contentRule, baseUrl: chapter.url)
         var guardCount = 0
         while let next = nextUrl, !next.isEmpty, guardCount < 30 {
             let pageBody = try await fetchBody(
                 source: source, url: next, keyword: nil, page: 1)
             let more = parseContent(from: pageBody, source: source, rule: contentRule)
             content += "\n" + more
-            nextUrl = firstNextContentUrl(from: pageBody, rule: contentRule)
+            nextUrl = firstNextContentUrl(
+                from: pageBody, rule: contentRule, baseUrl: next)
             guardCount += 1
         }
         return ChapterContent(
@@ -175,44 +183,195 @@ extension SourceService {
         AnalyzeRuleBridge.parseContent(from: body, source: source, rule: rule)
     }
 
-    private func firstNextTocUrl(from body: String, rule: TocRule) -> String? {
-        AnalyzeRuleBridge.parseNextUrl(from: body, rule: rule.nextTocUrl)
+    private func firstNextTocUrl(
+        from body: String, rule: TocRule, baseUrl: String
+    ) -> String? {
+        AnalyzeRuleBridge.parseNextUrl(
+            from: body, rule: rule.nextTocUrl, baseUrl: baseUrl)
     }
 
-    private func firstNextContentUrl(from body: String, rule: ContentRule) -> String? {
-        AnalyzeRuleBridge.parseNextUrl(from: body, rule: rule.nextContentUrl)
+    private func firstNextContentUrl(
+        from body: String, rule: ContentRule, baseUrl: String
+    ) -> String? {
+        AnalyzeRuleBridge.parseNextUrl(
+            from: body, rule: rule.nextContentUrl, baseUrl: baseUrl)
     }
 }
 
-/// AnalyzeRule 桥（占位；规则引擎域 T-201 消费）。
+/// AnalyzeRule 桥（T-1601-B5：由占位空体改为真实规则引擎消费）。
+///
+/// 证据：
+///   - 伪代码 SourceService+Parsing.c：searchBook/getBookInfo/getChapterList/
+///     getChapterContent 均构造 AnalyzeRule 并在页面内容上执行规则；
+///     `AnalyzeRule.getElements(rule:maxResults:)` PGO 域在
+///     searchBook 闭包内确证（0x1003c2e2c 块内联调用）。
+///   - 字段表：index/swift_types_dump.txt SearchRule/BookInfoRule/TocRule/
+///     ContentRule/ExploreRule。
 enum AnalyzeRuleBridge {
+
+    // MARK: 网络
+
     static func fetchAndAnalyze(
         source: BookSource, url: String, keyword: String?, page: Int
     ) async throws -> String {
-        ""
+        let analyzeUrl = AnalyzeUrl(
+            ruleUrl: url, key: keyword, page: page,
+            baseUrl: source.bookSourceUrl)
+        analyzeUrl.setExtraHeaders(source.headerMap)
+        let response = try await analyzeUrl.getStrResponse(skipWebView: false)
+        Logger.log(
+            "[AnalyzeRuleBridge] fetch code=\(response.code) "
+                + "len=\(response.body.count) url=\(analyzeUrl.url)",
+            level: .verbose)
+        return response.body
     }
+
+    // MARK: 列表解析
 
     static func parseBooks(
         from body: String, source: BookSource, rule: ExploreRule
-    ) throws -> [Book] { [] }
+    ) throws -> [Book] {
+        parseBookList(
+            from: body, source: source, listRule: rule.bookList,
+            name: rule.name, author: rule.author, coverUrl: rule.coverUrl,
+            intro: rule.intro, kind: rule.kind,
+            lastChapter: rule.lastChapter, bookUrl: rule.bookUrl,
+            wordCount: rule.wordCount)
+    }
 
     static func parseSearchBooks(
         from body: String, source: BookSource, rule: SearchRule
-    ) throws -> [Book] { [] }
+    ) throws -> [Book] {
+        parseBookList(
+            from: body, source: source, listRule: rule.bookList,
+            name: rule.name, author: rule.author, coverUrl: rule.coverUrl,
+            intro: rule.intro, kind: rule.kind,
+            lastChapter: rule.lastChapter, bookUrl: rule.bookUrl,
+            wordCount: rule.wordCount)
+    }
+
+    // MARK: 详情
 
     static func parseBookInfo(
         from body: String, source: BookSource, book: Book
-    ) throws -> Book { book }
+    ) throws -> Book {
+        let root = makeAnalyzer(body: body, source: source)
+        let rule = source.ruleBookInfo
+        var updated = book
+        updated.name = nonEmpty(string(root, rule.name)) ?? book.name
+        updated.author = nonEmpty(string(root, rule.author)) ?? book.author
+        updated.coverUrl =
+            nonEmpty(string(root, rule.coverUrl, isUrl: true))
+            ?? book.coverUrl
+        updated.intro = nonEmpty(string(root, rule.intro)) ?? book.intro
+        updated.kind = nonEmpty(string(root, rule.kind)) ?? book.kind
+        updated.wordCount =
+            nonEmpty(string(root, rule.wordCount)) ?? book.wordCount
+        updated.lastChapter =
+            nonEmpty(string(root, rule.lastChapter)) ?? book.lastChapter
+        if let toc = nonEmpty(string(root, rule.tocUrl, isUrl: true)) {
+            updated.tocUrl = toc
+        }
+        return updated
+    }
+
+    // MARK: 目录 / 正文
 
     static func parseChapters(
         from body: String, source: BookSource, rule: TocRule
-    ) throws -> [Chapter] { [] }
+    ) throws -> [Chapter] {
+        guard !rule.chapterList.isEmpty else { return [] }
+        let root = makeAnalyzer(body: body, source: source)
+        let elements = root.getElements(rule: rule.chapterList, maxResults: nil)
+        var chapters: [Chapter] = []
+        for element in elements {
+            let name = string(element, rule.chapterName)
+            let url = string(element, rule.chapterUrl, isUrl: true)
+            if name.isEmpty && url.isEmpty { continue }
+            chapters.append(
+                Chapter(
+                    name: name.isEmpty ? url : name,
+                    url: url,
+                    index: chapters.count,
+                    isRead: false,
+                    isPay: nil,
+                    resourceUrl: nil,
+                    isVip: string(element, rule.isVip) == "1",
+                    isVolume: string(element, rule.isVolume) == "1",
+                    updateTime: nonEmpty(string(element, rule.updateTime)),
+                    wordCount: nil,
+                    variable: nil))
+        }
+        return chapters
+    }
 
     static func parseContent(
         from body: String, source: BookSource, rule: ContentRule
-    ) -> String { "" }
+    ) -> String {
+        guard !rule.content.isEmpty else { return "" }
+        let root = makeAnalyzer(body: body, source: source)
+        return root.getString(rule: rule.content, isUrl: false) ?? ""
+    }
 
-    static func parseNextUrl(from body: String, rule: String) -> String? {
-        nil
+    static func parseNextUrl(
+        from body: String, rule: String, baseUrl: String = ""
+    ) -> String? {
+        guard !rule.isEmpty else { return nil }
+        let root = AnalyzeRule(source: nil, parent: nil)
+        root.setContent(body, baseUrl: baseUrl)
+        return nonEmpty(root.getString(rule: rule, isUrl: true))
+    }
+
+    // MARK: 内部
+
+    private static func makeAnalyzer(
+        body: String, source: BookSource
+    ) -> AnalyzeRule {
+        let root = AnalyzeRule(source: source, parent: nil)
+        root.setContent(body, baseUrl: source.bookSourceUrl)
+        return root
+    }
+
+    private static func parseBookList(
+        from body: String, source: BookSource, listRule: String,
+        name: String, author: String, coverUrl: String, intro: String,
+        kind: String, lastChapter: String, bookUrl: String,
+        wordCount: String
+    ) -> [Book] {
+        guard !listRule.isEmpty else { return [] }
+        let root = makeAnalyzer(body: body, source: source)
+        let elements = root.getElements(rule: listRule, maxResults: nil)
+        var books: [Book] = []
+        for element in elements {
+            let bookName = string(element, name)
+            let url = string(element, bookUrl, isUrl: true)
+            if bookName.isEmpty && url.isEmpty { continue }
+            books.append(
+                Book(
+                    bookUrl: nonEmpty(url),
+                    name: bookName.isEmpty ? url : bookName,
+                    author: nonEmpty(string(element, author)),
+                    coverUrl: nonEmpty(
+                        string(element, coverUrl, isUrl: true)),
+                    intro: nonEmpty(string(element, intro)),
+                    kind: nonEmpty(string(element, kind)),
+                    wordCount: nonEmpty(string(element, wordCount)),
+                    lastChapter: nonEmpty(string(element, lastChapter)),
+                    bookSourceUrl: source.bookSourceUrl))
+        }
+        return books
+    }
+
+    private static func string(
+        _ element: AnalyzeRule, _ rule: String, isUrl: Bool = false
+    ) -> String {
+        guard !rule.isEmpty else { return "" }
+        return element.getString(rule: rule, isUrl: isUrl) ?? ""
+    }
+
+    private static func nonEmpty(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }

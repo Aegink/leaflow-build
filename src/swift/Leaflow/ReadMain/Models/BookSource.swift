@@ -215,7 +215,7 @@ private extension KeyedDecodingContainer {
 // MARK: - 规则子结构（init() 默认构造确证）
 
 struct SearchRule: Codable, Equatable {
-    var checkKeyWord: String = ""
+    // 字段表：index/swift_types_dump.txt SearchRule（全部 String?，原版）。
     var bookList: String = ""
     var name: String = ""
     var author: String = ""
@@ -225,53 +225,150 @@ struct SearchRule: Codable, Equatable {
     var lastChapter: String = ""
     var bookUrl: String = ""
     var wordCount: String = ""
+    var checkKeyWord: String = ""
+    var updateTime: String = ""
 
     /// 伪代码 SearchRule.init()（pgo 内联默认构造）。
     init() {}
+
+    /// T-1601-B5：宽容解码——legado 源普遍缺省字段；综合成
+    /// Decodable 对缺键直接抛错会导致整条规则对象被丢弃。
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        bookList = try c.decodeLenientStringIfPresent(forKey: .bookList) ?? ""
+        name = try c.decodeLenientStringIfPresent(forKey: .name) ?? ""
+        author = try c.decodeLenientStringIfPresent(forKey: .author) ?? ""
+        coverUrl = try c.decodeLenientStringIfPresent(forKey: .coverUrl) ?? ""
+        intro = try c.decodeLenientStringIfPresent(forKey: .intro) ?? ""
+        kind = try c.decodeLenientStringIfPresent(forKey: .kind) ?? ""
+        lastChapter = try c.decodeLenientStringIfPresent(forKey: .lastChapter) ?? ""
+        bookUrl = try c.decodeLenientStringIfPresent(forKey: .bookUrl) ?? ""
+        wordCount = try c.decodeLenientStringIfPresent(forKey: .wordCount) ?? ""
+        checkKeyWord = try c.decodeLenientStringIfPresent(forKey: .checkKeyWord) ?? ""
+        updateTime = try c.decodeLenientStringIfPresent(forKey: .updateTime) ?? ""
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case bookList, name, author, bookUrl, coverUrl, intro, kind
+        case lastChapter, wordCount, checkKeyWord, updateTime
+    }
 }
 
 
 
 struct TocRule: Codable, Equatable {
+    var preUpdateJs: String = ""
     var chapterList: String = ""
     var chapterName: String = ""
     var chapterUrl: String = ""
+    var formatJs: String = ""
     var isVolume: String = ""
     var isVip: String = ""
+    var isPay: String = ""
     var updateTime: String = ""
     var nextTocUrl: String = ""
 
     init() {}
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        preUpdateJs = try c.decodeLenientStringIfPresent(forKey: .preUpdateJs) ?? ""
+        chapterList = try c.decodeLenientStringIfPresent(forKey: .chapterList) ?? ""
+        chapterName = try c.decodeLenientStringIfPresent(forKey: .chapterName) ?? ""
+        chapterUrl = try c.decodeLenientStringIfPresent(forKey: .chapterUrl) ?? ""
+        formatJs = try c.decodeLenientStringIfPresent(forKey: .formatJs) ?? ""
+        isVolume = try c.decodeLenientStringIfPresent(forKey: .isVolume) ?? ""
+        isVip = try c.decodeLenientStringIfPresent(forKey: .isVip) ?? ""
+        isPay = try c.decodeLenientStringIfPresent(forKey: .isPay) ?? ""
+        updateTime = try c.decodeLenientStringIfPresent(forKey: .updateTime) ?? ""
+        nextTocUrl = try c.decodeLenientStringIfPresent(forKey: .nextTocUrl) ?? ""
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case preUpdateJs, chapterList, chapterName, chapterUrl, formatJs
+        case isVolume, isVip, isPay, updateTime, nextTocUrl
+    }
 }
 
 
 
 struct ContentRule: Codable, Equatable {
     var content: String = ""
+    var title: String = ""
+    var subContent: String = ""
     var nextContentUrl: String = ""
+    var replaceRegex: String = ""
     var webJs: String = ""
     var sourceRegex: String = ""
-    var replaceRegex: String = ""
     var imageStyle: String = ""
+    var imageDecode: String = ""
     var payAction: String = ""
+    var callBackJs: String = ""
 
     init() {}
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        content = try c.decodeLenientStringIfPresent(forKey: .content) ?? ""
+        title = try c.decodeLenientStringIfPresent(forKey: .title) ?? ""
+        subContent = try c.decodeLenientStringIfPresent(forKey: .subContent) ?? ""
+        nextContentUrl = try c.decodeLenientStringIfPresent(forKey: .nextContentUrl) ?? ""
+        replaceRegex = try c.decodeLenientStringIfPresent(forKey: .replaceRegex) ?? ""
+        webJs = try c.decodeLenientStringIfPresent(forKey: .webJs) ?? ""
+        sourceRegex = try c.decodeLenientStringIfPresent(forKey: .sourceRegex) ?? ""
+        imageStyle = try c.decodeLenientStringIfPresent(forKey: .imageStyle) ?? ""
+        imageDecode = try c.decodeLenientStringIfPresent(forKey: .imageDecode) ?? ""
+        payAction = try c.decodeLenientStringIfPresent(forKey: .payAction) ?? ""
+        callBackJs = try c.decodeLenientStringIfPresent(forKey: .callBackJs) ?? ""
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case content, title, subContent, nextContentUrl, replaceRegex
+        case webJs, sourceRegex, imageStyle, imageDecode, payAction
+        case callBackJs
+    }
 }
 
 
 
 struct BookInfoRule: Codable, Equatable {
+    // 原版 JSON 键为 "init"（CodingKeys 映射），源码属性名 initRule。
     var initRule: String = ""
     var name: String = ""
     var author: String = ""
-    var kind: String = ""
-    var wordCount: String = ""
-    var lastChapter: String = ""
-    var intro: String = ""
     var coverUrl: String = ""
+    var intro: String = ""
+    var kind: String = ""
+    var lastChapter: String = ""
     var tocUrl: String = ""
+    var wordCount: String = ""
+    var canReName: String = ""
+    var downloadUrls: String = ""
+    var updateTime: String = ""
 
     init() {}
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        initRule = try c.decodeLenientStringIfPresent(forKey: .initRule) ?? ""
+        name = try c.decodeLenientStringIfPresent(forKey: .name) ?? ""
+        author = try c.decodeLenientStringIfPresent(forKey: .author) ?? ""
+        coverUrl = try c.decodeLenientStringIfPresent(forKey: .coverUrl) ?? ""
+        intro = try c.decodeLenientStringIfPresent(forKey: .intro) ?? ""
+        kind = try c.decodeLenientStringIfPresent(forKey: .kind) ?? ""
+        lastChapter = try c.decodeLenientStringIfPresent(forKey: .lastChapter) ?? ""
+        tocUrl = try c.decodeLenientStringIfPresent(forKey: .tocUrl) ?? ""
+        wordCount = try c.decodeLenientStringIfPresent(forKey: .wordCount) ?? ""
+        canReName = try c.decodeLenientStringIfPresent(forKey: .canReName) ?? ""
+        downloadUrls = try c.decodeLenientStringIfPresent(forKey: .downloadUrls) ?? ""
+        updateTime = try c.decodeLenientStringIfPresent(forKey: .updateTime) ?? ""
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case initRule = "init"
+        case name, author, coverUrl, intro, kind, lastChapter, tocUrl
+        case wordCount, canReName, downloadUrls, updateTime
+    }
 }
 
 
@@ -287,13 +384,45 @@ struct ExploreRule: Codable, Equatable {
     var lastChapter: String = ""
     var bookUrl: String = ""
     var wordCount: String = ""
+    var updateTime: String = ""
 
     init() {}
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        exploreUrl = try c.decodeLenientStringIfPresent(forKey: .exploreUrl) ?? ""
+        bookList = try c.decodeLenientStringIfPresent(forKey: .bookList) ?? ""
+        name = try c.decodeLenientStringIfPresent(forKey: .name) ?? ""
+        author = try c.decodeLenientStringIfPresent(forKey: .author) ?? ""
+        coverUrl = try c.decodeLenientStringIfPresent(forKey: .coverUrl) ?? ""
+        intro = try c.decodeLenientStringIfPresent(forKey: .intro) ?? ""
+        kind = try c.decodeLenientStringIfPresent(forKey: .kind) ?? ""
+        lastChapter = try c.decodeLenientStringIfPresent(forKey: .lastChapter) ?? ""
+        bookUrl = try c.decodeLenientStringIfPresent(forKey: .bookUrl) ?? ""
+        wordCount = try c.decodeLenientStringIfPresent(forKey: .wordCount) ?? ""
+        updateTime = try c.decodeLenientStringIfPresent(forKey: .updateTime) ?? ""
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case exploreUrl, bookList, name, author, coverUrl, intro, kind
+        case lastChapter, bookUrl, wordCount, updateTime
+    }
 }
 
 
 
 struct ReviewRule: Codable, Equatable {
+    // 原版字段（dump）+ 旧还原字段保留（SourceEditView 消费域）。
+    var reviewUrl: String = ""
+    var avatarRule: String = ""
+    var contentRule: String = ""
+    var postTimeRule: String = ""
+    var reviewQuoteUrl: String = ""
+    var voteUpUrl: String = ""
+    var voteDownUrl: String = ""
+    var postReviewUrl: String = ""
+    var postQuoteUrl: String = ""
+    var deleteUrl: String = ""
     var reviewList: String = ""
     var content: String = ""
     var author: String = ""
@@ -301,6 +430,32 @@ struct ReviewRule: Codable, Equatable {
     var rating: String = ""
 
     init() {}
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        reviewUrl = try c.decodeLenientStringIfPresent(forKey: .reviewUrl) ?? ""
+        avatarRule = try c.decodeLenientStringIfPresent(forKey: .avatarRule) ?? ""
+        contentRule = try c.decodeLenientStringIfPresent(forKey: .contentRule) ?? ""
+        postTimeRule = try c.decodeLenientStringIfPresent(forKey: .postTimeRule) ?? ""
+        reviewQuoteUrl = try c.decodeLenientStringIfPresent(forKey: .reviewQuoteUrl) ?? ""
+        voteUpUrl = try c.decodeLenientStringIfPresent(forKey: .voteUpUrl) ?? ""
+        voteDownUrl = try c.decodeLenientStringIfPresent(forKey: .voteDownUrl) ?? ""
+        postReviewUrl = try c.decodeLenientStringIfPresent(forKey: .postReviewUrl) ?? ""
+        postQuoteUrl = try c.decodeLenientStringIfPresent(forKey: .postQuoteUrl) ?? ""
+        deleteUrl = try c.decodeLenientStringIfPresent(forKey: .deleteUrl) ?? ""
+        reviewList = try c.decodeLenientStringIfPresent(forKey: .reviewList) ?? ""
+        content = try c.decodeLenientStringIfPresent(forKey: .content) ?? ""
+        author = try c.decodeLenientStringIfPresent(forKey: .author) ?? ""
+        date = try c.decodeLenientStringIfPresent(forKey: .date) ?? ""
+        rating = try c.decodeLenientStringIfPresent(forKey: .rating) ?? ""
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case reviewUrl, avatarRule, contentRule, postTimeRule
+        case reviewQuoteUrl, voteUpUrl, voteDownUrl
+        case postReviewUrl, postQuoteUrl, deleteUrl
+        case reviewList, content, author, date, rating
+    }
 }
 
 // MARK: - 存储类别
@@ -390,6 +545,20 @@ struct BookSource: Codable, Identifiable, Equatable {
     var loginUi: String?
     var concurrentRate: String?
     var coverDecodeUrl: String?
+    // T-1601-B5：按 index/swift_types_dump.txt BookSource 字段表补齐
+    // （原版 35 字段；此前缺 searchUrl/exploreUrl → 导入源丢搜索地址与
+    // 发现地址，搜索/发现链必然为空）。
+    var loginCheckJs: String?
+    var checkKeyWord: String?
+    var variableComment: String?
+    var providerType: Int?
+    var customButton: Bool?
+    var eventListener: Bool?
+    var jsLib: String?
+    var coverDecodeJs: String?
+    var searchUrl: String?
+    var exploreUrl: String?
+    var exploreScreen: String?
     var lastUpdateTime: Int64 = 0
     var customOrder: Int = 0
     var weight: Int = 0
@@ -409,6 +578,14 @@ struct BookSource: Codable, Identifiable, Equatable {
     /// 伪代码 0x1002332a4（L153 单行）：id 即 bookSourceUrl。
     var id: String {
         bookSourceUrl
+    }
+
+    /// 发现 URL 归一（T-1601-B5）：原版字段 `exploreUrl` 为主；旧还原
+    /// 曾把地址放在 `ruleExplore.exploreUrl`，保留回退以兼容既有数据。
+    var resolvedExploreUrl: String {
+        let primary = (exploreUrl ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return primary.isEmpty ? ruleExplore.exploreUrl : primary
     }
 
     /// 成员级构造（骨架签名 init(bookSourceUrl:bookSourceName:) 确证）。
@@ -450,6 +627,18 @@ struct BookSource: Codable, Identifiable, Equatable {
         loginUi = try container.decodeLenientStringIfPresent(forKey: .loginUi)
         concurrentRate = try container.decodeLenientStringIfPresent(forKey: .concurrentRate)
         coverDecodeUrl = try container.decodeLenientStringIfPresent(forKey: .coverDecodeUrl)
+        // T-1601-B5：原版 35 字段补齐（dump 字段表 + CodingKeys）。
+        loginCheckJs = try container.decodeLenientStringIfPresent(forKey: .loginCheckJs)
+        checkKeyWord = try container.decodeLenientStringIfPresent(forKey: .checkKeyWord)
+        variableComment = try container.decodeLenientStringIfPresent(forKey: .variableComment)
+        providerType = try container.decodeIfPresent(Int.self, forKey: .providerType)
+        customButton = try container.decodeIfPresent(Bool.self, forKey: .customButton)
+        eventListener = try container.decodeIfPresent(Bool.self, forKey: .eventListener)
+        jsLib = try container.decodeLenientStringIfPresent(forKey: .jsLib)
+        coverDecodeJs = try container.decodeLenientStringIfPresent(forKey: .coverDecodeJs)
+        searchUrl = try container.decodeLenientStringIfPresent(forKey: .searchUrl)
+        exploreUrl = try container.decodeLenientStringIfPresent(forKey: .exploreUrl)
+        exploreScreen = try container.decodeLenientStringIfPresent(forKey: .exploreScreen)
         lastUpdateTime = try container.decodeIfPresent(Int64.self, forKey: .lastUpdateTime) ?? 0
         customOrder = try container.decodeIfPresent(Int.self, forKey: .customOrder) ?? 0
         weight = try container.decodeIfPresent(Int.self, forKey: .weight) ?? 0
@@ -477,6 +666,9 @@ struct BookSource: Codable, Identifiable, Equatable {
         case initRule
         case variable
         case header, loginUrl, bookUrlPattern, loginUi, concurrentRate, coverDecodeUrl
+        case loginCheckJs, checkKeyWord, variableComment, providerType
+        case customButton, eventListener, jsLib, coverDecodeJs
+        case searchUrl, exploreUrl, exploreScreen
         case lastUpdateTime, customOrder, weight, expireTime, respondTime
         case ruleSearch, ruleToc, ruleContent, ruleBookInfo, ruleExplore, ruleReview
         case storageKind
@@ -540,6 +732,13 @@ extension BookSource {
             && lhs.loginUi == rhs.loginUi
             && lhs.concurrentRate == rhs.concurrentRate
             && lhs.coverDecodeUrl == rhs.coverDecodeUrl
+            && lhs.loginCheckJs == rhs.loginCheckJs
+            && lhs.checkKeyWord == rhs.checkKeyWord
+            && lhs.jsLib == rhs.jsLib
+            && lhs.coverDecodeJs == rhs.coverDecodeJs
+            && lhs.searchUrl == rhs.searchUrl
+            && lhs.exploreUrl == rhs.exploreUrl
+            && lhs.exploreScreen == rhs.exploreScreen
             && lhs.lastUpdateTime == rhs.lastUpdateTime
             && lhs.customOrder == rhs.customOrder
             && lhs.weight == rhs.weight

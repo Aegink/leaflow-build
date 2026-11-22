@@ -23,6 +23,10 @@ targets:
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
+        # 原版 Info.plist 含 UILaunchScreen；缺省时 iOS 以兼容模式
+        # letterbox 运行（上下黑边）——补生成键，模拟器/真机满屏。
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         PRODUCT_BUNDLE_IDENTIFIER: com.leaflow.app
         PRODUCT_NAME: Leaflow
         SWIFT_VERSION: "5.0"

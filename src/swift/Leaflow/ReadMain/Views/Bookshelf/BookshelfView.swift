@@ -146,7 +146,22 @@ struct BookshelfView: View {
     /// bookshelfContent getter（0x1004503f4 L427-511 域确证）。
     private var bookshelfContent: some View {
         Group {
-            if isGrid {
+            if displayItems.isEmpty {
+                // 空态（'去搜索添加一些书籍吧' 串域确证；T-1601-C2：
+                // 新装首屏此前为纯白，无引导）。搜索无结果单独文案。
+                VStack(spacing: 12.0) {
+                    Image(systemName: "books.vertical")
+                        .font(.largeTitle)
+                        .foregroundStyle(.secondary)
+                    Text(
+                        searchText.isEmpty
+                            ? "去搜索添加一些书籍吧" : "没有搜索结果")
+                        .appThemeText(.caption, opacity: 0.6)
+                }
+                .frame(
+                    maxWidth: .infinity, maxHeight: .infinity,
+                    alignment: .center)
+            } else if isGrid {
                 ScrollView {
                     LazyVGrid(
                         columns: Array(

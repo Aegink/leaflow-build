@@ -329,7 +329,7 @@ struct ExploreSourceDetailView: View {
                 action: "parse.listCacheHit")
             return
         }
-        if source.ruleExplore.exploreUrl.isEmpty {
+        if source.resolvedExploreUrl.isEmpty {
             logExploreTrace("parse.noExploreUrl", "")
             await MainActor.run {
                 errorMessage = "无法解析分类"
@@ -372,7 +372,7 @@ struct ExploreSourceDetailView: View {
         guard let rule else { return [] }
         var categories: [(title: String, url: String)] = []
         // exploreUrl 规则列表段（" groups, " 域确证）。
-        for category in source.ruleExplore.exploreUrl
+        for category in source.resolvedExploreUrl
             .split(separator: "\n") {
             let segments = category
                 .trimmingCharacters(in: .whitespaces)

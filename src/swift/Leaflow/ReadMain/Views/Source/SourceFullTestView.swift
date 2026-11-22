@@ -345,7 +345,7 @@ struct SourceFullTestView: View {
                         prefixAutoComplete("--正文")
                     }
                 }
-                if source.ruleExplore.exploreUrl.isEmpty == false {
+                if source.resolvedExploreUrl.isEmpty == false {
                     QuickActionChip(
                         title: "推荐::", systemImage: "safari.fill") {
                         prefixAutoComplete("推荐::")
