@@ -145,10 +145,16 @@ final class LeaflowSmokeTests: XCTestCase {
     private func openSourceImport() {
         let menu = app.buttons["source-manage-menu"]
         XCTAssertTrue(menu.waitForExistence(timeout: 30))
-        XCTAssertTrue(menu.isHittable)
-        // 原生Menu有嵌套AX按钮，点击其实际命中区域，仍须断言菜单与导入页打开。
+        // 原生Menu的AX命中点返回(-1,-1)，按屏内实际边界点击后验证真实展开结果。
+        XCTAssertFalse(menu.frame.isEmpty)
+        XCTAssertTrue(app.frame.contains(CGPoint(x: menu.frame.midX, y: menu.frame.midY)))
+        capture("source-menu-before-tap")
+        print("配置菜单无障碍层级：\(menu.debugDescription)")
         menu.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        app.buttons["文本导入"].tap()
+        let textImport = app.buttons["文本导入"]
+        XCTAssertTrue(textImport.waitForExistence(timeout: 10))
+        XCTAssertTrue(textImport.isHittable)
+        textImport.tap()
         XCTAssertTrue(app.textViews["source-import-text"].waitForExistence(timeout: 10))
     }
     private func openActions() {
