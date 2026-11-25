@@ -69,6 +69,7 @@ jobs:
           echo "selftest_pass=$PASS selftest_fail=$FAIL" | tee -a selftest-result.txt
           cat selftest-result.txt
           xcrun simctl shutdown "$UDID" 2>/dev/null
+          python3 -I tools/record_build_evidence.py --samples-only
 
       - name: Smoke test (boot simulator, install, launch, check alive)
         id: smoke

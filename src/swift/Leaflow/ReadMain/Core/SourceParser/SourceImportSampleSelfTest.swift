@@ -50,6 +50,15 @@ enum SourceImportSampleSelfTest {
                 [String(coldCount), String(cold.loadSourcesFromDisk().count),
                     cold.bookSources.first?.bookSourceName ?? "", cold.bookSources.last?.bookSourceName ?? ""])
 
+            try Data("损坏的主文件".utf8).write(to: service.sourcesFileURL)
+            let recovered = SourceService(storageDirectory: directory)
+            await recovered.loadLocalSources()
+            let restoredMain = try JSONDecoder().decode([BookSource].self, from: Data(contentsOf: service.sourcesFileURL))
+            let preservedBackup = try JSONDecoder().decode([BookSource].self, from: Data(contentsOf: service.sourcesBackupURL))
+            emit("source_import_backup_recovery", ["第三版", "第三版", "第三版", "BookSources.backup.json"],
+                [recovered.bookSources.first?.bookSourceName ?? "", restoredMain.first?.bookSourceName ?? "",
+                    preservedBackup.first?.bookSourceName ?? "", service.sourcesBackupURL.lastPathComponent])
+
             let failedDirectory = directory.appendingPathComponent("普通文件")
             try Data().write(to: failedDirectory)
             let failedWrite = SourceService(storageDirectory: failedDirectory)

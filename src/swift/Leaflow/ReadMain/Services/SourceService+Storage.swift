@@ -83,10 +83,7 @@ extension SourceService {
         }
         isLoading = true
         defer { isLoading = false }
-        let (localSources, recoveredFromBackup) = await loadPreferredLocalSources()
-        if recoveredFromBackup {
-            await persistRecoveredLocalSources(localSources)
-        }
+        let (localSources, _) = await loadPreferredLocalSources()
         if forceRefresh {
             Logger.log(
                 "[配置] 开始合并加载: localCount=\(localSources.count)",
@@ -240,11 +237,10 @@ extension SourceService {
     /// "[配置] 备份恢复后重建主文件失败: "）：备份恢复后重建主文件。
     private func persistRecoveredLocalSources(_ sources: [BookSource]) async {
         do {
-            try await saveSerializer.save(
-                revision: localSaveRequestedRevision,
-                sources: sources,
-                fileURL: sourcesFileURL,
-                backupURL: sourcesBackupURL)
+            // 恢复时不能把损坏主文件轮换到仍有效的备份上。
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.sortedKeys]
+            try encoder.encode(sources).write(to: sourcesFileURL, options: .atomic)
             Logger.log(
                 "[配置] 已根据备份重建主文件: \(sources.count)",
                 level: .info)

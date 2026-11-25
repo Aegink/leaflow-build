@@ -18,6 +18,18 @@ UI_SMOKE_NAMES = {"bookshelf_card_read_dismissal", "bookshelf_grid_editing",
                   "tts_rendered_skins", "tts_large_text_scroll",
                   "source_import_validation", "source_import_persistence"}
 
+def sample_evidence(source: Path, log: str) -> dict:
+    """同一逐名口径用于即时阻断与最终证据，防止自测失败后继续跑UI。"""
+    passed = sorted(set(re.findall(r"SELFTEST (\S+) pass=true", log)))
+    failed = sorted(set(re.findall(r"SELFTEST (\S+) pass=false", log)))
+    declared = set()
+    for path in source.rglob("*SelfTest.swift"):
+        text = path.read_text(encoding="utf-8")
+        declared.update(re.findall(r'(?:Sample\(\s*name:|emit\(\s*(?:name:)?)\s*"([^"]+)"', text))
+    return dict(passed=passed, failed=failed, declared=sorted(declared),
+                all_pass=bool(declared) and set(passed) == declared and not failed
+                and "SELFTEST_END" in log)
+
 
 def record(root: Path, source: Path, run_id: str, sha: str, require_ui_smoke: bool = False) -> int:
     def read(name):
@@ -31,13 +43,8 @@ def record(root: Path, source: Path, run_id: str, sha: str, require_ui_smoke: bo
     errors = sum(len(re.findall(r": error:", log)) for log in logs)
     errors = max(errors, int(not build_ok))
     selftest = read("selftest.log")
-    passed = sorted(set(re.findall(r"SELFTEST (\S+) pass=true", selftest)))
-    failed = sorted(set(re.findall(r"SELFTEST (\S+) pass=false", selftest)))
-    declared = set()
-    for path in source.rglob("*SelfTest.swift"):
-        text = path.read_text(encoding="utf-8")
-        declared.update(re.findall(r'(?:Sample\(\s*name:|emit\(\s*(?:name:)?)\s*"([^"]+)"', text))
-    all_pass = bool(declared) and set(passed) == declared and not failed and "SELFTEST_END" in selftest
+    checked = sample_evidence(source, selftest)
+    passed, failed, declared, all_pass = (checked[key] for key in ("passed", "failed", "declared", "all_pass"))
     smoke = read("smoke-result.txt")
     smoke_pass = sum(re.search(rf"^{key}=1$", smoke, re.M) is not None
                      for key in ("alive", "sources_alive", "bookshelf_alive"))
@@ -77,7 +84,13 @@ if __name__ == "__main__":
     parser.add_argument("--run-id", default=os.environ.get("GITHUB_RUN_ID", ""))
     parser.add_argument("--head-sha", default=os.environ.get("GITHUB_SHA", ""))
     parser.add_argument("--require-ui-smoke", action="store_true")
+    parser.add_argument("--samples-only", action="store_true")
     args = parser.parse_args()
+    if args.samples_only:
+        log = args.artifacts / "selftest.log"
+        checked = sample_evidence(args.source, log.read_text(encoding="utf-8", errors="replace") if log.exists() else "")
+        print(f"逐名样本门禁：{len(checked['passed'])}/{len(checked['declared'])}，全绿={checked['all_pass']}")
+        raise SystemExit(0 if checked["all_pass"] else 1)
     if not args.run_id or not args.head_sha:
         parser.error("必须提供可追溯的 run-id 和 head-sha")
     raise SystemExit(record(args.artifacts, args.source, args.run_id, args.head_sha, args.require_ui_smoke))

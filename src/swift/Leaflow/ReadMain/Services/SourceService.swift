@@ -152,9 +152,9 @@ final class SourceService: SourceServiceProtocol, ObservableObject {
     var lastImportError: String?
 
     /// 存储文件名（init 装配体字符串池确证："BookSources.json" /
-    /// "booksources.json"；键 "LocalBookSources" / "BackupActiveDestination"）。
+    /// "BookSources.backup.json"；0x101267ee0 / 0x1003ac9ac 双向引用确证。
     private let sourcesFileName = "BookSources.json"
-    private let sourcesBackupName = "booksources.json"
+    private let sourcesBackupName = "BookSources.backup.json"
     let legacySourcesCacheKey = "LocalBookSources"
 
     /// 通知名（字符串池 "sourcesDidChange" 确证；post 点待 +Storage 交叉）。
