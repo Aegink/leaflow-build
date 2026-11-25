@@ -14,6 +14,11 @@ STUB_MARKERS = ("待真机", "骨架", "占位", "计数器桩", "推断", "未�
 
 # 拆分只改变源码文件边界，规模、函数和桩仍计入同一个原始文件。
 SWIFT_SOURCE_PARTS = {
+    "ReadMain/Services/SourceService.swift": ["ReadMain/Services/SourceService+Editing.swift"],
+    "ReadMain/Services/SourceService+Storage.swift": ["ReadMain/Services/SourceService+Import.swift"],
+    "ReadMain/Views/Source/SourceManageView.swift": [
+        "ReadMain/Views/Source/SourceManageView+Content.swift",
+        "ReadMain/Views/Source/SourceManageView+Actions.swift"],
     "ReadMain/Views/Bookshelf/BookActionSheetView.swift": [
         "ReadMain/Views/Bookshelf/BookActionSheetView+Content.swift"],
     "ReadMain/Views/Bookshelf/BookshelfItemViews.swift": [
@@ -34,6 +39,15 @@ def source_paths(root: Path, relative: str) -> list[Path]:
             if root.resolve() not in path.resolve().parents or not path.is_file():
                 raise ValueError(f"原始文件的拆分源码缺失或越界：{path}")
     return paths
+
+
+def original_source_file(relative: str) -> str:
+    """把功能分册上的验收缺口归回原始文件，不让拆分隐藏死组件。"""
+    relative = relative.replace("\\", "/")
+    for primary, parts in SWIFT_SOURCE_PARTS.items():
+        if relative in parts:
+            return primary
+    return relative
 
 
 def source_metrics(root: Path, relative: str) -> tuple[int, int, str]:
@@ -105,7 +119,7 @@ def build_failures(build: dict, samples: dict, digest: str) -> list[str]:
 
 def file_acceptance(row: dict | None, record: dict, target: float,
                     unreachable: set[str], samples: dict, build_ok: bool,
-                    root: Path, digest: str) -> dict:
+                    root: Path, digest: str, unconsumed: set[str] | None = None) -> dict:
     target = max(80.0, target)
     evidence = samples.get("evidence") or {}
     sample_names = record.get("samples", [])
@@ -125,6 +139,7 @@ def file_acceptance(row: dict | None, record: dict, target: float,
         "stubs": bool(row and row["markers"] == 0),
         "symbols": bool(row and row["gap_funcs"] == 0),
         "reachable": bool(row and file not in unreachable),
+        "consumed": bool(row and file not in (unconsumed or set())),
         "samples": bool(sample_names and all(name in evidence.get("passed_samples", [])
                                              for name in sample_names)),
         "build": build_ok,

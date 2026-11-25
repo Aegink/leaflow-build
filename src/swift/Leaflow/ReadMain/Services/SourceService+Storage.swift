@@ -99,6 +99,7 @@ extension SourceService {
         } else {
             quickLoadLocalSources()
         }
+        hasLoadedOnce = true
     }
 
     /// 伪代码 0x1003ca4dc（L52-101）：三级降级磁盘读取——主文件
@@ -106,7 +107,7 @@ extension SourceService {
     ///（closure 0x1003cb258：JSONDecoder 失败再走 decodeSourcesRobust，
     /// 空数组视同 nil；命中置 recoveredFromBackup）→ UserDefaults 迁移
     ///（legacySourcesCacheKey 读一次即 removeObjectForKey:）→ 空数组。
-    private func loadLocalSourcesFromDisk() -> (
+    func loadLocalSourcesFromDisk() -> (
         sources: [BookSource], recoveredFromBackup: Bool
     ) {
         let mainURL = sourcesFileURL
@@ -209,28 +210,17 @@ extension SourceService {
     /// 立即填充 sources（"[quickLoad调试]" 调试串族 + "[配置] 快速加载: 本地 "
     /// 确证；磁盘缓存为空时回退内存远程）。
     func quickLoadLocalSources() {
-        let cachedRemote = remoteBackend.loadCachedRemoteSources()
-        let memoryRemoteCount =
-            bookSources.filter { $0.storageKind == .remote }.count
-        Logger.log(
-            "[quickLoad调试] 磁盘远程缓存: \(cachedRemote.count) 个, 内存远程: \(memoryRemoteCount)",
-            level: .debug)
-        var remote = cachedRemote.filter { $0.storageKind == .remote }
-        if cachedRemote.isEmpty {
-            Logger.log(
-                "[quickLoad调试] 磁盘缓存为空，使用内存远程: \(memoryRemoteCount)",
-                level: .debug)
-            remote = []
+        let local = filterOutRemoteSources(loadLocalSourcesFromDisk().sources)
+        let cachedRemote = remoteBackend.loadCachedRemoteSources().filter { $0.storageKind == .remote }
+        let memoryRemote = bookSources.filter { $0.storageKind == .remote }
+        let remote = cachedRemote.isEmpty ? memoryRemote : cachedRemote
+        var seen = Set<String>()
+        bookSources = (local + remote).filter {
+            seen.insert($0.storageKind.rawValue + "\0" + $0.bookSourceUrl).inserted
         }
         Logger.log(
-            "[配置] 快速加载: 本地 \(bookSources.count) + 远程 \(remote.count)",
+            "[配置] 快速加载: 本地 \(local.count) + 远程 \(remote.count)",
             level: .info)
-        for (index, source) in remote.enumerated() {
-            Logger.log(
-                "[quickLoad调试] 远程[\(index)]: name=\(source.bookSourceName.prefix(60))",
-                level: .debug)
-        }
-        bookSources.append(contentsOf: remote)
     }
 
     /// 伪代码 0x1003c9c18（L283-289）：磁盘优先加载；备份恢复路径交
@@ -351,7 +341,7 @@ extension SourceService {
 
     /// 伪代码 0x1003cb974（L307-310）：快照落盘 + 备份维护薄包装
     ///（写盘体在续体；"[配置] 已保存 N 字节到文件" 于 SaveSerializer.save 确证）。
-    private func persistLocalSourcesSnapshot(
+    func persistLocalSourcesSnapshot(
         _ sources: [BookSource],
         revision: Int,
         fileURL: URL,
@@ -420,208 +410,4 @@ extension SourceService {
         (try? await remoteBackend.getBookSources(forceRefresh: false)) ?? []
     }
 
-    // MARK: 导入导出族
-
-    /// 伪代码 0x1003c7408（L452-496；过滤谓词 closure 0x1003c8d38）：
-    /// 导入编排——文本 → Data（失败 "无法将文本转换为数据" 返回 -1）→
-    /// 解析（失败 "[导入] 解析失败: " 返回 -1）→ 复合键合并 →
-    /// remote 域发送后端保存（"[导入调试] 远程导入: 准备发送 N 个配置到后端"；
-    /// 成功 "[导入调试] 远程导入: 后端保存成功"，失败 "保存配置到后端失败: " /
-    /// "[导入-远程] 保存失败: "）；返回导入数。
-    func importSourcesAsync(
-        from text: String, storageKind kind: StorageKind
-    ) async -> Int {
-        Logger.log(
-            "[导入调试] importSourcesAsync 开始: storageKind=\(kind.rawValue)",
-            level: .debug)
-        guard let data = text.data(using: .utf8) else {
-            Logger.log("无法将文本转换为数据", level: .error)
-            return -1
-        }
-        let parse = Self.parseImportedSources(from: data)
-        guard let imported = parse.sources else {
-            Logger.log(
-                "[导入] 解析失败: \(parse.errorMessage ?? "-")",
-                level: .error)
-            return -1
-        }
-        Logger.log(
-            "[导入调试] 解析成功: \(imported.count) 个配置",
-            level: .debug)
-        Logger.log(
-            "[导入调试] 合并前 bookSources: total=\(bookSources.count)",
-            level: .debug)
-        let (merged, importedCount) = mergeImportedSources(imported)
-        bookSources = merged
-        Logger.log(
-            "[导入调试] 合并后: total=\(merged.count)",
-            level: .debug)
-        if kind == .remote {
-            Logger.log(
-                "[导入调试] 远程导入: 准备发送 \(imported.count) 个配置到后端",
-                level: .info)
-            // 后端保存入口随 RemoteBackendService 分册落地后交叉
-            //（"[远程后端] 获取完整配置失败: 返回空，放弃保存以保护后端规则"
-            // 域确证）；本地快照先落盘兜底。
-            do {
-                try await persistLocalSourcesSnapshot(
-                    merged,
-                    revision: localSaveRequestedRevision,
-                    fileURL: sourcesFileURL,
-                    backupURL: sourcesBackupURL)
-                Logger.log("[导入调试] 远程导入: 后端保存成功", level: .info)
-            } catch {
-                Logger.log(
-                    "保存配置到后端失败: \(error.localizedDescription)",
-                    level: .error)
-                Logger.log(
-                    "[导入-远程] 保存失败: \(error.localizedDescription)",
-                    level: .error)
-            }
-        }
-        finishPendingLocalSave(revision: localSaveRequestedRevision)
-        return importedCount
-    }
-
-    /// pgo_only（"[导入] 数组解析失败: " 池内确证）：Data → [BookSource]
-    /// 解析结果（错误文案由 decodingErrorMessage 工厂产出）。
-    private static func parseImportedSources(
-        from data: Data
-    ) -> (sources: [BookSource]?, errorMessage: String?) {
-        do {
-            let decoded = try JSONDecoder().decode(
-                [BookSource].self, from: data)
-            return (decoded, nil)
-        } catch let error as DecodingError {
-            return (nil, decodingErrorMessage(error))
-        } catch {
-            return (
-                nil,
-                "[导入] 数组解析失败: \(error.localizedDescription)"
-            )
-        }
-    }
-
-    /// 伪代码 0x1003cda58（L540-561）：按 "<字段A>_<字段B>" 复合键去重合并
-    ///（"_" 分隔符确证；字段对按域语义推断为 名称_url）——
-    /// 已存在原位覆盖，新源追加；返回 (merged, importedCount)。
-    private func mergeImportedSources(
-        _ imported: [BookSource]
-    ) -> (merged: [BookSource], importedCount: Int) {
-        var indexByKey: [String: Int] = [:]
-        for (index, source) in bookSources.enumerated() {
-            indexByKey[importMergeKey(source)] = index
-        }
-        var merged = bookSources
-        var importedCount = 0
-        for source in imported {
-            let key = importMergeKey(source)
-            if let index = indexByKey[key] {
-                merged[index] = source
-            } else {
-                indexByKey[key] = merged.count
-                merged.append(source)
-                importedCount += 1
-            }
-        }
-        return (merged, importedCount)
-    }
-
-    /// 合并键（"_" 分隔符确证；字段对推断）。
-    private func importMergeKey(_ source: BookSource) -> String {
-        source.bookSourceName + "_" + source.bookSourceUrl
-    }
-
-    /// 伪代码 0x1003ce424（L523-536）：DecodingError 五分支 → 中文诊断串
-    ///（"类型不匹配: 期望 " / "值为空: " / "缺少必要字段: " / "数据损坏: " /
-    /// "未知解码错误: " + "\n路径: " + codingPath joined "." 确证）。
-    private static func decodingErrorMessage(_ error: DecodingError) -> String {
-        switch error {
-        case .typeMismatch(let type, let context):
-            return "类型不匹配: 期望 \(typeName(type))\n路径: \(pathText(context))"
-        case .valueNotFound(_, let context):
-            return "值为空: \(typeName(context))\n路径: \(pathText(context))"
-        case .keyNotFound(let key, let context):
-            return "缺少必要字段: \(key.stringValue)\n路径: \(pathText(context))"
-        case .dataCorrupted(let context):
-            return "数据损坏: \(context.debugDescription)"
-        @unknown default:
-            return "未知解码错误: \(error.localizedDescription)"
-        }
-    }
-
-    /// typeMismatch/valueNotFound 的实体名（_typeName(qualified: false) 域）。
-    private static func typeName(_ type: Any.Type) -> String {
-        String(describing: type)
-    }
-
-    /// valueNotFound 实体名重载（Context 无类型载荷，取 debugDescription 域）。
-    private static func typeName(_ context: DecodingError.Context) -> String {
-        context.debugDescription
-    }
-
-    /// "\n路径: " + codingPath joined "."（分隔符 "." 确证）。
-    private static func pathText(_ context: DecodingError.Context) -> String {
-        context.codingPath.map { $0.stringValue }.joined(separator: ".")
-    }
-
-    /// pgo_only（3 个 CodingKey 闭包与 decodingErrorMessage 同域确证）：
-    /// 同步导入（解析 + 合并 + 保存收尾），返回导入数，失败 -1。
-    func importSources(from text: String) -> Int {
-        guard let data = text.data(using: .utf8) else { return -1 }
-        let parse = Self.parseImportedSources(from: data)
-        guard let imported = parse.sources else { return -1 }
-        let (merged, importedCount) = mergeImportedSources(imported)
-        bookSources = merged
-        finishPendingLocalSave(revision: localSaveRequestedRevision)
-        return importedCount
-    }
-
-    /// pgo_only：文件读取解析封装（Data(contentsOf:) + parseImportedSources）。
-    func loadSourcesFromFile(url: URL) -> [BookSource]? {
-        guard let data = try? Data(contentsOf: url) else { return nil }
-        return Self.parseImportedSources(from: data).sources
-    }
-
-    /// pgo_only：同步便捷封装（磁盘三级降级首段）。
-    func loadSourcesFromDisk() -> [BookSource] {
-        loadLocalSourcesFromDisk().sources
-    }
-
-    /// pgo_only：编码导出（sortedKeys 同域推断）。
-    func exportSources() -> String? {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys]
-        guard let data = try? encoder.encode(bookSources) else { return nil }
-        return String(data: data, encoding: .utf8)
-    }
-
-    /// pgo_only（closure #1/#2 过滤谓词 + closure #3 (Int, BookSource) →
-    /// (String, Int) 键值映射确证）：批量保存——本地域合并落盘，远程域待
-    /// RemoteBackendService 分册交叉。
-    func saveBookSources(_ sources: [BookSource]) async -> Bool {
-        let remote = sources.filter { $0.storageKind == .remote }
-        let (merged, _) = mergeImportedSources(sources.filter {
-            $0.storageKind != .remote
-        })
-        bookSources = merged
-        if !remote.isEmpty {
-            Logger.log(
-                "[导入调试] 远程导入: 准备发送 \(remote.count) 个配置到后端",
-                level: .info)
-        }
-        do {
-            try await saveSerializer.save(
-                revision: localSaveRequestedRevision,
-                sources: merged,
-                fileURL: sourcesFileURL,
-                backupURL: sourcesBackupURL)
-            return true
-        } catch {
-            Logger.log(
-                "配置保存失败: \(error.localizedDescription)",
-                level: .error)
-            return false
-        }
-    }
 }

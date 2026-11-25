@@ -23,6 +23,9 @@ import SwiftUI
 /// URL 导入视图（书源/替换规则混合识别，"源/替换规则）" 域交叉）。
 struct URLImportView: View {
 
+    @ObservedObject var sourceService: SourceService = .shared
+    var targetRemote = false
+
     /// 导入目标回调（识别结果回传）。
     var onImported: ((Int) -> Void)?
 
@@ -87,10 +90,19 @@ struct URLImportView: View {
         statusText = ""
         Task {
             do {
-                let (data, _) = try await URLSession.shared.data(from: url)
-                let text = String(data: data, encoding: .utf8) ?? ""
-                let count = await MainActor.run { () -> Int in
-                    SourceService().importSources(from: text)
+                let (data, response) = try await URLSession.shared.data(from: url)
+                guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+                    throw URLError(.badServerResponse)
+                }
+                guard let text = String(data: data, encoding: .utf8) else {
+                    throw URLError(.cannotDecodeRawData)
+                }
+                let count = await sourceService.importSourcesAsync(
+                    from: text, storageKind: targetRemote ? .remote : .local)
+                guard count >= 0 else {
+                    isImporting = false
+                    statusText = sourceService.lastImportError ?? "导入失败"
+                    return
                 }
                 await MainActor.run {
                     isImporting = false
@@ -106,15 +118,16 @@ struct URLImportView: View {
         }
     }
 
-    /// performImport(jsonString:targetRemote:)（LeaflowApp 复制导入链消费域
-    /// 确证，wave-16 补桥）：JSON 串直接入库——targetRemote 域随远程拉取
-    /// 管线对齐（当前恒走本地 SourceService 入库）。
+    /// LeaflowApp 复制导入链与文本导入使用同一事务，不忽略目标存储域。
     static func performImport(
         jsonString: String, targetRemote: Bool
     ) async throws -> Int {
-        _ = targetRemote
-        let count = await MainActor.run {
-            SourceService.shared.importSources(from: jsonString)
+        let count = await SourceService.shared.importSourcesAsync(
+            from: jsonString, storageKind: targetRemote ? .remote : .local)
+        guard count >= 0 else {
+            throw NSError(domain: "Leaflow.ImportSource", code: -1, userInfo: [
+                NSLocalizedDescriptionKey: SourceService.shared.lastImportError ?? "导入失败"
+            ])
         }
         return count
     }

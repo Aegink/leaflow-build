@@ -110,6 +110,45 @@ final class LeaflowSmokeTests: XCTestCase {
         app.launch()
         app.activate()
     }
+    func testSourceImportValidation() {
+        launch(["-smokeSources", "-sourceManageViewingRemote", "NO"])
+        openSourceImport()
+        let input = app.textViews["source-import-text"]
+        input.tap()
+        input.typeText("{")
+        app.buttons["source-import-submit"].tap()
+        let result = app.staticTexts["source-import-result"]
+        XCTAssertTrue(result.waitForExistence(timeout: 10))
+        XCTAssertTrue(result.label.contains("解析失败"))
+        XCTAssertTrue(input.exists)
+        XCTAssertTrue(app.buttons["source-import-submit"].isEnabled)
+        capture("source-import-error")
+        passed("source_import_validation")
+    }
+
+    func testSourceImportPersistence() {
+        launch(["-smokeSources", "-sourceManageViewingRemote", "NO"])
+        openSourceImport()
+        let input = app.textViews["source-import-text"]
+        input.tap()
+        input.typeText(#"{"bookSourceUrl":"https://sample.invalid/ui-import","bookSourceName":"固定导入样本"}"#)
+        app.buttons["source-import-submit"].tap()
+        XCTAssertTrue(app.staticTexts["固定导入样本"].firstMatch.waitForExistence(timeout: 20))
+        XCTAssertFalse(input.exists)
+        capture("source-import-list")
+        launch(["-smokeSources", "-sourceManageViewingRemote", "NO"])
+        XCTAssertTrue(app.staticTexts["固定导入样本"].firstMatch.waitForExistence(timeout: 30))
+        capture("source-import-reloaded")
+        passed("source_import_persistence")
+    }
+
+    private func openSourceImport() {
+        let menu = app.buttons["source-manage-menu"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 30))
+        menu.tap()
+        app.buttons["文本导入"].tap()
+        XCTAssertTrue(app.textViews["source-import-text"].waitForExistence(timeout: 10))
+    }
     private func openActions() {
         let title = app.staticTexts["固定书架样本"].firstMatch
         XCTAssertTrue(title.waitForExistence(timeout: 20))

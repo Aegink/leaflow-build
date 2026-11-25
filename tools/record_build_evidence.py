@@ -15,7 +15,8 @@ ROOT = Path(__file__).resolve().parent.parent
 CHECKS = runpy.run_path(str(ROOT / "tools" / "restoration_gate_checks.py"))
 UI_SMOKE_NAMES = {"bookshelf_card_read_dismissal", "bookshelf_grid_editing",
                   "bookshelf_edit_cover_entries", "bookshelf_delete_confirmation",
-                  "tts_rendered_skins", "tts_large_text_scroll"}
+                  "tts_rendered_skins", "tts_large_text_scroll",
+                  "source_import_validation", "source_import_persistence"}
 
 
 def record(root: Path, source: Path, run_id: str, sha: str, require_ui_smoke: bool = False) -> int:
