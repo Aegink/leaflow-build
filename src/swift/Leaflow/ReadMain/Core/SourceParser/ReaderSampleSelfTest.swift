@@ -44,9 +44,17 @@ enum ReaderSampleSelfTest {
                 vm.pages.filter { $0.chapterIndex == chapter }
                     .map(\.content).joined().contains("固定正文，第\(chapter + 1)章")
             }
-            emit("reader_page_order", ["true", "false", "true"],
+            let completeRanges = (0..<3).allSatisfy { chapter in
+                let ranges = vm.pages.filter { $0.chapterIndex == chapter }
+                    .compactMap(\.contentRangeInChapter)
+                return ranges.first?.location == 0
+                    && ranges.last.map { NSMaxRange($0) } == vm.chapterContents[chapter].utf16.count
+                    && ranges.reduce(0) { $0 + $1.length } == vm.chapterContents[chapter].utf16.count
+            }
+            emit("reader_page_order", ["true", "false", "true", "true"],
                 [String(ordered == ordered.sorted()),
-                 String(vm.pages.contains { $0.isLoadingPlaceholder }), String(realContent)])
+                 String(vm.pages.contains { $0.isLoadingPlaceholder }),
+                 String(realContent), String(completeRanges)])
         } catch {
             emit("reader_progress_restore", ["通过"], [error.localizedDescription])
             emit("reader_three_chapters", ["通过"], [])

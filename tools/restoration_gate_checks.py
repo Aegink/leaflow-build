@@ -42,7 +42,8 @@ def dependency_symbols(texts: dict[str, str]) -> dict[str, str]:
 
 def source_digest(root: Path) -> str:
     digest = hashlib.sha256()
-    for path in sorted(root.rglob("*.swift")):
+    # Windows Path 按大小写折叠排序，macOS 不折叠；统一使用相对 POSIX 路径。
+    for path in sorted(root.rglob("*.swift"), key=lambda p: p.relative_to(root).as_posix()):
         digest.update(path.relative_to(root).as_posix().encode("utf-8") + b"\0")
         digest.update(path.read_bytes().replace(b"\r\n", b"\n"))
         digest.update(b"\0")
@@ -75,6 +76,7 @@ def build_failures(build: dict, samples: dict, digest: str) -> list[str]:
 def file_acceptance(row: dict | None, record: dict, target: float,
                     unreachable: set[str], samples: dict, build_ok: bool,
                     root: Path, digest: str) -> dict:
+    target = max(80.0, target)
     evidence = samples.get("evidence") or {}
     sample_names = record.get("samples", [])
     device = record.get("device") or {}

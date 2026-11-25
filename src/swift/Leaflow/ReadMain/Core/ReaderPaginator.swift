@@ -149,7 +149,8 @@ enum ReaderPaginator {
         contentStorage.textStorage = NSTextStorage(attributedString: attributedContent)
 
         let layoutManager = NSTextLayoutManager()
-        let textContainer = NSTextContainer(size: contentSizeNormal)
+        let textContainer = NSTextContainer(size: CGSize(
+            width: max(1, contentSizeNormal.width), height: .greatestFiniteMagnitude))
         textContainer.lineFragmentPadding = 0
         textContainer.lineBreakMode = .byWordWrapping
         layoutManager.textContainer = textContainer
@@ -158,36 +159,38 @@ enum ReaderPaginator {
         let documentRange = layoutManager.documentRange
         layoutManager.ensureLayout(for: documentRange)
 
-        // 6. 逐 fragment 分页（伪代码 enumerateTextLayoutFragmentsFromLocation）。
-        var pages: [PageData] = []
-        var pageIndexCounter = 0
-        let useFirstSize = true
-
-        textContainer.size = useFirstSize ? contentSizeFirst : contentSizeNormal
-
+        // 0x1001feb38 L222-237：按正文偏移、characterRange、typographicBounds 收集行。
+        var lines: [(range: NSRange, top: CGFloat, bottom: CGFloat)] = []
         layoutManager.enumerateTextLayoutFragments(
             from: documentRange.location,
             options: [.ensuresLayout, .estimatesSize]
         ) { fragment in
-            let fragmentRange = fragment.rangeInElement
-            // NSTextRange→NSRange 桥：documentRange 起点偏移换算
-            //（offset(from:to:) SDK 域桥，wave-71）。
-            let docStart = contentStorage.documentRange.location
-            let startOffset = contentStorage.offset(
-                from: docStart, to: fragmentRange.location)
-            let endOffset = contentStorage.offset(
-                from: docStart, to: fragmentRange.endLocation)
-            let nsRange = NSRange(
-                location: startOffset, length: endOffset - startOffset)
-            guard let fullStorage = contentStorage.textStorage,
-                  nsRange.location != NSNotFound,
-                  nsRange.location + nsRange.length <= fullStorage.length
-            else { return true }
-            let substring = fullStorage.attributedSubstring(from: nsRange)
+            let base = contentStorage.offset(from: contentStorage.documentRange.location,
+                to: fragment.rangeInElement.location)
+            guard base >= 0, base <= attributedContent.length else { return true }
+            for line in fragment.textLineFragments {
+                let local = line.characterRange
+                guard local.location != NSNotFound, local.length > 0,
+                      local.location <= attributedContent.length - base else { continue }
+                let start = base + local.location
+                guard local.length <= attributedContent.length - start else { continue }
+                let top = fragment.layoutFragmentFrame.minY + line.typographicBounds.minY
+                let bottom = top + max(1, line.typographicBounds.height)
+                lines.append((NSRange(location: start, length: local.length), top, bottom))
+            }
+            return true
+        }
+        lines.sort { $0.range.location < $1.range.location }
+
+        // 整章布局后按页高组合行，不能让有限高容器截掉首页之后的正文。
+        var pages: [PageData] = []
+        func appendPage(range: NSRange, height: CGFloat) {
+            guard range.length > 0 else { return }
+            let substring = attributedContent.attributedSubstring(from: range)
 
             let rawText = substring.string
             // 分隔符检查（伪代码 separatorContainsVisibleText）。
-            guard Self.separatorContainsVisibleText(rawText) else { return true }
+            guard Self.separatorContainsVisibleText(rawText) else { return }
 
             // 规范化（伪代码 normalizePageSliceText）。
             let normalizedText = Self.normalizePageSliceText(
@@ -198,15 +201,15 @@ enum ReaderPaginator {
             // 转换桥待真机核清——先置空）。
             let page = PageData(
                 chapterIndex: chapterIndex,
-                pageIndex: pageIndexCounter,
+                pageIndex: pages.count,
                 content: normalizedText,
-                contentRangeInChapter: nsRange,
+                contentRangeInChapter: range,
                 imageSourceUrl: nil,
                 imageSourceStorageKind: nil,
                 imageBaseUrl: nil,
                 imageStyle: nil,
                 chapterTitle: chapterTitle,
-                isFirstPageOfChapter: pageIndexCounter == 0,
+                isFirstPageOfChapter: pages.isEmpty,
                 continuesParagraphOnNextPage: false,
                 chapterTotalPages: 0,
                 isLoadingPlaceholder: false,
@@ -214,17 +217,30 @@ enum ReaderPaginator {
                 extraLineSpacing: 0,
                 continuationLineFillRatio: 0,
                 continuationTailPreview: "",
-                bodyHeight: 0,
-                charCount: normalizedText.count,
+                bodyHeight: max(0, height),
+                charCount: normalizedText.utf16.count,
                 comments: []
             )
             pages.append(page)
-            pageIndexCounter += 1
+        }
 
-            // 后续页切换尺寸。
-            textContainer.size = contentSizeNormal
-
-            return true // 继续枚举
+        if let first = lines.first {
+            var start = 0
+            var pageTop = first.top
+            var lastBottom = first.bottom
+            var pageHeight = max(1, contentSizeFirst.height)
+            for line in lines {
+                if line.bottom - pageTop > pageHeight, line.range.location > start {
+                    appendPage(range: NSRange(location: start, length: line.range.location - start),
+                        height: lastBottom - pageTop)
+                    start = line.range.location
+                    pageTop = line.top
+                    pageHeight = max(1, contentSizeNormal.height)
+                }
+                lastBottom = line.bottom
+            }
+            appendPage(range: NSRange(location: start, length: attributedContent.length - start),
+                height: lastBottom - pageTop)
         }
 
         // 7. 空结果 → 填充 emptyContentText。
