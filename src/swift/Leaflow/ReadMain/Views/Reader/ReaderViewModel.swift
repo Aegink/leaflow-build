@@ -41,6 +41,7 @@ final class ReaderViewModel {
     var currentBook: Book?
     var chapters: [Chapter] = []
     @ObservationIgnored lazy var bookService = BookService()
+    @ObservationIgnored var replaceRuleService = ReplaceRuleService.shared
     // 固定样本可替换 I/O，仍执行生产装配、分页和导航链。
     var chapterListProvider: ((Book, Bool) async throws -> [Chapter])?
     var chapterContentProvider: ((Book, Int, Bool) async throws -> ChapterContent)?

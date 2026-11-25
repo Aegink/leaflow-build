@@ -157,6 +157,35 @@ final class LeaflowSmokeTests: XCTestCase {
         textImport.tap()
         XCTAssertTrue(app.textViews["source-import-text"].waitForExistence(timeout: 10))
     }
+
+    func testReaderSelectedTextReplacement() {
+        launch(["-smokeReaderSelection"])
+        let text = app.textViews["reader-selection-text"]
+        XCTAssertTrue(text.waitForExistence(timeout: 30))
+        XCTAssertTrue(app.staticTexts["sample"].waitForExistence(timeout: 20))
+        text.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.08)).press(forDuration: 1)
+        capture("reader-selection-menu")
+        let replace = app.buttons["创建替换规则"]
+        if !replace.waitForExistence(timeout: 5) {
+            let more = app.buttons["More"]
+            XCTAssertTrue(more.waitForExistence(timeout: 5))
+            more.tap()
+        }
+        XCTAssertTrue(replace.waitForExistence(timeout: 10))
+        replace.tap()
+        let input = app.textFields["reader-replace-text"]
+        XCTAssertTrue(input.waitForExistence(timeout: 10))
+        input.tap()
+        input.typeText("replaced")
+        capture("reader-replace-draft")
+        app.buttons["reader-replace-save"].tap()
+        let result = app.staticTexts["reader-selection-result"]
+        XCTAssertTrue(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == %@", "replaced"), object: result)], timeout: 20) == .completed)
+        XCTAssertFalse(input.exists)
+        capture("reader-replace-applied")
+        passed("reader_selected_text_replacement")
+    }
     private func openActions() {
         let title = app.staticTexts["固定书架样本"].firstMatch
         XCTAssertTrue(title.waitForExistence(timeout: 20))

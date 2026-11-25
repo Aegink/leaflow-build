@@ -162,30 +162,56 @@ final class SelectableReaderTextView: UITextView, ReaderTextSelectionHandling {
         selectedTextRange = nil
     }
 
-    // MARK: 菜单动作（骨架签名）
+    // MARK: 菜单动作
 
     func selectedTextForMenuAction() -> String? {
-        text(in: selectedTextRange ?? UITextRange())
+        let selected: String?
+        if let range = selectedTextRange, !range.isEmpty {
+            selected = text(in: range)
+        } else {
+            let range = selectedRange
+            let value = (text ?? "") as NSString
+            guard range.location != NSNotFound, range.length > 0,
+                  range.location <= value.length, range.length <= value.length - range.location else { return nil }
+            selected = value.substring(with: range)
+        }
+        let trimmed = selected?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed?.isEmpty == false ? trimmed : nil
     }
 
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
-        isSelectableText && super.canPerformAction(action, withSender: sender)
+        guard isSelectableText, selectedTextForMenuAction() != nil else { return false }
+        if action == #selector(createReplaceRule(_:)) || action == #selector(addBookmark(_:))
+            || action == #selector(lookUpInDictionary(_:)) { return true }
+        return super.canPerformAction(action, withSender: sender)
     }
 
-    func lookUpInDictionary(_ sender: Any?) {
+    @objc func lookUpInDictionary(_ sender: Any?) {
         // 查词入口（UIReferenceLibraryViewController 域，待真机对照）。
     }
 
-    func createReplaceRule(_ sender: Any?) {
-        // ReplaceRuleCreationSheet 入口。
+    @objc func createReplaceRule(_ sender: Any?) {
+        // 真正替换通知在0x1008b6ef8；0x1008b7044虽标同名，实际发书签通知。
+        postSelectedTextAction(.readerRequestReplaceRule)
     }
 
-    func addBookmark(_ sender: Any?) {
-        // 书签入口。
+    @objc func addBookmark(_ sender: Any?) {
+        postSelectedTextAction(.readerRequestAddBookmark)
+        dismissSelection()
+        resignFirstResponder()
     }
 
     override func buildMenu(with builder: UIMenuBuilder) {
         super.buildMenu(with: builder)
+        guard isSelectableText else { return }
+        let replace = UIAction(title: "创建替换规则") { [weak self] _ in self?.createReplaceRule(nil) }
+        let bookmark = UIAction(title: "添加书签") { [weak self] _ in self?.addBookmark(nil) }
+        builder.insertSibling(UIMenu(options: .displayInline, children: [replace, bookmark]), afterMenu: .standardEdit)
+    }
+
+    private func postSelectedTextAction(_ name: Notification.Name) {
+        guard let selected = selectedTextForMenuAction() else { return }
+        NotificationCenter.default.post(name: name, object: nil, userInfo: ["selectedText": selected])
     }
 
     /// 容器点击保选判定（PageContentViews 调用方确证）。
@@ -199,6 +225,8 @@ final class SelectableReaderTextView: UITextView, ReaderTextSelectionHandling {
 }
 
 extension Notification.Name {
+    static let readerRequestReplaceRule = Notification.Name("readerRequestReplaceRule")
+    static let readerRequestAddBookmark = Notification.Name("readerRequestAddBookmark")
     static let readerTextSelectionDidChange =
         Notification.Name("leafflow.readerTextSelectionDidChange")
 }

@@ -16,7 +16,7 @@ CHECKS = runpy.run_path(str(ROOT / "tools" / "restoration_gate_checks.py"))
 UI_SMOKE_NAMES = {"bookshelf_card_read_dismissal", "bookshelf_grid_editing",
                   "bookshelf_edit_cover_entries", "bookshelf_delete_confirmation",
                   "tts_rendered_skins", "tts_large_text_scroll",
-                  "source_import_validation", "source_import_persistence"}
+                  "source_import_validation", "source_import_persistence", "reader_selected_text_replacement"}
 
 def sample_evidence(source: Path, log: str) -> dict:
     """同一逐名口径用于即时阻断与最终证据，防止自测失败后继续跑UI。"""

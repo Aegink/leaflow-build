@@ -160,7 +160,9 @@ extension ReaderViewModel {
                         type: nil, needRefresh: forceRefresh)
                 }
                 try Task.checkCancellation()
-                chapterContents[chapterIndex] = content.content
+                chapterContents[chapterIndex] = (book.useReplaceRule ?? 0) != 0
+                    ? replaceRuleService.applyRules(to: content.content, bookName: book.name)
+                    : content.content
             }
             let bounds = containerSize.width > 0 && containerSize.height > 0
                 ? containerSize : UIScreen.main.bounds.size

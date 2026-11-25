@@ -41,16 +41,18 @@ final class ReplaceRuleService {
 
     private let fileManager = FileManager.default
     private let defaults = UserDefaults.standard
+    private let storageDirectory: URL?
 
-    init() {
-        migrateFromUserDefaultsIfNeeded()
+    init(storageDirectory: URL? = nil) {
+        self.storageDirectory = storageDirectory
+        if storageDirectory == nil { migrateFromUserDefaultsIfNeeded() }
     }
 
     // MARK: 存储域（storageDir/rulesFileURL/loadRules/saveRules 域）
 
     /// storageDir getter（签名域确证）。
     var storageDir: URL {
-        FileManager.default.urls(
+        storageDirectory ?? FileManager.default.urls(
             for: .applicationSupportDirectory, in: .userDomainMask
         ).first!
     }
@@ -75,11 +77,15 @@ final class ReplaceRuleService {
         // 由调用方传入规则集后写盘（write 桥）。
     }
 
-    private func write(_ rules: [ReplaceRule]) {
-        try? fileManager.createDirectory(
-            at: storageDir, withIntermediateDirectories: true)
-        if let data = try? JSONEncoder().encode(rules) {
-            try? data.write(to: rulesFileURL, options: .atomic)
+    @discardableResult
+    private func write(_ rules: [ReplaceRule]) -> Bool {
+        do {
+            try fileManager.createDirectory(at: storageDir, withIntermediateDirectories: true)
+            try JSONEncoder().encode(rules).write(to: rulesFileURL, options: .atomic)
+            return true
+        } catch {
+            Logger.log("替换规则保存失败：\(error.localizedDescription)", level: .error)
+            return false
         }
     }
 
@@ -99,10 +105,11 @@ final class ReplaceRuleService {
     // clearAllRules 签名域确证）
 
     /// addRule(ReplaceRule)（签名域确证）。
-    func addRule(_ rule: ReplaceRule) {
+    @discardableResult
+    func addRule(_ rule: ReplaceRule) -> Bool {
         var rules = loadRules()
         rules.append(rule)
-        write(rules)
+        return write(rules)
     }
 
     /// updateRule(ReplaceRule)（签名域确证）。

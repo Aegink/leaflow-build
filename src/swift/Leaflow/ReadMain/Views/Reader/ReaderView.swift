@@ -216,6 +216,7 @@ struct ReaderView: View {
                 showChapterList: $pendingTtsChapterList, showSettings: $pendingTtsSettings, sleepTimer: ttsSleepTimer)
         }
         .onDisappear { viewModel.saveProgress() }
+        .modifier(ReaderSelectionPresentationModifier(vm: viewModel))
     }
 
     /// readerToolbarContent（@ToolbarContentBuilder 显式域——

@@ -99,6 +99,8 @@ struct LeaflowApp: App {
                     Color.clear
                 } else if ProcessInfo.processInfo.arguments.contains("-smokeBookActions") {
                     BookshelfActionsSmokeView()
+                } else if ProcessInfo.processInfo.arguments.contains("-smokeReaderSelection") {
+                    ReaderSelectionSmokeView()
                 } else if ProcessInfo.processInfo.arguments.contains("-smokeTtsPlayer")
                     || ProcessInfo.processInfo.arguments.contains("-smokeTtsQuick") {
                     TtsPlayerSmokeView()

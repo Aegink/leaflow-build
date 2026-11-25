@@ -37,6 +37,7 @@ struct ReplaceRuleCreationSheet: View {
                 Section("替换为") {
                     TextField("替换文本", text: $replacementText)
                         .font(.caption)
+                        .accessibilityIdentifier("reader-replace-text")
                 }
                 Section("原文") {
                     Text(sourceText)
@@ -55,6 +56,7 @@ struct ReplaceRuleCreationSheet: View {
                         dismiss()
                     }
                     .disabled(replacementText.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .accessibilityIdentifier("reader-replace-save")
                 }
             }
             .navigationTitle("创建替换规则")

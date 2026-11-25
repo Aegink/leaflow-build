@@ -17,21 +17,21 @@ import Foundation
 /// 阅读器内替换规则创建（枚举命名空间）。
 enum ReaderReplaceRuleCreation {
 
-    /// 伪代码 0x1007c6934（L9-17）：按 pattern/replacement 构造规则。
-    /// 字段对齐 ReplaceRule 真实 init（enable: Bool? 域，wave-16）。
+    /// 指令体0x1007c6730是构造器；PGO标签与0x1007c6934交错。
+    /// 名称前缀0x101273ef0、前20字符及isRegex=false/enabled=true字段确证。
     static func makeRule(pattern: String, replacement: String) -> ReplaceRule {
         ReplaceRule(
-            name: pattern,
+            name: "阅读页添加: " + String(pattern.prefix(20)),
             pattern: pattern,
             replacement: replacement,
-            enabled: true,
-            group: "")
+            isRegex: false,
+            enabled: true)
     }
 
-    /// 伪代码 0x1007c6730（L20-24）：未启用时置默认序（返回是否启用）。
+    /// 指令体0x1007c6934：nil或0改为1，其余值保持，返回是否改变。
     static func enableReplaceRuleIfNeeded(_ order: inout Int?) -> Bool {
-        if order == nil {
-            order = 0
+        if order == nil || order == 0 {
+            order = 1
             return true
         }
         return false
