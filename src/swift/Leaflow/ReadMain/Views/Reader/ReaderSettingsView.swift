@@ -469,7 +469,7 @@ struct ReaderSettingsView: View {
         preferences.setHTTPRate(1.0)
         preferences.setHTTPDownloadAhead(2)
         preferences.setHTTPTailTrim(milliseconds: 0)
-        preferences.selectEngine(.system)
+        preferences.selectEngine(.system(voiceIdentifier: ""))
     }
 
     // MARK: - 调整控件

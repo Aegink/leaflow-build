@@ -14,6 +14,7 @@ final class ReadAloudCoordinator: ObservableObject {
     @Published private(set) var currentAnchor: ReadAloudAnchor?
     var isSpeaking: Bool { state.isPlaying }
     var isPaused: Bool { state.isPaused }
+    var isPreparing: Bool { owner != nil && state == .preparing }
 
     private let preferences: ReadAloudPreferences
     private let factory: ReadAloudDriverFactory
