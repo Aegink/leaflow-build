@@ -56,7 +56,7 @@ extension ReaderViewModel {
                 list = try await provider(book, needRefresh)
             } else {
                 list = try await bookService.getChapterList(
-                    for: book, useReplaceRule: book.useReplaceRule ?? false,
+                    for: book, useReplaceRule: (book.useReplaceRule ?? 0) != 0,
                     needRefresh: needRefresh)
             }
             guard !list.isEmpty else { throw AppError.emptyContent }
@@ -156,7 +156,7 @@ extension ReaderViewModel {
                     content = try await provider(book, chapterIndex, forceRefresh)
                 } else {
                     content = try await bookService.getChapterContent(for: book,
-                        index: chapterIndex, useReplaceRule: book.useReplaceRule ?? false,
+                        index: chapterIndex, useReplaceRule: (book.useReplaceRule ?? 0) != 0,
                         type: nil, needRefresh: forceRefresh)
                 }
                 try Task.checkCancellation()
