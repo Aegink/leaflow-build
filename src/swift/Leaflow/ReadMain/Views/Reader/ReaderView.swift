@@ -40,6 +40,10 @@ struct ReaderView: View {
     @State private var sliderDraftValue: Double?
     @State private var isSliderChanging = false
     @State private var showQuickSettings = false
+    @State private var showTtsQuickSettings = false
+    @State private var showTtsPlayer = false
+    @State private var ttsSleepTimer = TtsSleepTimer()
+    @ObservedObject private var speechCoordinator = ReaderSpeechSupport.sharedCoordinator
 
     var body: some View {
         // 伪代码 0x1008477c0（L107-218）。
@@ -96,7 +100,13 @@ struct ReaderView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if viewModel.menuVisible || showTopMoreActions {
                 VStack(spacing: 0) {
-                    if showQuickSettings {
+                    if showTtsQuickSettings {
+                        ReaderTtsQuickSettingsPanel(vm: viewModel, sleepTimer: ttsSleepTimer,
+                            onOpenPlayer: { showTtsQuickSettings = false; showTtsPlayer = true },
+                            onSettings: { showTtsQuickSettings = false; showSettings = true },
+                            onStop: { showTtsQuickSettings = false }, coordinator: speechCoordinator,
+                            preferences: viewModel.readAloudPreferences)
+                    } else if showQuickSettings {
                         ReaderQuickSettingsPanel(
                             settings: settings,
                             onDisplay: {
@@ -106,7 +116,7 @@ struct ReaderView: View {
                             onSpacing: { showQuickSettings = true },
                             onSpeech: {
                                 showQuickSettings = false
-                                showSettings = true
+                                showTtsQuickSettings = true
                             },
                             onHighlight: {
                                 showQuickSettings = false
@@ -134,9 +144,9 @@ struct ReaderView: View {
                         chapterPageCount:
                             viewModel.currentChapterPageRange.count,
                         safeAreaBottom: 0,
-                        isSpeaking: false,
-                        isPreparing: false,
-                        isPaused: false,
+                        isSpeaking: speechCoordinator.owns(viewModel) && speechCoordinator.isSpeaking,
+                        isPreparing: speechCoordinator.owns(viewModel) && speechCoordinator.isPreparing,
+                        isPaused: speechCoordinator.owns(viewModel) && speechCoordinator.isPaused,
                         isSettingsActive: showSettings,
                         sliderValue: $sliderValue,
                         sliderDraftValue: $sliderDraftValue,
@@ -163,7 +173,7 @@ struct ReaderView: View {
                                 pageIndex: nil)
                         },
                         onChapterList: { showChapterList = true },
-                        onToggleSpeech: { viewModel.toggleSpeech() },
+                        onToggleSpeech: { viewModel.toggleSpeech(); showTtsQuickSettings = true },
                         onStopSpeech: { viewModel.stopSpeech() },
                         onSearch: { showSearch = true },
                         onSettings: { showSettings = true })
@@ -176,6 +186,7 @@ struct ReaderView: View {
         .animation(
             .easeInOut(duration: 0.2), value: viewModel.menuVisible)
         .onAppear {
+            ttsSleepTimer.bind(to: viewModel)
             Task {
                 if let book { viewModel.configure(book: book, settings: settings) }
                 await viewModel.loadBookWithProgress(
@@ -190,6 +201,10 @@ struct ReaderView: View {
                         viewModel.jumpToChapter(bookmark.chapterIndex, pageIndex: nil)
                     })
             }
+        }
+        .fullScreenCover(isPresented: $showTtsPlayer) {
+            TtsPlayerView(vm: viewModel, isPresented: $showTtsPlayer,
+                showChapterList: $showChapterList, showSettings: $showSettings, sleepTimer: ttsSleepTimer)
         }
         .onDisappear { viewModel.saveProgress() }
     }
@@ -230,7 +245,7 @@ struct ReaderView: View {
     /// 伪代码 0x10084b8cc（L230-249）：任一呈现层可见判定。
     private var isAnyReaderPresentationVisible: Bool {
         showChapterList || showSearch || showSettings || showCommentBrowser
-            || showTopMoreActions || viewModel.menuVisible
+            || showTopMoreActions || showTtsPlayer || showTtsQuickSettings || viewModel.menuVisible
     }
 }
 

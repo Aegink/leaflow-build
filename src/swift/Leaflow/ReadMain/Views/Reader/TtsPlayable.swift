@@ -23,10 +23,13 @@
 
 import Foundation
 import SwiftUI
+import Observation
 
 /// TTS 可播放协议（readAloudPreferences/httpTtsSources 扩展域确证）。
 @MainActor
-protocol TtsPlayable: ReadAloudSessionOwner {
+protocol TtsPlayable: ReadAloudSessionOwner, Observable {
+    var readAloudCoordinator: ReadAloudCoordinator { get }
+    var readAloudPreferences: ReadAloudPreferences { get }
 
     /// 封面域（ttsCoverUrl/ttsCoverBook getter 签名确证）。
     var ttsCoverUrl: String? { get }
@@ -102,6 +105,7 @@ extension ReaderViewModel: TtsPlayable {
 // MARK: - LocalReaderViewModel 桥域（0x1008b8478-0x1008b86a0 L60-64）
 
 extension LocalReaderViewModel: TtsPlayable {
+    var readAloudCoordinator: ReadAloudCoordinator { ReaderSpeechSupport.sharedCoordinator }
 
     /// ttsCoverUrl getter（0x1008b8478 L60 域确证）。
     var ttsCoverUrl: String? {

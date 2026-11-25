@@ -34,6 +34,10 @@ struct LocalReaderView: View {
     @State private var sliderValue: Double = 0
     @State private var sliderDraftValue: Double?
     @State private var isSliderChanging = false
+    @State private var showTtsQuickSettings = false
+    @State private var showTtsPlayer = false
+    @State private var ttsSleepTimer = TtsSleepTimer()
+    @ObservedObject private var speechCoordinator = ReaderSpeechSupport.sharedCoordinator
     @Environment(\.colorScheme) private var systemColorScheme
 
     init(book: LocalBook, settings: Binding<ReadingSettings>) {
@@ -68,6 +72,7 @@ struct LocalReaderView: View {
                                 book: book, settings: settings,
                                 localBookService: LocalBookService.shared)
                             viewModel = vm
+                            ttsSleepTimer.bind(to: vm)
                             await vm.loadBook()
                         }
                 }
@@ -85,8 +90,22 @@ struct LocalReaderView: View {
         .sheet(isPresented: $showSettings) {
             ReaderSettingsView(settings: $settings, onDismiss: { showSettings = false })
         }
+        .fullScreenCover(isPresented: $showTtsPlayer) {
+            if let viewModel {
+                TtsPlayerView(vm: viewModel, isPresented: $showTtsPlayer,
+                    showChapterList: $showChapterList, showSettings: $showSettings, sleepTimer: ttsSleepTimer)
+            }
+        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if menuVisible, let viewModel {
+                VStack(spacing: 0) {
+                if showTtsQuickSettings {
+                    ReaderTtsQuickSettingsPanel(vm: viewModel, sleepTimer: ttsSleepTimer,
+                        onOpenPlayer: { showTtsQuickSettings = false; showTtsPlayer = true },
+                        onSettings: { showTtsQuickSettings = false; showSettings = true },
+                        onStop: { showTtsQuickSettings = false }, coordinator: speechCoordinator,
+                        preferences: viewModel.readAloudPreferences)
+                }
                 ReaderBottomToolbar(
                     settings: settings,
                     chapterTitle: book.name,
@@ -97,9 +116,9 @@ struct LocalReaderView: View {
                             $0.chapterIndex == viewModel.currentChapterIndex
                         }.count),
                     safeAreaBottom: 0,
-                    isSpeaking: false,
-                    isPreparing: false,
-                    isPaused: false,
+                    isSpeaking: speechCoordinator.owns(viewModel) && speechCoordinator.isSpeaking,
+                    isPreparing: speechCoordinator.owns(viewModel) && speechCoordinator.isPreparing,
+                    isPaused: speechCoordinator.owns(viewModel) && speechCoordinator.isPaused,
                     isSettingsActive: showSettings,
                     sliderValue: $sliderValue,
                     sliderDraftValue: $sliderDraftValue,
@@ -128,11 +147,12 @@ struct LocalReaderView: View {
                         }
                     },
                     onChapterList: { showChapterList = true },
-                    onToggleSpeech: {},
-                    onStopSpeech: {},
+                    onToggleSpeech: { viewModel.toggleSpeech(); showTtsQuickSettings = true },
+                    onStopSpeech: { viewModel.stopSpeech() },
                     onSearch: { showSearch = true },
                     onSettings: { showSettings = true })
                     .transition(.move(edge: .bottom))
+                }
             }
         }
         .animation(.easeInOut(duration: 0.2), value: menuVisible)
@@ -214,6 +234,13 @@ struct LocalReaderView: View {
                 } label: {
                     Image(systemName: "textformat")
                 }
+                Spacer()
+                Button {
+                    showTtsQuickSettings.toggle()
+                } label: {
+                    Image(systemName: "speaker.wave.2")
+                }
+                .accessibilityLabel("朗读")
                 Spacer()
                 Button {
                     menuVisible = false

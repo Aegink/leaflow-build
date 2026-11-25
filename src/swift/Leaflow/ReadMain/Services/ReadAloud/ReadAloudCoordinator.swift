@@ -31,6 +31,13 @@ final class ReadAloudCoordinator: ObservableObject {
     private var segmentQueue: [ReadAloudSegment] = []
     private var queueSnapshot: ReadAloudQueueSnapshot?
     private var resumeAfterInterruption = false
+    private weak var chapterEndPolicyOwner: ReadAloudSessionOwner?
+    private var chapterEndPolicy: (() -> Bool)?
+
+    func setChapterEndPolicy(owner: ReadAloudSessionOwner, shouldStop: @escaping () -> Bool) {
+        chapterEndPolicyOwner = owner
+        chapterEndPolicy = shouldStop
+    }
 
     init(
         factory: ReadAloudDriverFactory,
@@ -260,12 +267,14 @@ final class ReadAloudCoordinator: ObservableObject {
         switch event {
         case .started(let index):
             if !isPaused { state = .playing }
-            progress = Double(index) / Double(max(1, segmentQueue.count))
+            if segmentQueue.indices.contains(index), let anchor = segmentQueue[index].firstPlaybackAnchor {
+                updateProgress(anchor: anchor)
+            }
             updateNowPlaying(state: state)
         case .anchorChanged(let index, let anchor):
             guard !isPaused else { return }
             currentAnchor = anchor
-            progress = Double(index) / Double(max(1, segmentQueue.count))
+            updateProgress(anchor: anchor)
             publishVisibleLocation(anchor.location)
         case .segmentSkipped(let index, let message):
             progress = Double(index + 1) / Double(max(1, segmentQueue.count))
@@ -278,6 +287,10 @@ final class ReadAloudCoordinator: ObservableObject {
 
     private func continueWithNextChapterOrFinish() {
         guard let owner else { finish(); return }
+        if chapterEndPolicyOwner === owner, chapterEndPolicy?() == true {
+            finish()
+            return
+        }
         beginTransition(to: .preparing, delayNanoseconds: 0) { [weak self] token in
             guard let self else { return }
             let result = await owner.readAloudAdvanceChapter()
@@ -309,6 +322,18 @@ final class ReadAloudCoordinator: ObservableObject {
         visibleLocation = location
         owner?.readAloudShow(location: location)
         owner?.readAloudSaveProgress()
+    }
+
+    private func updateProgress(anchor: ReadAloudAnchor) {
+        let pages = owner?.readAloudPages.filter { $0.chapterIndex == anchor.location.chapterIndex } ?? []
+        let ranges = pages.compactMap(\.contentRangeInChapter)
+        if let end = ranges.map({ NSMaxRange($0) }).max(), end > 0 {
+            let position = anchor.rangeInChapter?.location
+                ?? pages.first(where: { $0.pageIndex == anchor.pageIndex })?.contentRangeInChapter?.location ?? 0
+            progress = min(1, max(0, Double(position) / Double(end)))
+        } else if let index = pages.firstIndex(where: { $0.pageIndex == anchor.pageIndex }) {
+            progress = Double(index) / Double(max(1, pages.count))
+        }
     }
 
     private func releaseAudioPlayback() {

@@ -147,6 +147,7 @@ struct ReaderPrimarySheetsModifier: ViewModifier {
     @Binding var showChangeSource: Bool
 
     @State private var fallbackSettings = ReadingSettings.load()
+    @State private var ttsSleepTimer = TtsSleepTimer()
 
     private var settingsBinding: Binding<ReadingSettings> {
         Binding(
@@ -199,7 +200,8 @@ struct ReaderPrimarySheetsModifier: ViewModifier {
                 ChapterTitleStyleSettingsView(settings: settingsBinding)
             }
             .sheet(isPresented: $showTtsPlayer) {
-                TtsPlayerView()
+                TtsPlayerView(vm: vm, isPresented: $showTtsPlayer, showChapterList: $showChapterList,
+                    showSettings: $showSettings, sleepTimer: ttsSleepTimer)
             }
             .sheet(isPresented: $showChangeSource) {
                 ContentUnavailableView(

@@ -117,9 +117,39 @@ jobs:
             | grep -c "UIKitApplication:com.leaflow.app" || true)
           echo "bookshelf_alive=$SHELF_ALIVE" >> smoke-result.txt
           xcrun simctl io "$UDID" screenshot sim-bookshelf.png 2>/dev/null
+          # T-1602：两种皮肤、快速面板及大字/iPad 截图，只用固定书籍模型，不伪造真机验收。
+          for SKIN in classic apple; do
+            xcrun simctl terminate "$UDID" com.leaflow.app 2>/dev/null
+            TTS_OUT=$(xcrun simctl launch "$UDID" com.leaflow.app -smokeTtsPlayer -tts_player_skin "$SKIN" 2>&1)
+            echo "launch_tts_$SKIN=$TTS_OUT" >> smoke-result.txt
+            sleep 5
+            TTS_ALIVE=$(xcrun simctl spawn "$UDID" launchctl list 2>/dev/null | grep -c "UIKitApplication:com.leaflow.app" || true)
+            echo "tts_${SKIN}_alive=$TTS_ALIVE" >> smoke-result.txt
+            xcrun simctl io "$UDID" screenshot "sim-tts-$SKIN.png" 2>/dev/null
+          done
+          xcrun simctl terminate "$UDID" com.leaflow.app 2>/dev/null
+          xcrun simctl ui "$UDID" appearance dark
+          xcrun simctl launch "$UDID" com.leaflow.app -smokeTtsPlayer -tts_player_skin apple 2>/dev/null
+          sleep 5
+          xcrun simctl io "$UDID" screenshot sim-tts-dark.png 2>/dev/null
+          xcrun simctl terminate "$UDID" com.leaflow.app 2>/dev/null
+          xcrun simctl ui "$UDID" content_size accessibility-extra-extra-extra-large
+          xcrun simctl launch "$UDID" com.leaflow.app -smokeTtsQuick 2>/dev/null
+          sleep 5
+          xcrun simctl io "$UDID" screenshot sim-tts-quick-large.png 2>/dev/null
           CRASH=$(ls ~/Library/Logs/DiagnosticReports 2>/dev/null | grep -ci leaflow || true)
           echo "crash_reports=$CRASH" >> smoke-result.txt
           xcrun simctl shutdown "$UDID" 2>/dev/null
+          IPAD=$(xcrun simctl list devices available | grep -m1 "iPad" | grep -oE '[0-9A-F-]{36}')
+          if [ -n "$IPAD" ]; then
+            xcrun simctl boot "$IPAD" 2>/dev/null
+            xcrun simctl bootstatus "$IPAD" -b
+            xcrun simctl install "$IPAD" "$APP"
+            xcrun simctl launch "$IPAD" com.leaflow.app -smokeTtsPlayer -tts_player_skin classic
+            sleep 5
+            xcrun simctl io "$IPAD" screenshot sim-tts-ipad.png 2>/dev/null
+            xcrun simctl shutdown "$IPAD" 2>/dev/null
+          fi
           cat smoke-result.txt
 
       # ---------- 阶段 2：未签名设备 IPA（TrollStore 用） ----------
@@ -217,4 +247,5 @@ jobs:
             sim-settings.png
             sim-sources.png
             sim-bookshelf.png
+            sim-tts-*.png
           if-no-files-found: warn

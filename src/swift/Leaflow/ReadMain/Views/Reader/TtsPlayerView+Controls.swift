@@ -1,197 +1,203 @@
 // 原路径: ReadMain/Views/Reader/TtsPlayerView.swift
-// 拆分归属见 tools/restoration_gate_checks.py；仍计入同一个原始文件。
+// PGO: 倍速/控制 L257-309；类型表 11875-11948：定时器、进度条与音量字段。
+// ttsProgress 的 0x1008bd388 标签与块体冲突，进度公式仍需原版对照，不计全量完成。
 import SwiftUI
 import AVFoundation
+import MediaPlayer
 
-// MARK: - 倍速/进度/定时桥（ttsUserSpeed 三桥 + ttsProgress 域确证）
-// wave-16：桥族 @MainActor——readAloudPreferences/服务域均为 MainActor 隔离。
-
-/// ttsUserSpeed<A: TtsPlayable>(vm:)（0x 域 L1010-1024 确证：按引擎
-/// 读取倍速）。
 @MainActor
 func ttsUserSpeed<A: TtsPlayable>(vm: A) -> Float {
-    vm.readAloudPreferences.systemRate
+    switch vm.readAloudPreferences.selectedEngine {
+    case .http: return vm.readAloudPreferences.httpRate
+    case .system: return vm.readAloudPreferences.systemRate
+    }
 }
 
-/// ttsSetUserSpeed<A: TtsPlayable>(vm:speed:)（0x 域确证）。
 @MainActor
 func ttsSetUserSpeed<A: TtsPlayable>(vm: A, speed: Float) {
-    vm.readAloudPreferences.setSystemRate(speed)
+    switch vm.readAloudPreferences.selectedEngine {
+    case .http: vm.readAloudPreferences.setHTTPRate(speed)
+    case .system: vm.readAloudPreferences.setSystemRate(speed)
+    }
+    if vm.readAloudCoordinator.owns(vm) { vm.readAloudCoordinator.settingsDidChange() }
 }
 
-/// ttsSetUserSpeed(_:)（视图滑杆无 vm 域——本地速度态写入，wave-16 补桥）。
-@MainActor
-func ttsSetUserSpeed(_ speed: Float) {
-    TtsPlayerSpeedState.shared.speed = speed
-}
-
-/// 视图速度态（滑杆桥共享载体，还原推断）。
-@MainActor
-final class TtsPlayerSpeedState {
-    static let shared = TtsPlayerSpeedState()
-    var speed: Float = 1.0
-}
-
-/// ttsUserSpeedRange<A: TtsPlayable>(vm:)（0x 域确证）。
 @MainActor
 func ttsUserSpeedRange<A: TtsPlayable>(vm: A) -> ClosedRange<Float> {
-    0.5...3.0
-}
-
-/// ttsProgress（0x 域 L1026-1059 确证）。
-struct TtsProgress {
-    var headline: String = "本章"
-    var tail: String = ""
-    var ratio: Double = 0
-
-    var summary: String {
-        headline
+    switch vm.readAloudPreferences.selectedEngine {
+    case .http: return 0.5...3
+    case .system: return 0.1...2
     }
 }
 
-/// ttsTogglePlayPause（0x 域 L1061-1071 确证）。@MainActor（服务域，wave-16）。
+struct TtsProgress: Equatable {
+    var headline: String
+    var tail: String
+    var ratio: Double
+    var summary: String { tail.isEmpty ? headline : "\(headline) · \(tail)" }
+}
+
 @MainActor
-func ttsTogglePlayPause() {
-    AudioBookService.shared.togglePlayPause()
+func ttsProgress<A: TtsPlayable>(vm: A) -> TtsProgress {
+    let pages = vm.readAloudPages
+    let index = vm.readAloudCurrentPageIndex
+    guard pages.indices.contains(index) else { return .init(headline: "本章", tail: "0/0", ratio: 0) }
+    let current = pages[index]
+    let chapterPages = pages.filter {
+        $0.chapterIndex == current.chapterIndex && ReadAloudQueueBuilder.isReadable($0)
+    }.sorted { $0.pageIndex < $1.pageIndex }
+    guard let ordinal = chapterPages.firstIndex(where: { $0.pageIndex == current.pageIndex }) else {
+        return .init(headline: current.chapterTitle, tail: "0/0", ratio: 0)
+    }
+    var ratio = Double(ordinal) / Double(max(1, chapterPages.count))
+    // 活跃属主才可消费播放位置，不能把另一书的进度显示到当前页。
+    if vm.readAloudCoordinator.owns(vm) {
+        ratio = max(ratio, vm.readAloudCoordinator.progress)
+    }
+    return .init(headline: current.chapterTitle.isEmpty ? vm.ttsChapterName(at: current.chapterIndex) : current.chapterTitle,
+        tail: "\(ordinal + 1)/\(chapterPages.count)", ratio: min(1, max(0, ratio)))
 }
 
-/// ttsNextChapter（0x 域 L1073-1094 确证）。
-func ttsNextChapter() {
-    // 章节推进桥（ReaderViewModel 联动域还原桥）。
-}
-
-/// ttsPrevChapter（0x 域确证）。
-func ttsPrevChapter() {
-    // 章节回退桥（ReaderViewModel 联动域还原桥）。
-}
-
-/// ttsStopSpeech（'停止朗读' L9205 域桥）。@MainActor（服务域，wave-16）。
 @MainActor
-func ttsStopSpeech() {
-    AudioBookService.shared.stop()
-}
+func ttsTogglePlayPause<A: TtsPlayable>(vm: A) { vm.readAloudCoordinator.toggle(owner: vm) }
 
-/// systemTtsMultiplierToRate（0x 域 L1097-1116 确证）。
-func systemTtsMultiplierToRate(_ multiplier: Float) -> Float {
-    AVSpeechUtteranceDefaultSpeechRate * multiplier
-}
+@MainActor
+func ttsPrevChapter<A: TtsPlayable>(vm: A) { ttsChangeChapter(vm: vm, delta: -1) }
 
-/// systemTtsRateToMultiplier（0x 域确证）。
-func systemTtsRateToMultiplier(_ rate: Float) -> Float {
-    guard AVSpeechUtteranceDefaultSpeechRate > 0 else { return 1.0 }
-    return rate / AVSpeechUtteranceDefaultSpeechRate
-}
+@MainActor
+func ttsNextChapter<A: TtsPlayable>(vm: A) { ttsChangeChapter(vm: vm, delta: 1) }
 
-import AVFoundation
-
-// MARK: - 定时器菜单（TtsSleepTimerMenu 域 L1128-1154 确证）
-
-/// TTS 定时器菜单（body + ' 分钟' L10946 域确证）。
-struct TtsSleepTimerMenu: View {
-
-    @State private var minutes = 0
-
-    var body: some View {
-        Menu {
-            ForEach([5, 10, 15, 30, 60], id: \.self) { value in
-                // ' 分钟' L10946 域确证。
-                Button("\(value) 分钟") {
-                    minutes = value
-                    AudioBookService.shared.configureSleepTimer(
-                        minutes: value)
-                }
-            }
-            Button(role: .destructive) {
-                minutes = 0
-                AudioBookService.shared.cancelSleepTimer()
-            } label: {
-                Label("取消定时", systemImage: "moon.zzz.fill")
-            }
-        } label: {
-            Label(
-                minutes > 0 ? "\(minutes) 分钟" : "定时",
-                systemImage: "moon.zzz")
-        }
+@MainActor
+private func ttsChangeChapter<A: TtsPlayable>(vm: A, delta: Int) {
+    if vm.readAloudCoordinator.owns(vm), vm.readAloudCoordinator.state.isActive {
+        vm.readAloudCoordinator.changeChapter(by: delta)
+    } else {
+        Task { @MainActor in _ = await vm.readAloudChangeChapter(by: delta) }
     }
 }
 
-/// 音量滑条（TtsVolumeSlider 域 L940-991 签名确证）。
-struct TtsVolumeSlider: View {
+@MainActor
+func ttsStopSpeech<A: TtsPlayable>(vm: A) { vm.readAloudCoordinator.stop(owner: vm) }
 
-    @State private var volume: Double = 1.0
+func systemTtsMultiplierToRate(_ multiplier: Float) -> Float { AVSpeechUtteranceDefaultSpeechRate * multiplier }
+func systemTtsRateToMultiplier(_ rate: Float) -> Float { rate / AVSpeechUtteranceDefaultSpeechRate }
 
-    var body: some View {
-        HStack {
-            Image(systemName: "speaker.wave.1")
-            Slider(value: $volume, in: 0...1)
-            Image(systemName: "speaker.wave.3")
-        }
-        .foregroundStyle(.secondary)
-    }
-}
-
-// MARK: - T-1401-08 逐域补齐（TTS 睡眠定时域）
-
-/// 睡眠定时模式（TtsSleepTimerMenu 域确证：chapterEnd + 分钟档）。
-enum TtsSleepTimerMode: Equatable {
+enum SleepTimerMode: Equatable {
     case off
-    case chapterEnd
+    case endOfChapter
     case minutes(Int)
 }
 
-/// TTS 睡眠定时器（mode 0x1008bb2b4 / configuredMinutes 0x1008ba5b0 /
-/// countdownText 0x1008ba71c / setMinutes 0x1008ba768 /
-/// consumeChapterEndIfNeeded 0x1008b87ac 域；MainActor executor 断言确证
-/// ——"Leaflow/TtsPlayerView.swift" L151 域）。
-@MainActor
+// configure 0x1008b9f88 L120-142 确证 1 秒 Timer；截止时间避免后台停调后倒计时变慢。
+@Observable @MainActor
 final class TtsSleepTimer {
+    private(set) var mode: SleepTimerMode = .off
+    private(set) var remaining: TimeInterval = 0
+    private(set) var shouldStop = false
+    @ObservationIgnored private var timer: Timer?
+    @ObservationIgnored private var deadline: Date?
+    @ObservationIgnored private let now: () -> Date
+    @ObservationIgnored private let schedulesTimer: Bool
+    @ObservationIgnored private var onStop: (() -> Void)?
 
-    /// 伪代码 0x1008bb2b4（L55）：模式 varinit（块体与 TtsSleepTimerMenu
-    /// body 域交错——默认关闭）。
-    private(set) var mode: TtsSleepTimerMode = .off
-    /// 定时起点（倒计时域）。
-    private var startDate: Date?
-    /// 配置分钟（configuredMinutes 域源）。
-    private var minutes: Int = 0
-    /// 章尾待消费标志（consumeChapterEndIfNeeded 域）。
-    private var pendingChapterEnd: Bool = false
-
-    /// 伪代码 0x1008ba5b0（L80-83）：配置分钟读取。
-    var configuredMinutes: Int {
-        minutes
+    init(now: @escaping () -> Date = Date.init, schedulesTimer: Bool = true) {
+        self.now = now
+        self.schedulesTimer = schedulesTimer
     }
+    deinit { timer?.invalidate() }
 
-    /// 伪代码 0x1008ba71c（L86-91）：倒计时文案（剩余分钟档位域）。
-    var countdownText: String? {
-        guard mode == .minutes(minutes), let start = startDate else {
-            return nil
+    var configuredMinutes: Int { if case .minutes(let minutes) = mode { return minutes }; return 0 }
+    var countdownText: String? { remaining > 0 ? audioFormatTime(remaining) : nil }
+    var timerLabel: String {
+        switch mode {
+        case .off: return "定时"
+        case .endOfChapter: return "本章结束"
+        case .minutes: return countdownText ?? "定时"
         }
-        let remaining = Double(minutes * 60)
-            - Date().timeIntervalSince(start)
-        guard remaining > 0 else { return nil }
-        return audioFormatTime(remaining)
     }
 
-    /// 伪代码 0x1008ba768（L94-97）：分钟档设置（mode/起始点/分钟域）。
+    func bind<A: TtsPlayable>(to vm: A) {
+        onStop = { [weak vm] in
+            guard let vm else { return }
+            vm.readAloudCoordinator.stop(owner: vm)
+        }
+        vm.readAloudCoordinator.setChapterEndPolicy(owner: vm) { [weak self] in
+            self?.consumeChapterEndIfNeeded() ?? false
+        }
+    }
+
     func setMinutes(_ value: Int) {
-        minutes = value
-        mode = value > 0 ? .minutes(value) : .off
-        startDate = value > 0 ? Date() : nil
+        let minutes = min(180, max(0, value))
+        mode = minutes == 0 ? .off : .minutes(minutes)
+        configure()
     }
+    func setChapterEnd() { mode = .endOfChapter; configure() }
+    func adjustMinutes(by delta: Int) { setMinutes(configuredMinutes + delta) }
+    func cancel() { mode = .off; configure() }
 
-    /// 章尾模式设置。
-    func setChapterEnd() {
-        mode = .chapterEnd
-        pendingChapterEnd = true
+    func notifyChapterEnd() {
+        if mode == .endOfChapter { shouldStop = true }
     }
-
-    /// 伪代码 0x1008b87ac（L111-118）：章尾消费——chapterEnd 档标志复位域；
-    /// 返回是否应停止播放。
     @discardableResult
     func consumeChapterEndIfNeeded() -> Bool {
-        guard mode == .chapterEnd, pendingChapterEnd else { return false }
-        pendingChapterEnd = false
+        notifyChapterEnd()
+        guard shouldStop else { return false }
         mode = .off
+        deadline = nil
+        remaining = 0
+        timer?.invalidate()
+        timer = nil
+        shouldStop = false
         return true
     }
+
+    private func configure() {
+        timer?.invalidate()
+        timer = nil
+        shouldStop = false
+        deadline = nil
+        remaining = 0
+        guard case .minutes(let minutes) = mode else { return }
+        remaining = Double(minutes * 60)
+        deadline = now().addingTimeInterval(remaining)
+        guard schedulesTimer else { return }
+        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.refresh() }
+        }
+    }
+
+    func refresh() {
+        guard let deadline else { return }
+        remaining = max(0, deadline.timeIntervalSince(now()))
+        guard remaining == 0 else { return }
+        self.deadline = nil
+        timer?.invalidate()
+        timer = nil
+        mode = .off
+        shouldStop = true
+        onStop?()
+    }
+}
+
+struct TtsSleepTimerMenu<Label: View>: View {
+    @Bindable var sleepTimer: TtsSleepTimer
+    @ViewBuilder let label: () -> Label
+    var body: some View {
+        Menu {
+            ForEach([5, 10, 15, 30, 60], id: \.self) { minutes in
+                Button("\(minutes) 分钟") { sleepTimer.setMinutes(minutes) }
+            }
+            Button("本章结束") { sleepTimer.setChapterEnd() }
+            Button("取消定时", role: .destructive) { sleepTimer.cancel() }
+        } label: { label() }
+    }
+}
+
+struct TtsVolumeSlider: UIViewRepresentable {
+    func makeUIView(context: Context) -> MPVolumeView {
+        let view = MPVolumeView()
+        view.showsRouteButton = false
+        return view
+    }
+    func updateUIView(_ uiView: MPVolumeView, context: Context) { uiView.tintColor = .label }
 }

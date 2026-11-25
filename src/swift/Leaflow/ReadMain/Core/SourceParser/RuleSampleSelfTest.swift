@@ -105,6 +105,7 @@ enum RuleSampleSelfTest {
             run()
             await ReaderSampleSelfTest.run(emit: emit)
             await ReadAloudSampleSelfTest.run(emit: emit)
+            await TtsPlayerSampleSelfTest.run(emit: emit)
             emitRaw("SELFTEST_END")
             exit(0)
         }

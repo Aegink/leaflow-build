@@ -15,7 +15,8 @@ STUB_MARKERS = ("待真机", "骨架", "占位", "计数器桩", "推断", "未�
 # 拆分只改变源码文件边界，规模、函数和桩仍计入同一个原始文件。
 SWIFT_SOURCE_PARTS = {
     "ReadMain/Views/Reader/ReaderSettingsView.swift": ["ReadMain/Views/Reader/ReaderSettingsView+Speech.swift"],
-    "ReadMain/Views/Reader/TtsPlayerView.swift": ["ReadMain/Views/Reader/TtsPlayerView+Controls.swift"],
+    "ReadMain/Views/Reader/TtsPlayerView.swift": ["ReadMain/Views/Reader/TtsPlayerView+Controls.swift",
+        "ReadMain/Views/Reader/TtsPlayerView+QuickSettings.swift"],
 }
 
 

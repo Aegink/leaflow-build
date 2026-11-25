@@ -127,7 +127,7 @@ struct ReaderBottomToolbar: View {
             controlButton(
                 icon: speechIcon, title: speechTitle,
                 action: onToggleSpeech)
-            if isSpeaking {
+            if isSpeaking || isPaused || isPreparing {
                 controlButton(
                     icon: "stop.circle", title: "停止",
                     action: onStopSpeech)
@@ -147,13 +147,13 @@ struct ReaderBottomToolbar: View {
 
     private var speechIcon: String {
         if isPreparing { return "hourglass" }
-        if isSpeaking && isPaused { return "pause.circle" }
+        if isPaused { return "play.circle" }
         return isSpeaking ? "speaker.wave.2.fill" : "speaker.wave.2"
     }
 
     private var speechTitle: String {
         if isPreparing { return "准备中" }
-        if isSpeaking && isPaused { return "继续" }
+        if isPaused { return "继续" }
         return isSpeaking ? "暂停" : "朗读"
     }
 

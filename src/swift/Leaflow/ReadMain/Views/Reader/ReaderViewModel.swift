@@ -226,7 +226,7 @@ extension ReaderViewModel {
 
     /// 伪代码 0x100863ea4（L319）：语音准备中判定（计数器桩；会话标志联动）。
     var isSpeechPreparing: Bool {
-        speechSessionPreparing
+        readAloudCoordinator.owns(self) && readAloudCoordinator.isPreparing
     }
 
     /// 伪代码 0x100864f70（L373-384）：章节状态调试标签。
