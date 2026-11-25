@@ -51,8 +51,9 @@ func ttsProgress<A: TtsPlayable>(vm: A) -> TtsProgress {
     }
     var ratio = Double(ordinal) / Double(max(1, chapterPages.count))
     // 活跃属主才可消费播放位置，不能把另一书的进度显示到当前页。
-    if vm.readAloudCoordinator.owns(vm) {
-        ratio = max(ratio, vm.readAloudCoordinator.progress)
+    if vm.readAloudCoordinator.owns(vm),
+       vm.readAloudCoordinator.currentAnchor?.location.chapterIndex == current.chapterIndex {
+        ratio = vm.readAloudCoordinator.progress
     }
     return .init(headline: current.chapterTitle.isEmpty ? vm.ttsChapterName(at: current.chapterIndex) : current.chapterTitle,
         tail: "\(ordinal + 1)/\(chapterPages.count)", ratio: min(1, max(0, ratio)))
@@ -140,6 +141,7 @@ final class TtsSleepTimer {
     }
     @discardableResult
     func consumeChapterEndIfNeeded() -> Bool {
+        guard mode == .endOfChapter else { return false }
         notifyChapterEnd()
         guard shouldStop else { return false }
         mode = .off

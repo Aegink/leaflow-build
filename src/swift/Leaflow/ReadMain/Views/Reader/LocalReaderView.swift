@@ -30,12 +30,15 @@ struct LocalReaderView: View {
     @State private var showSearch = false
     @State private var showChapterList = false
     @State private var showSettings = false
+    @State private var settingsInitialTab = 0
     @State private var menuVisible = false
     @State private var sliderValue: Double = 0
     @State private var sliderDraftValue: Double?
     @State private var isSliderChanging = false
     @State private var showTtsQuickSettings = false
     @State private var showTtsPlayer = false
+    @State private var pendingTtsChapterList = false
+    @State private var pendingTtsSettings = false
     @State private var ttsSleepTimer = TtsSleepTimer()
     @ObservedObject private var speechCoordinator = ReaderSpeechSupport.sharedCoordinator
     @Environment(\.colorScheme) private var systemColorScheme
@@ -88,12 +91,17 @@ struct LocalReaderView: View {
             chapterListSheet
         }
         .sheet(isPresented: $showSettings) {
-            ReaderSettingsView(settings: $settings, onDismiss: { showSettings = false })
+            ReaderSettingsView(settings: $settings, onDismiss: { showSettings = false }, initialTab: settingsInitialTab)
         }
-        .fullScreenCover(isPresented: $showTtsPlayer) {
+        .fullScreenCover(isPresented: $showTtsPlayer, onDismiss: {
+            if pendingTtsChapterList { showChapterList = true }
+            if pendingTtsSettings { settingsInitialTab = 3; showSettings = true }
+            pendingTtsChapterList = false
+            pendingTtsSettings = false
+        }) {
             if let viewModel {
                 TtsPlayerView(vm: viewModel, isPresented: $showTtsPlayer,
-                    showChapterList: $showChapterList, showSettings: $showSettings, sleepTimer: ttsSleepTimer)
+                    showChapterList: $pendingTtsChapterList, showSettings: $pendingTtsSettings, sleepTimer: ttsSleepTimer)
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -102,7 +110,7 @@ struct LocalReaderView: View {
                 if showTtsQuickSettings {
                     ReaderTtsQuickSettingsPanel(vm: viewModel, sleepTimer: ttsSleepTimer,
                         onOpenPlayer: { showTtsQuickSettings = false; showTtsPlayer = true },
-                        onSettings: { showTtsQuickSettings = false; showSettings = true },
+                        onSettings: { showTtsQuickSettings = false; settingsInitialTab = 3; showSettings = true },
                         onStop: { showTtsQuickSettings = false }, coordinator: speechCoordinator,
                         preferences: viewModel.readAloudPreferences)
                 }
@@ -150,7 +158,7 @@ struct LocalReaderView: View {
                     onToggleSpeech: { viewModel.toggleSpeech(); showTtsQuickSettings = true },
                     onStopSpeech: { viewModel.stopSpeech() },
                     onSearch: { showSearch = true },
-                    onSettings: { showSettings = true })
+                    onSettings: { settingsInitialTab = 0; showSettings = true })
                     .transition(.move(edge: .bottom))
                 }
             }
@@ -275,13 +283,17 @@ struct LocalReaderView: View {
     private var chapterListSheet: some View {
         ReaderChapterListView(
             chapters: .constant(
-                (viewModel?.chapterContents ?? []).enumerated().map { index, content in
-                    ReaderChapterListChapter(index: index, title: "第\(index + 1)章")
+                (viewModel?.chapterContents ?? []).indices.map { index in
+                    ReaderChapterListChapter(index: index, title: viewModel?.ttsChapterName(at: index) ?? "")
                 }),
             currentChapterIndex: .constant(viewModel?.currentChapterIndex ?? 0),
             onPickChapter: { index in
                 Task {
-                    await viewModel?.jumpToChapter(index, coordinateReadAloud: false)
+                    guard let viewModel else { return }
+                    showChapterList = false
+                    _ = await viewModel.readAloudChangeChapter(by: index - viewModel.currentChapterIndex)
+                    viewModel.readAloudCoordinator.seekToCurrentPage(owner: viewModel)
+                    viewModel.saveProgress()
                 }
             })
     }

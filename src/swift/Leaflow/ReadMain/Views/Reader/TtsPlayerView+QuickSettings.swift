@@ -10,6 +10,8 @@ struct ReaderTtsQuickSettingsPanel<A: TtsPlayable>: View {
     let onStop: () -> Void
     @ObservedObject var coordinator: ReadAloudCoordinator
     @ObservedObject var preferences: ReadAloudPreferences
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    private var usesVerticalLayout: Bool { dynamicTypeSize.isAccessibilitySize }
 
     private var currentSpeed: Float { ttsUserSpeed(vm: vm) }
     private var isPlaying: Bool { coordinator.owns(vm) && coordinator.isSpeaking }
@@ -19,6 +21,7 @@ struct ReaderTtsQuickSettingsPanel<A: TtsPlayable>: View {
     private var timerSecondaryText: String? { sleepTimer.mode == .endOfChapter ? "本章结束后停止朗读" : nil }
 
     var body: some View {
+        ScrollView {
         VStack(alignment: .leading, spacing: 14) {
             headerRow(progress: ttsProgress(vm: vm))
             playbackRow
@@ -29,30 +32,40 @@ struct ReaderTtsQuickSettingsPanel<A: TtsPlayable>: View {
         }
         .padding(16)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        }
+        .frame(maxHeight: 460)
         .onAppear { sleepTimer.bind(to: vm); sleepTimer.refresh() }
     }
 
     private func headerRow(progress: TtsProgress) -> some View {
-        HStack(alignment: .firstTextBaseline) {
+        let layout = usesVerticalLayout ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(alignment: .firstTextBaseline))
+        return layout {
             Text("朗读").font(.headline)
-            Spacer()
+            if !usesVerticalLayout { Spacer() }
             Text(progress.summary).font(.caption).foregroundStyle(.secondary).lineLimit(2)
         }
     }
     private var playbackRow: some View {
-        HStack {
+        let layout = usesVerticalLayout ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+            : AnyLayout(HStackLayout())
+        return layout {
+            HStack {
             playbackButton(systemImage: "backward.end.fill", label: "上一章") { ttsPrevChapter(vm: vm) }
             playbackButton(systemImage: isPlaying ? "pause.fill" : "play.fill",
                 label: isPlaying ? "暂停朗读" : "开始朗读") { ttsTogglePlayPause(vm: vm) }
                 .overlay { if isPreparing { ProgressView().allowsHitTesting(false) } }
             playbackButton(systemImage: "forward.end.fill", label: "下一章") { ttsNextChapter(vm: vm) }
-            Spacer()
+            }
+            if !usesVerticalLayout { Spacer() }
             Button("停止朗读", role: .destructive) { ttsStopSpeech(vm: vm); onStop() }
                 .frame(minHeight: 44)
         }
     }
     private var speedStrip: some View {
-        HStack {
+        let layout = usesVerticalLayout ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout())
+        return layout {
             Text("语速").font(.subheadline)
             Slider(value: Binding(get: { currentSpeed }, set: { ttsSetUserSpeed(vm: vm, speed: $0) }), in: speedRange)
                 .accessibilityLabel("朗读语速")
@@ -60,16 +73,20 @@ struct ReaderTtsQuickSettingsPanel<A: TtsPlayable>: View {
         }
     }
     private var timerRow: some View {
-        HStack {
+        let layout = usesVerticalLayout ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout())
+        return layout {
             TtsSleepTimerMenu(sleepTimer: sleepTimer) {
                 VStack(alignment: .leading) {
                     Label(timerPrimaryText, systemImage: "moon.zzz")
                     if let timerSecondaryText { Text(timerSecondaryText).font(.caption) }
                 }
             }.frame(minHeight: 44)
-            Spacer()
+            if !usesVerticalLayout { Spacer() }
+            HStack {
             timerStepButton(systemImage: "minus", label: "减少五分钟") { sleepTimer.adjustMinutes(by: -5) }
             timerStepButton(systemImage: "plus", label: "增加五分钟") { sleepTimer.adjustMinutes(by: 5) }
+            }
         }
     }
     private var voiceSelectionBinding: Binding<ReadAloudEngineSelection> {
@@ -92,9 +109,11 @@ struct ReaderTtsQuickSettingsPanel<A: TtsPlayable>: View {
         .frame(minHeight: 44)
     }
     private var quickActionGrid: some View {
-        HStack {
+        let layout = usesVerticalLayout ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout())
+        return layout {
             tileButton(title: "播放器", systemImage: "music.note", action: onOpenPlayer)
-            Spacer()
+            if !usesVerticalLayout { Spacer() }
             tileButton(title: "设置", systemImage: "slider.horizontal.3", action: onSettings)
         }
     }
@@ -106,7 +125,7 @@ struct ReaderTtsQuickSettingsPanel<A: TtsPlayable>: View {
         Label(title, systemImage: systemImage).foregroundStyle(isActive ? Color.accentColor : .primary)
     }
     private func playbackButton(systemImage: String, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) { Image(systemName: systemImage).frame(width: 44, height: 44) }
+        Button(action: action) { Image(systemName: systemImage).font(.title3).frame(minWidth: 44, minHeight: 44) }
             .buttonStyle(.plain).accessibilityLabel(label)
     }
     private func timerStepButton(systemImage: String, label: String, action: @escaping () -> Void) -> some View {

@@ -31,6 +31,7 @@ struct ReaderView: View {
     @State private var showChapterList = false
     @State private var showSearch = false
     @State private var showSettings = false
+    @State private var settingsInitialTab = 0
     @State private var showCommentBrowser = false
     /// T-1601-C0：顶部“更多操作”面板（ReaderView.Body 类型树确证包含
     /// ReaderTopMoreActionsPanel；此前该面板零引用）。
@@ -42,6 +43,8 @@ struct ReaderView: View {
     @State private var showQuickSettings = false
     @State private var showTtsQuickSettings = false
     @State private var showTtsPlayer = false
+    @State private var pendingTtsChapterList = false
+    @State private var pendingTtsSettings = false
     @State private var ttsSleepTimer = TtsSleepTimer()
     @ObservedObject private var speechCoordinator = ReaderSpeechSupport.sharedCoordinator
 
@@ -63,6 +66,7 @@ struct ReaderView: View {
                     showSearch: $showSearch,
                     showSettings: $showSettings,
                     settings: $settings,
+                    settingsInitialTab: settingsInitialTab,
                     viewModel: viewModel))
         }
         .overlay(alignment: .top) {
@@ -103,7 +107,7 @@ struct ReaderView: View {
                     if showTtsQuickSettings {
                         ReaderTtsQuickSettingsPanel(vm: viewModel, sleepTimer: ttsSleepTimer,
                             onOpenPlayer: { showTtsQuickSettings = false; showTtsPlayer = true },
-                            onSettings: { showTtsQuickSettings = false; showSettings = true },
+                            onSettings: { showTtsQuickSettings = false; settingsInitialTab = 3; showSettings = true },
                             onStop: { showTtsQuickSettings = false }, coordinator: speechCoordinator,
                             preferences: viewModel.readAloudPreferences)
                     } else if showQuickSettings {
@@ -176,7 +180,7 @@ struct ReaderView: View {
                         onToggleSpeech: { viewModel.toggleSpeech(); showTtsQuickSettings = true },
                         onStopSpeech: { viewModel.stopSpeech() },
                         onSearch: { showSearch = true },
-                        onSettings: { showSettings = true })
+                        onSettings: { settingsInitialTab = 0; showSettings = true })
                 }
                 .transition(.move(edge: .bottom))
             }
@@ -202,9 +206,14 @@ struct ReaderView: View {
                     })
             }
         }
-        .fullScreenCover(isPresented: $showTtsPlayer) {
+        .fullScreenCover(isPresented: $showTtsPlayer, onDismiss: {
+            if pendingTtsChapterList { showChapterList = true }
+            if pendingTtsSettings { settingsInitialTab = 3; showSettings = true }
+            pendingTtsChapterList = false
+            pendingTtsSettings = false
+        }) {
             TtsPlayerView(vm: viewModel, isPresented: $showTtsPlayer,
-                showChapterList: $showChapterList, showSettings: $showSettings, sleepTimer: ttsSleepTimer)
+                showChapterList: $pendingTtsChapterList, showSettings: $pendingTtsSettings, sleepTimer: ttsSleepTimer)
         }
         .onDisappear { viewModel.saveProgress() }
     }
@@ -256,26 +265,41 @@ private struct ReaderPresentationSheetsModifier: ViewModifier {
     @Binding var showSearch: Bool
     @Binding var showSettings: Bool
     var settings: Binding<ReadingSettings>
+    var settingsInitialTab: Int
     let viewModel: ReaderViewModel
 
     func body(content: Content) -> some View {
         content
             .sheet(isPresented: $showChapterList) {
                 ReaderChapterListView(
-                    chapters: .constant([]),
+                    chapters: .constant(viewModel.chapters.enumerated().map {
+                        ReaderChapterListChapter(index: $0.offset, title: $0.element.name)
+                    }),
                     currentChapterIndex: .constant(viewModel.currentChapterIndex),
                     onPickChapter: { index in
-                        viewModel.activateCurrentVisiblePages([index], reason: "chapterPick")
+                        showChapterList = false
+                        Task { @MainActor in
+                            _ = await viewModel.readAloudChangeChapter(by: index - viewModel.currentChapterIndex)
+                            viewModel.readAloudCoordinator.seekToCurrentPage(owner: viewModel)
+                            viewModel.saveProgress()
+                        }
                     })
             }
             .sheet(isPresented: $showSearch) {
                 FullTextSearchView(
-                    chapters: .constant([]),
-                    chapterContentProvider: { _ in "" },
-                    onPickResult: { _, _ in })
+                    chapters: .constant(viewModel.chapters.enumerated().map {
+                        ReaderChapterListChapter(index: $0.offset, title: $0.element.name)
+                    }),
+                    chapterContentProvider: { index in
+                        viewModel.chapterContents.indices.contains(index) ? viewModel.chapterContents[index] : ""
+                    },
+                    onPickResult: { index, _ in
+                        showSearch = false
+                        viewModel.jumpToChapter(index, pageIndex: nil)
+                    })
             }
             .sheet(isPresented: $showSettings) {
-                ReaderSettingsView(settings: settings, onDismiss: { showSettings = false })
+                ReaderSettingsView(settings: settings, onDismiss: { showSettings = false }, initialTab: settingsInitialTab)
             }
     }
 }

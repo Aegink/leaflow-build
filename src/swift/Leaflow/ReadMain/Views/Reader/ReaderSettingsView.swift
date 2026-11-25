@@ -30,6 +30,7 @@ import SwiftUI
 struct ReaderSettingsView: View {
     @Binding var settings: ReadingSettings
     var onDismiss: () -> Void
+    var initialTab = 0
     @Environment(\.dismiss) private var dismiss
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @ObservedObject private var themeManager = AppThemeManager.shared
@@ -59,6 +60,7 @@ struct ReaderSettingsView: View {
                 .navigationTitle("阅读设置")
                 .navigationBarTitleDisplayMode(.inline)
                 .presentationDetents([.height(520), .large])
+                .onAppear { selectedTab = min(3, max(0, initialTab)) }
         }
     }
 

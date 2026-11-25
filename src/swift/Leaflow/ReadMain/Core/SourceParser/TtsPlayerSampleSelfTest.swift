@@ -53,6 +53,7 @@ enum TtsPlayerSampleSelfTest {
         timer.refresh()
         emit("tts_timer_background_expiry", ["0", "true", "true"],
             [String(Int(timer.remaining)), String(timer.shouldStop), String(coordinator.state == .idle)])
+        emit("tts_timer_expiry_not_chapter_policy", ["false"], [String(timer.consumeChapterEndIfNeeded())])
         timer.setMinutes(500)
         let clamped = timer.configuredMinutes
         timer.cancel()
@@ -120,8 +121,9 @@ enum TtsPlayerSampleSelfTest {
         vm.currentBook = book
         vm.bookName = book.name
         vm.totalChapters = 2
-        vm.pages = [fixturePage(chapter: 0, page: 0, content: "固定的朗读正文，用于模拟器布局检查。", start: 0),
-            fixturePage(chapter: 0, page: 1, content: "第二页正文。", start: 23)]
+        let content = "固定的朗读正文，用于模拟器布局检查。"
+        vm.pages = [fixturePage(chapter: 0, page: 0, content: content, start: 0),
+            fixturePage(chapter: 0, page: 1, content: "第二页正文。", start: content.utf16.count)]
         return vm
     }
 }
