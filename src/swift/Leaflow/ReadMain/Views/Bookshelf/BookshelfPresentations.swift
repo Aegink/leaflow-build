@@ -59,14 +59,21 @@ struct BookshelfPresentationsModifier: ViewModifier {
 
     @ObservedObject var vm: BookshelfViewModel
     @ObservedObject var bookService: BookService
+    @State private var readingSettings = ReadingSettings.load()
 
     func body(content: Content) -> some View {
         content
             .sheet(item: $vm.activeReaderPresentation) { presentation in
                 NavigationStack {
-                    // TODO(T-601-06 域): ReaderRouter 阅读入口接入。
-                    Text("阅读 \(presentation.book.name)")
-                        .appThemeText(.caption, opacity: 0.5)
+                    if let book = vm.localBook(for: BookshelfItem(book: presentation.book)) {
+                        if book.format.lowercased() == "pdf" {
+                            LocalPDFReaderView(book: book)
+                        } else {
+                            LocalReaderView(book: book, settings: $readingSettings)
+                        }
+                    } else {
+                        ReaderView(settings: $readingSettings, book: presentation.book)
+                    }
                 }
             }
             .sheet(isPresented: $vm.showGroupPicker) {
@@ -78,8 +85,16 @@ struct BookshelfPresentationsModifier: ViewModifier {
                     }
                 }
             }
-            .sheet(isPresented: $vm.showImport) {
-                copiedFileImporterShell
+            .copiedFileImporter(
+                isPresented: $vm.showImport,
+                allowedContentTypes: [.plainText, .qireaderEPUB, .pdf]
+            ) { result in
+                handleImport(result)
+            }
+            .sheet(item: $vm.pendingImportURL) { url in
+                NavigationStack {
+                    LocalBookImportView(fileURL: url)
+                }
             }
             .overlay {
                 // 0x1004451cc L214-242：导入进度遮罩。

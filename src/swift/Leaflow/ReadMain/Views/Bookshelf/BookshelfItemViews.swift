@@ -352,13 +352,8 @@ struct BookGridItem: View {
         // 0x10042899c L392-468 域确证。
         VStack(spacing: 4.0) {
             ZStack(alignment: .topTrailing) {
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Color(uiColor: .tertiarySystemFill))
+                BookCoverView(book: book)
                     .aspectRatio(0.72, contentMode: .fit)
-                    .overlay {
-                        Image(systemName: "book.closed")
-                            .foregroundColor(.secondary)
-                    }
                 if bookService.isPinned(book.id) {
                     // "pin.fill" L3895 域确证。
                     Image(systemName: "pin.fill")
@@ -435,15 +430,10 @@ struct BookCardItem: View {
     /// cardContent getter（0x10042b524 L542-609 域确证）。
     private var cardContent: some View {
         HStack(spacing: 10.0) {
-            RoundedRectangle(cornerRadius: 6)
-                .fill(Color(uiColor: .tertiarySystemFill))
+            BookCoverView(book: book)
                 .frame(
                     width: listCardLayout.coverWidth,
                     height: listCardLayout.coverHeight)
-                .overlay {
-                    Image(systemName: "book.closed")
-                        .foregroundColor(.secondary)
-                }
                 .bookshelfCoverCornerClip()
             VStack(alignment: .leading, spacing: 4.0) {
                 Text(book.name)
@@ -568,5 +558,18 @@ struct GroupButton: View {
                 .cornerRadius(10, antialiased: true)
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// 封面消费域：伪代码 BookshelfItemViews 0x10042899c / ImageCacheService 0x10032f114。
+struct BookCoverView: View {
+    let book: Book
+
+    var body: some View {
+        CachedAsyncImage(url: book.customCoverUrl ?? book.coverUrl, book: book)
+            .scaledToFill()
+            .clipped()
+            .background(Color(uiColor: .tertiarySystemFill))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 }

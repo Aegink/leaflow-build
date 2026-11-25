@@ -71,6 +71,7 @@ struct BookshelfView: View {
         bookService: BookService(),
         localBookService: LocalBookService.shared)
     @StateObject private var bookService = BookService()
+    @ObservedObject private var localBookService = LocalBookService.shared
 
     @State private var searchText: String = ""
     @State private var isGrid = false
@@ -245,9 +246,17 @@ struct BookshelfView: View {
     // MARK: 行/格视图（0x10045927c L642-671 + 0x10045e418 L615-638 域确证）
 
     /// listItemView(for:)（0x10045927c L642-671 域确证）。
+    @ViewBuilder
     private func listItemView(
         for item: BookshelfItem
     ) -> some View {
+        if let local = vm.localBook(for: item) {
+            LocalBookCardItem(book: local)
+                .localBookActions(book: local,
+                    onRead: { _ in openReader(item: item) },
+                    onDelete: { localBookService.deleteBook($0) })
+                .onTapGesture { openReader(item: item) }
+        } else {
         BookCardItem(book: item.book, cardHeight: 72.0)
             .networkBookActions(
                 book: item.book,
@@ -256,12 +265,21 @@ struct BookshelfView: View {
             .onTapGesture {
                 openReader(item: item)
             }
+        }
     }
 
     /// gridItemView(for:)（0x10045e418 L615-638 域确证）。
+    @ViewBuilder
     private func gridItemView(
         for item: BookshelfItem
     ) -> some View {
+        if let local = vm.localBook(for: item) {
+            LocalBookGridItem(book: local)
+                .localBookActions(book: local,
+                    onRead: { _ in openReader(item: item) },
+                    onDelete: { localBookService.deleteBook($0) })
+                .onTapGesture { openReader(item: item) }
+        } else {
         BookGridItem(book: item.book)
             .networkBookActions(
                 book: item.book,
@@ -270,6 +288,7 @@ struct BookshelfView: View {
             .onTapGesture {
                 openReader(item: item)
             }
+        }
     }
 
     // MARK: 工具栏（0x100452940 L281-301 域确证）
@@ -379,7 +398,15 @@ struct BookshelfView: View {
     /// openReader(item:)（0x10045de60 L587-599 域确证）。
     private func openReader(item: BookshelfItem) {
         setReadingItem(item)
-        // TODO(T-601-06 域): ReaderRouter 阅读入口。
+        Task {
+            if item.book.sourceStorageKind == .local {
+                vm.activeReaderPresentation = BookshelfReaderPresentation(
+                    book: item.book, chapters: [])
+            } else {
+                vm.activeReaderPresentation = await BookshelfReaderPresentation.prepare(
+                    for: item, bookService: bookService)
+            }
+        }
     }
 
     /// setReadingItem（0x10045f24c L601-611 域确证）。

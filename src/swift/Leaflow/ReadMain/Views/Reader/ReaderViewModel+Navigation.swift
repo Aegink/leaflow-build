@@ -34,6 +34,7 @@ extension ReaderViewModel {
         guard pages.indices.contains(newIndex) else { return false }
         currentPageIndex = newIndex
         updateCurrentChapter(from: oldIndex)
+        saveProgress()
         return true
     }
 
@@ -102,10 +103,13 @@ extension ReaderViewModel {
     func jumpToChapter(_ chapterIndex: Int, pageIndex: Int?) {
         guard chapterContents.indices.contains(chapterIndex) else { return }
         currentChapterIndex = chapterIndex
-        if let pageIndex {
-            currentPageIndex = pageIndex
-        } else {
-            currentPageIndex = 0
+        Task {
+            await loadChapterContent(chapterIndex, forceRefresh: false)
+            let target = max(0, pageIndex ?? 0)
+            currentPageIndex = pages.firstIndex {
+                $0.chapterIndex == chapterIndex && $0.pageIndex == target
+            } ?? pages.firstIndex { $0.chapterIndex == chapterIndex } ?? 0
+            saveProgress()
         }
         chapterStateStore.recordPendingLogicalPageRebase(
             chapterIndex: chapterIndex, pageIndex: currentPageIndex)
@@ -113,9 +117,11 @@ extension ReaderViewModel {
 
     /// 伪代码 0x100889a14（L335-362）：进度保存（章/页 + 书源域）。
     func saveProgress() {
-        let defaults = UserDefaults.standard
-        let key = "reader_progress_\(bookName)"
-        defaults.set([currentChapterIndex, currentPageIndex], forKey: key)
+        if let book = currentBook, let page = currentPage {
+            bookService.saveReadProgress(book: book, chapterIndex: page.chapterIndex,
+                chapterTitle: page.chapterTitle,
+                position: Double(page.contentRangeInChapter?.location ?? 0))
+        }
         settings?.schedulePendingSave(after: 0.2)
     }
 

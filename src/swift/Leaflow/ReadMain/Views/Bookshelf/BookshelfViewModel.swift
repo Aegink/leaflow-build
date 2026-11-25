@@ -40,6 +40,7 @@ final class BookshelfViewModel: ObservableObject {
     @Published var isImporting = false
     @Published var importProgress: Double = 0
     @Published var importError: String?
+    @Published var pendingImportURL: URL?
 
     // 编辑态。
     @Published var isEditMode = false
@@ -207,18 +208,15 @@ final class BookshelfViewModel: ObservableObject {
 
     /// startImportFromFile（T-601-05 PresentationsModifier 消费确证）。
     func startImportFromFile(_ url: URL) {
-        isImporting = true
-        importProgress = 0
-        Task {
-            let result = await localBookService.importBook(from: url)
-            await MainActor.run {
-                isImporting = false
-                importProgress = 1
-                if result == nil {
-                    importError = "导入失败"
-                }
-            }
+        pendingImportURL = url
+    }
+
+    func localBook(for item: BookshelfItem) -> LocalBook? {
+        guard let url = item.book.bookUrl, url.hasPrefix("local://") else {
+            return nil
         }
+        let id = String(url.dropFirst("local://".count))
+        return localBookService.books.first { $0.id.uuidString == id }
     }
 
     // MARK: 缓存/刷新域（0x100444d68 L278-281 + 0x1004681b0 L305-389 域确证）

@@ -417,9 +417,9 @@ struct ExploreView: View {
         }
         .sheet(item: $openSiteURL) { url in
             NavigationStack {
-                RemoteBrowserWebView(
-                    request: RemoteBrowserRequest(url: url),
-                    onHostAppNavigation: nil, onCookies: nil)
+                BrowserPageView(url: url, onOpenInHostApp: {
+                    UIApplication.shared.open($0)
+                })
                     .navigationTitle(url.host ?? "浏览器")
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {

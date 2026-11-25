@@ -44,7 +44,8 @@ struct BrowserPageView: View {
     var onOpenInHostApp: ((URL) -> Void)?
 
     /// 伪代码 0x100b46568（L35-40）：构造（默认 URL 空 + 闭包注入域）。
-    init(onOpenInHostApp: ((URL) -> Void)? = nil) {
+    init(url: URL? = nil, onOpenInHostApp: ((URL) -> Void)? = nil) {
+        _currentURL = State(initialValue: url)
         self.onOpenInHostApp = onOpenInHostApp
     }
 

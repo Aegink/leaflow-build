@@ -26,7 +26,7 @@ import UniformTypeIdentifiers
 struct SourceParserSettingsView: View {
 
     /// 服务实例（ivar getter 签名确证）。
-    private let sourceService = SourceService()
+    @StateObject private var sourceService = SourceService()
 
     @State private var sources: [BookSource] = []
     @State private var showImportSheet = false
@@ -138,7 +138,7 @@ struct SourceParserSettingsView: View {
             }
         }
         .onAppear {
-            sources = sourceService.bookSources.filter { $0.enabled }
+            sources = sourceService.bookSources
         }
     }
 
@@ -149,10 +149,10 @@ struct SourceParserSettingsView: View {
     /// 文本导入（importSources(from:) 真身确证）。
     private func importText(_ text: String) async {
         let count = await MainActor.run {
-            SourceService().importSources(from: text)
+            sourceService.importSources(from: text)
         }
         await MainActor.run {
-            sources = SourceService().bookSources.filter { $0.enabled }
+            sources = sourceService.bookSources
             Logger.log("导入 \(count) 条", level: .info)
         }
     }
@@ -168,17 +168,16 @@ struct SourceParserSettingsView: View {
     private func deleteSources(at offsets: IndexSet) {
         for index in offsets {
             let source = sources[index]
-            _ = SourceService().updateSource(
-                oldUrl: source.bookSourceUrl, source: source)
+            sourceService.deleteSource(source)
         }
         sources.remove(atOffsets: offsets)
     }
 
     /// 全部启用/禁用（TupleView<(Button, Button)> 域确证）。
     private func toggleAll(enabled: Bool) {
-        _ = SourceService().batchToggleSources(
+        _ = sourceService.batchToggleSources(
             urls: Set(sources.map(\.bookSourceUrl)), enable: enabled)
-        sources = SourceService().bookSources.filter { $0.enabled }
+        sources = sourceService.bookSources
     }
 }
 

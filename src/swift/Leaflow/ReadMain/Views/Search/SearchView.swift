@@ -46,6 +46,9 @@ struct SearchView: View {
     @State private var pendingSingleSource: BookSource?
     @State private var showGroupPicker = false
     @State private var readingItem: BookshelfItem?
+    @State private var selectedResult: SearchResultBook?
+    @State private var pendingBook: Book?
+    @State private var readingSettings = ReadingSettings.load()
 
     private let sourceService = SourceService()
 
@@ -95,6 +98,30 @@ struct SearchView: View {
         .sheet(isPresented: $showGroupPicker) { groupPickerSheet }
         .sheet(item: singleSourceBinding) { box in
             singleSourcePickerSheet(box)
+        }
+        .sheet(item: $selectedResult, onDismiss: {
+            if let book = pendingBook {
+                pendingBook = nil
+                readingItem = BookshelfItem(book: book)
+            }
+        }) { result in
+            SourceSelectionSheet(
+                book: result,
+                onComplete: { _ in selectedResult = nil },
+                onCancel: { selectedResult = nil },
+                onSelect: { book in
+                    pendingBook = book
+                })
+        }
+        .fullScreenCover(item: $readingItem) { item in
+            NavigationStack {
+                ReaderView(settings: $readingSettings, book: item.book)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button("关闭") { readingItem = nil }
+                        }
+                    }
+            }
         }
     }
 
@@ -231,17 +258,11 @@ struct SearchView: View {
     /// searchHistoryView getter（签名确证）。
     private var searchHistoryView: some View {
         Section("搜索历史") {
-            ForEach(viewModel.searchHistory, id: \.self) { term in
-                Button(term) {
+            SearchHistoryFlowView(history: viewModel.searchHistory) { term in
                     viewModel.keyword = term
                     viewModel.performSearch()
-                }
-            }
-            .onDelete { offsets in
-                for index in offsets {
-                    viewModel.removeFromHistory(
-                        viewModel.searchHistory[index])
-                }
+            } onRemove: { term in
+                viewModel.removeFromHistory(term)
             }
             Button(role: .destructive) {
                 viewModel.clearSearchHistory()
@@ -273,8 +294,7 @@ struct SearchView: View {
                 SearchResultRowView(result: result) {
                     viewModel.sourcesForDisplayResult(result)
                 } onPick: { book in
-                    // TODO(T-601-01): ReaderRouter 阅读入口。
-                    _ = book
+                    selectedResult = result
                 }
             }
         }
@@ -373,5 +393,6 @@ struct SearchResultRowView: View {
             }
         }
         .contentShape(Rectangle())
+        .onTapGesture { onPick(result.displayBook) }
     }
 }

@@ -154,6 +154,12 @@ extension AnalyzeUrl {
         }
 
         // 事实 2：Cookie 登记与诊断。
+        // T-1601-B4：无显式 Cookie 头时注入 CookiePersistenceService
+        // 持久化域（登录后命中、302 链复用）。
+        if request.value(forHTTPHeaderField: "Cookie") == nil {
+            CookiePersistenceService.shared
+                .applyLegadoRedirectCookies(to: &request)
+        }
         if let cookie = request.value(forHTTPHeaderField: "Cookie") {
             Self.cookieSummaryCache.put(target.host ?? "", value: Self.debugCookieSummary(cookie))
             Logger.log(

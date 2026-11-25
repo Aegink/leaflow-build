@@ -175,6 +175,11 @@ extension AnalyzeUrl {
         let semaphore = DispatchSemaphore(value: 0)
         var result: StrResponse?
         let task = session.dataTask(with: request) { data, response, error in
+            // T-1601-B4：Set-Cookie 持久化（ephemeral 会话关闭自动 Cookie
+            // 存储，手动落 CookiePersistenceService/HTTPCookieStorage）。
+            if let http = response as? HTTPURLResponse {
+                AnalyzeUrl.persistCookies(from: http)
+            }
             result = Self.getHttpResponse(response, data: data ?? Data(), error: error)
             semaphore.signal()
         }
@@ -235,9 +240,12 @@ extension AnalyzeUrl {
         configuration.waitsForConnectivity = false
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
         configuration.urlCache = nil
-        configuration.httpShouldSetCookies = false
-        configuration.httpCookieAcceptPolicy = .never
-        configuration.httpCookieStorage = nil
+        // T-1601-B4：302 链内的 Set-Cookie 必须由 URLSession 立即回放，
+        // 否则中转页下发的登录/风控 Cookie 在最终页缺失。使用共享
+        // Cookie 存储（与 CookiePersistenceService 双写，登录态跨启动）。
+        configuration.httpShouldSetCookies = true
+        configuration.httpCookieAcceptPolicy = .always
+        configuration.httpCookieStorage = HTTPCookieStorage.shared
         let session = URLSession(configuration: configuration)
         cachedSession = session
         return session
@@ -260,6 +268,25 @@ extension AnalyzeUrl {
         }
         Logger.log(
             "[cookie] saved \(cookies.count) from \(url.host ?? "-")",
+            level: .verbose)
+    }
+
+    /// T-1601-B4：会话回调侧 Set-Cookie 持久化（静态版，避免 @Sendable
+    /// 闭包捕获实例）。
+    static func persistCookies(from response: HTTPURLResponse) {
+        guard let fields = response.allHeaderFields as? [String: String],
+            let url = response.url else { return }
+        let cookies = HTTPCookie.cookies(
+            withResponseHeaderFields: fields, for: url)
+        for cookie in cookies {
+            HTTPCookieStorage.shared.setCookie(cookie)
+        }
+        if let host = url.host, !cookies.isEmpty {
+            CookiePersistenceService.shared.saveResponseCookies(
+                cookies, for: host)
+        }
+        Logger.log(
+            "[cookie] persisted \(cookies.count) from \(url.host ?? "-")",
             level: .verbose)
     }
 

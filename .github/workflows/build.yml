@@ -32,7 +32,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             build 2>&1 | tee build.log
-          echo "xcodebuild exit: $?" >> build.log
+          echo "xcodebuild exit: ${PIPESTATUS[0]}" >> build.log
 
       - name: Rule sample self-test (-selfTestRules)
         id: selftest
@@ -114,6 +114,8 @@ jobs:
             | grep -c "UIKitApplication:com.leaflow.app" || true)
           echo "bookshelf_alive=$SHELF_ALIVE" >> smoke-result.txt
           xcrun simctl io "$UDID" screenshot sim-bookshelf.png 2>/dev/null
+          CRASH=$(ls ~/Library/Logs/DiagnosticReports 2>/dev/null | grep -ci leaflow || true)
+          echo "crash_reports=$CRASH" >> smoke-result.txt
           xcrun simctl shutdown "$UDID" 2>/dev/null
           cat smoke-result.txt
 
@@ -132,7 +134,7 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             -derivedDataPath build/device \
             build 2>&1 | tee device-build.log
-          echo "xcodebuild exit: $?" >> device-build.log
+          echo "xcodebuild exit: ${PIPESTATUS[0]}" >> device-build.log
 
       - name: Package unsigned IPA
         run: |
@@ -168,6 +170,7 @@ jobs:
       # 会把含错误的构建也标 success）。
       - name: Enforce gates (zero errors + zero self-test failures)
         run: |
+          python3 -I tools/record_build_evidence.py
           COUNT=$(cat error_count.txt 2>/dev/null || echo 0)
           PASS=$(grep -c "SELFTEST .* pass=true" selftest.log 2>/dev/null || true)
           FAIL=$(grep -c "SELFTEST .* pass=false" selftest.log 2>/dev/null || true)
@@ -197,6 +200,8 @@ jobs:
             device-build.log
             errors.txt
             error_count.txt
+            last_build.json
+            last_selftest.json
             smoke-result.txt
             selftest-result.txt
             selftest.log

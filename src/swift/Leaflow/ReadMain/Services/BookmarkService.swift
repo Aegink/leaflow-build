@@ -35,6 +35,8 @@ final class BookmarkService: ObservableObject {
 
     /// init（签名域确证）。
     private init() {
+        try? FileManager.default.createDirectory(
+            at: Self.storageDir, withIntermediateDirectories: true)
         loadBookmarks()
     }
 
@@ -74,9 +76,14 @@ final class BookmarkService: ObservableObject {
     /// 删除书签（BookService.deleteBookmark 交叉域确证）。
     func deleteBookmark(bookUrl: String, at index: Int) {
         let targets = getBookmarks(bookUrl: bookUrl)
-        guard index < targets.count else { return }
+        guard targets.indices.contains(index) else { return }
         let target = targets[index]
         bookmarks.removeAll { $0.id == target.id }
+        save()
+    }
+
+    func deleteBookmark(_ bookmark: Bookmark) {
+        bookmarks.removeAll { $0.id == bookmark.id }
         save()
     }
 

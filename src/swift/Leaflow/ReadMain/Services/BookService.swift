@@ -397,7 +397,8 @@ final class BookService: ObservableObject {
 
     /// getChapterContent（0x1002ebfd4 L634-649 域确证）。
     func getChapterContent(
-        for book: Book, index: Int, useReplaceRule: Bool, type: Int?
+        for book: Book, index: Int, useReplaceRule: Bool, type: Int?,
+        needRefresh: Bool = false
     ) async throws -> ChapterContent {
         guard let source = findSource(
             byUrl: book.bookSourceUrl ?? "", bookUrl: book.bookUrl ?? "")
@@ -405,13 +406,13 @@ final class BookService: ObservableObject {
             throw AppError.parsing("书源未找到")
         }
         let cacheKey = book.chapterCacheKey
-        if let cached = await chapterCache.getChapterContent(
+        if !needRefresh, let cached = await chapterCache.getChapterContent(
             bookUrl: cacheKey, chapterIndex: index) {
             return cached
         }
         let chapters = try await getChapterList(
             for: book, useReplaceRule: useReplaceRule, needRefresh: false)
-        guard index < chapters.count else {
+        guard chapters.indices.contains(index) else {
             throw AppError.emptyContent
         }
         let content = try await sourceService.getChapterContent(

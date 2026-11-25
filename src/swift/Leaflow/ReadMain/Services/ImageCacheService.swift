@@ -379,18 +379,19 @@ final class ImageCacheService {
         do {
             let (data, response) = try await Self.performCoverDownload(
                 request: URLRequest(url: url))
-            guard
-                let image = Self.decodedImage(
-                    from: data, preferredSize: preferredSize),
-                (response as? HTTPURLResponse)?.statusCode == 200
-                    || response is URLResponse
-            else {
+            if let http = response as? HTTPURLResponse,
+               !(200..<300).contains(http.statusCode) {
+                markUrlFailed(urlString)
+                return nil
+            }
+            guard let image = Self.decodedImage(
+                from: data, preferredSize: preferredSize) else {
                 markUrlFailed(urlString)
                 return nil
             }
             let key = Self.stableCacheKey(for: descriptor.cacheKeySeed)
             setMemoryImage(image, key: key)
-            try? data.write(to: diskCachePath(for: descriptor.cacheKeySeed))
+            try? data.write(to: diskCachePath(for: key), options: .atomic)
             return image
         } catch {
             markUrlFailed(urlString)
@@ -580,6 +581,8 @@ struct CachedAsyncImage: View {
     var book: Book?
     var placeholder: Image?
     var targetSize: CGSize?
+    @State private var loadedImage: UIImage?
+    @Environment(\.displayScale) private var displayScale
 
     init(
         url: String?, book: Book?, placeholder: Image? = nil,
@@ -593,17 +596,26 @@ struct CachedAsyncImage: View {
 
     /// 伪代码 0x10032f114（L1069-1104）：缓存命中直显 + 异步加载域。
     var body: some View {
-        if let cached = urlString.flatMap({
-            ImageCacheService.shared.cachedImageSync(
-                for: $0, preferredSize: targetSize, scale: 1.0)
-        }) {
-            AnyView(Image(uiImage: cached).resizable())
-        } else {
-            AnyView(
-                Image(systemName: "book.closed")
-                    .resizable()
-                    .foregroundStyle(.secondary)
-            )
+        Group {
+            if let image = loadedImage {
+                Image(uiImage: image).resizable()
+            } else {
+                (placeholder ?? Image(systemName: "book.closed"))
+                    .resizable().foregroundStyle(.secondary)
+            }
+        }
+        .task(id: "\(urlString ?? "")|\(book?.id ?? "")|\(String(describing: targetSize))") {
+            loadedImage = nil
+            guard let descriptor = ImageRequestDescriptor(
+                urlString: urlString, book: book) else { return }
+            loadedImage = ImageCacheService.shared.cachedImageSync(
+                for: descriptor, preferredSize: targetSize, scale: displayScale)
+            if loadedImage == nil {
+                let image = await ImageCacheService.shared.downloadAndCache(
+                    for: descriptor, preferredSize: targetSize, scale: displayScale)
+                guard !Task.isCancelled else { return }
+                loadedImage = image
+            }
         }
     }
 }

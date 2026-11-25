@@ -17,7 +17,12 @@ import SwiftUI
 /// 书签列表视图（伪代码 0x100662820，L13-57）。
 struct BookmarkListView: View {
 
-    @State private var bookmarks: [Bookmark] = []
+    var bookUrl: String = ""
+    var onSelect: ((Bookmark) -> Void)? = nil
+    @ObservedObject private var service = BookmarkService.shared
+    private var bookmarks: [Bookmark] {
+        bookUrl.isEmpty ? service.bookmarks : service.getBookmarks(bookUrl: bookUrl)
+    }
 
     /// 伪代码 0x100662820（L13-57）：
     /// 主链：Group { 空态 → ContentUnavailableView；非空 → List + onDelete }。
@@ -36,12 +41,20 @@ struct BookmarkListView: View {
                 List {
                     ForEach(bookmarks) { bookmark in
                         // 伪代码 closure #3（0x100663334，L24-31）：行视图。
-                        BookmarkRow(bookmark: bookmark)
+                        Button {
+                            onSelect?(bookmark)
+                        } label: {
+                            BookmarkRow(bookmark: bookmark)
+                        }
+                        .buttonStyle(.plain)
                     }
                     .onDelete { indexSet in
                         // 伪代码 closure #1（0x100663278，L23-33）onDelete + MainActor delete。
                         Task { @MainActor in
-                            bookmarks.remove(atOffsets: indexSet)
+                            let targets = indexSet.compactMap {
+                                bookmarks.indices.contains($0) ? bookmarks[$0] : nil
+                            }
+                            for bookmark in targets { service.deleteBookmark(bookmark) }
                         }
                     }
                 }
@@ -54,13 +67,6 @@ struct BookmarkListView: View {
                 EditButton()
             }
         }
-        .onAppear {
-            loadBookmarks()
-        }
-    }
-
-    private func loadBookmarks() {
-        // 从存储加载书签列表。
     }
 }
 

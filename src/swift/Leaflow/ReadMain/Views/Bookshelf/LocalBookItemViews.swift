@@ -19,6 +19,34 @@
 
 import SwiftUI
 
+struct LocalBookActionsModifier: ViewModifier {
+    let book: LocalBook
+    let onRead: (LocalBook) -> Void
+    let onDelete: (LocalBook) -> Void
+    @State private var showActions = false
+
+    func body(content: Content) -> some View {
+        content
+            .onLongPressGesture { showActions = true }
+            .sheet(isPresented: $showActions) {
+                LocalBookActionSheetView(book: book,
+                    onRead: {
+                        showActions = false
+                        onRead($0)
+                    }, onDelete: onDelete)
+            }
+    }
+}
+
+extension View {
+    func localBookActions(book: LocalBook,
+        onRead: @escaping (LocalBook) -> Void,
+        onDelete: @escaping (LocalBook) -> Void) -> some View {
+        modifier(LocalBookActionsModifier(
+            book: book, onRead: onRead, onDelete: onDelete))
+    }
+}
+
 /// 本地书网格项（0x1004a5d98 L16-94 域确证）。
 struct LocalBookGridItem: View {
     let book: LocalBook

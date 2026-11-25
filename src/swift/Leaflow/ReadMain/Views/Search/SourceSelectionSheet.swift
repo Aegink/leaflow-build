@@ -36,6 +36,7 @@ struct SourceSelectionSheet: View {
     let book: SearchResultBook
     let onComplete: (Bool) -> Void
     let onCancel: () -> Void
+    var onSelect: ((Book) -> Void)? = nil
 
     /// 就绪域（deferReadyRender 交叉 T-501-08 Lifecycle）。
     @State private var isReady = false
@@ -57,7 +58,10 @@ struct SourceSelectionSheet: View {
                     book: book,
                     indexedSources: indexedSources,
                     selectedSource: $selectedSource,
-                    onComplete: onComplete)
+                    onComplete: { success in
+                        if success { onComplete(true) } else { onCancel() }
+                    },
+                    onSelect: onSelect)
             } else {
                 Color(uiColor: .systemGroupedBackground)
                     .ignoresSafeArea()
@@ -80,6 +84,7 @@ struct SourceSelectionReadyContent: View {
     let indexedSources: [SourceSelectionSheet.IndexedSource]
     @Binding var selectedSource: Book?
     let onComplete: (Bool) -> Void
+    var onSelect: ((Book) -> Void)? = nil
 
     /// sheetTitleBar getter（签名确证；"选择配置" L488 域确证）。
     private var sheetTitleBar: some View {
@@ -128,7 +133,11 @@ struct SourceSelectionReadyContent: View {
     private var sourceList: some View {
         SourceSelectionSourceList(
             indexedSources: indexedSources,
-            selectedSource: $selectedSource)
+            selectedSource: $selectedSource,
+            onSelect: { book in
+                onSelect?(book)
+                onComplete(true)
+            })
     }
 
     var body: some View {
@@ -154,6 +163,7 @@ struct SourceSelectionSourceList: View {
 
     let indexedSources: [SourceSelectionSheet.IndexedSource]
     @Binding var selectedSource: Book?
+    var onSelect: ((Book) -> Void)? = nil
 
     /// isCurrentSource（0x1009445b8 L248-254 域确证）。
     private func isCurrentSource(_ source: SourceSelectionSheet.IndexedSource)
@@ -170,6 +180,7 @@ struct SourceSelectionSourceList: View {
                     indexed: indexed,
                     isCurrent: isCurrentSource(indexed)) {
                     selectedSource = indexed.book
+                    onSelect?(indexed.book)
                 }
             }
         }

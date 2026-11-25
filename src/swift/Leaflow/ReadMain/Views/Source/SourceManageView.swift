@@ -450,6 +450,9 @@ struct SourceManageView: View {
                 } label: {
                     Label("批量测试", systemImage: "testtube.2")
                 }
+                NavigationLink("解析设置") {
+                    SourceParserSettingsView()
+                }
                 // "导出样式文件" @ptr L10993。
                 Button {
                     exportSources = getSourcesForExport()
@@ -587,9 +590,9 @@ struct SourceManageView: View {
         case .help:
             SourceHelpSheet()
         case .batchTest:
-            SourceFullTestView(
-                source: batchTestSources.first
-                    ?? BookSource())
+            NavigationStack {
+                BatchTestView(sources: batchTestSources)
+            }
         }
     }
 

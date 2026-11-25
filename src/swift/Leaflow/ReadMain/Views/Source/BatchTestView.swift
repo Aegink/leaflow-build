@@ -283,6 +283,7 @@ struct StepUpdateBatcher {
 
 /// 书源批量测试主视图。
 struct BatchTestView: View {
+    let sources: [BookSource]
 
     /// 测试深度（"测试范围" Picker；"搜索+详情" 位串比较确证）。
     enum TestDepth: String, CaseIterable, Identifiable {
@@ -654,6 +655,14 @@ struct BatchTestView: View {
     /// 恢复 testDepth；items 按 PersistedBatchTestItem 重建；BookSource
     /// 匹配（closure #4 (PBTI, PBTI) 排序确证）。
     private func setupTestItems() {
+        guard items.isEmpty else { return }
+        if !sources.isEmpty {
+            items = sources.map {
+                BatchTestItem(source: $0, steps: makeSteps(for: $0))
+            }
+            recalcStats()
+            return
+        }
         guard let session = PersistedBatchTestSession.load() else { return }
         if session.testDepth == TestDepth.searchAndDetail.rawValue {
             testDepth = .searchAndDetail
@@ -710,7 +719,9 @@ struct BatchTestView: View {
     /// 0x100b822a0（L572-585；"重置" Label 确证）。
     private func resetTest() {
         PersistedBatchTestSession.delete()
-        items = []
+        items = sources.map {
+            BatchTestItem(source: $0, steps: makeSteps(for: $0))
+        }
         stats = (0, 0, 0, 0)
         totalDuration = nil
         testingIndex = nil

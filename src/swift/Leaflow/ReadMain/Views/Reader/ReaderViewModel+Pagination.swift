@@ -101,11 +101,14 @@ extension ReaderViewModel {
         centerChapter: Int,
         newPages: [PageData]
     ) {
-        let preservedPageIndex = preservedPageIndex(in: newPages, centerChapter: centerChapter)
-        pages = newPages
+        let orderedPages = newPages.sorted {
+            ($0.chapterIndex, $0.pageIndex) < ($1.chapterIndex, $1.pageIndex)
+        }
+        let preservedPageIndex = preservedPageIndex(in: orderedPages, centerChapter: centerChapter)
+        pages = orderedPages
         // buildChapterPageMeta 产出 (start,end,count) 字典——VM 域为
         // [ChapterPageMeta] 数组（debugRenderSnapshot 消费域），此处换算。
-        let metaMap = ReaderPaginator.buildChapterPageMeta(from: newPages)
+        let metaMap = ReaderPaginator.buildChapterPageMeta(from: pages)
         chapterPageMeta = metaMap
             .map { ChapterPageMeta(chapterIndex: $0.key, pageCount: $0.value.count) }
             .sorted { $0.chapterIndex < $1.chapterIndex }

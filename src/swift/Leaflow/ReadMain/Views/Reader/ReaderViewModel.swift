@@ -38,6 +38,21 @@ final class ReaderViewModel {
     // 适配；与 pages 等字段同域放宽）。
     var bookName = ""
     var totalChapters = 0
+    var currentBook: Book?
+    var chapters: [Chapter] = []
+    @ObservationIgnored lazy var bookService = BookService()
+    // 固定样本可替换 I/O，仍执行生产装配、分页和导航链。
+    var chapterListProvider: ((Book, Bool) async throws -> [Chapter])?
+    var chapterContentProvider: ((Book, Int, Bool) async throws -> ChapterContent)?
+
+    func configure(book: Book, settings: ReadingSettings) {
+        currentBook = book
+        bookName = book.name
+        self.settings = settings
+        currentBookSource = SourceService().bookSources.first {
+            $0.bookSourceUrl == book.bookSourceUrl
+        }
+    }
 
     var currentPage: PageData? {
         pages.indices.contains(currentPageIndex) ? pages[currentPageIndex] : nil

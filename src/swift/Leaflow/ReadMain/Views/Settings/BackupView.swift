@@ -102,11 +102,22 @@ struct BackupView: View {
 
     private var cloudSyncSection: some View {
         settingsCardRow(topGap: 12) {
-            Toggle(isOn: $cloudSyncEnabled) {
-                AppThemeSettingsLabel("网盘同步", systemImage: "cloud")
-            }
-            .onChange(of: cloudSyncEnabled) { enabled in
-                CloudSyncController.shared.setEnabled(enabled)
+            // T-1601-E2：网盘同步入口 → CloudDriveSettingsView
+            //（网盘目的地的增删改在此页；此前整页零引用）。
+            HStack {
+                NavigationLink {
+                    CloudDriveSettingsView()
+                } label: {
+                    AppThemeSettingsLabel(
+                        "网盘同步", systemImage: "cloud")
+                }
+                .buttonStyle(.plain)
+                Spacer()
+                Toggle("", isOn: $cloudSyncEnabled)
+                    .labelsHidden()
+                    .onChange(of: cloudSyncEnabled) { enabled in
+                        CloudSyncController.shared.setEnabled(enabled)
+                    }
             }
         }
     }
@@ -143,13 +154,17 @@ struct BackupView: View {
     private var syncContentSection: some View {
         settingsCardRow(topGap: 12) {
             VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    AppThemeSettingsLabel(
-                        "同步内容", systemImage: "list.bullet")
-                    Spacer()
-                    Text("预估大小 \(estimatedSizeText)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                NavigationLink {
+                    SyncCategoriesView()
+                } label: {
+                    HStack {
+                        AppThemeSettingsLabel(
+                            "同步内容", systemImage: "list.bullet")
+                        Spacer()
+                        Text("预估大小 \(estimatedSizeText)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 // '设备：'/'App版本：'/'包含：' 摘要域确证。
                 Text("设备：\(deviceName)")

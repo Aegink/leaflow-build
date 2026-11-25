@@ -59,10 +59,13 @@ struct SplashOverlayView: View {
     /// 伪代码 0x100b6da78（L62-85）：SplashOverlayTheme.splashImageDatas(for:)（确证）
     /// 解析启动图与时长。
     static func resolveSplash() -> (image: UIImage, duration: Double)? {
-        guard let data = SplashOverlayTheme.splashImageDatas(for: .light).first,
+        let manager = AppThemeManager.shared
+        let theme = manager.currentTheme
+        guard theme.splashEnabled,
+              let data = SplashOverlayTheme.splashImageDatas(
+                for: manager.activeThemeModeIsDark ? .dark : .light).first,
               let image = UIImage(data: data) else { return nil }
-        // 时长按主题配置（缺省 2.0s，推断）。
-        return (image, 2.0)
+        return (image, max(0.5, min(6, theme.splashDuration)))
     }
 }
 
@@ -74,7 +77,8 @@ enum SplashOverlayTheme {
     }
 
     static func splashImageDatas(for variant: SplashVariant) -> [Data] {
-        [] // 主题域实现待 T-701-01 分册落地。
+        AppThemeManager.shared.currentTheme.splashImageDatas(
+            for: variant == .dark ? .dark : .light)
     }
 }
 

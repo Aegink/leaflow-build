@@ -20,6 +20,7 @@
 // 还原: 2026-11-19
 
 import Foundation
+import UIKit
 
 /// 显示文本校验（全局函数，伪代码 0x1008780b4，L17-41）。
 /// processed 为空/可疑 → 回退 fallback；调试串 "der_"（processed）/ "en_"（empty）确证。
@@ -48,10 +49,43 @@ extension ReaderViewModel {
         defer { isLoadingPage = false }
         Logger.log("loadBook begin id=\(bookId ?? -1) refresh=\(needRefresh)", level: .verbose)
 
-        // 章节内容装配（chapterContents/chapterPages/chapterPageMeta）。
-        // 完整分支（书源解析/缓存命中/占位页插入）待真机对照。
-        if needRefresh || pages.isEmpty {
-            hasError = false
+        do {
+            guard let book = currentBook else { throw AppError.parsing("缺少书籍上下文") }
+            let list: [Chapter]
+            if let provider = chapterListProvider {
+                list = try await provider(book, needRefresh)
+            } else {
+                list = try await bookService.getChapterList(
+                    for: book, useReplaceRule: book.useReplaceRule ?? false,
+                    needRefresh: needRefresh)
+            }
+            guard !list.isEmpty else { throw AppError.emptyContent }
+            if chapters != list || needRefresh {
+                pages.removeAll()
+                chapterContents = Array(repeating: "", count: list.count)
+                chapterStateStore.clearAllChapters()
+            }
+            chapters = list
+            totalChapters = list.count
+            currentChapterIndex = min(max(0, targetChapterIndex ?? book.durChapterIndex ?? 0), list.count - 1)
+            await loadChapterContent(currentChapterIndex, forceRefresh: needRefresh)
+            let chapterPages = pages.enumerated().filter {
+                $0.element.chapterIndex == currentChapterIndex
+            }
+            if let offset = targetPageOffset {
+                let clamped = min(max(0, offset), max(0, chapterPages.count - 1))
+                currentPageIndex = chapterPages.indices.contains(clamped)
+                    ? chapterPages[clamped].offset : 0
+            } else {
+                let position = Int(book.durChapterPos ?? 0)
+                currentPageIndex = chapterPages.first(where: {
+                    guard let range = $0.element.contentRangeInChapter else { return false }
+                    return NSLocationInRange(position, range)
+                })?.offset ?? chapterPages.first?.offset ?? 0
+            }
+        } catch {
+            hasError = true
+            Logger.log("加载书籍失败：\(error.localizedDescription)", level: .error)
         }
     }
 
@@ -96,19 +130,61 @@ extension ReaderViewModel {
         guard chapterIndex >= 0, chapterIndex < chapterContents.count else {
             return
         }
-        if inFlightChapterLoads.contains(chapterIndex), !forceRefresh {
+        if inFlightChapterLoads.contains(chapterIndex) {
             return
         }
         inFlightChapterLoads.insert(chapterIndex)
         defer { inFlightChapterLoads.remove(chapterIndex) }
         isLoadingPage = true
         defer { isLoadingPage = false }
-        if forceRefresh || chapterContents[chapterIndex].isEmpty {
-            // 章节正文拉取域：书源管线（+Loading 主链消费）。
-            chapterLoadStates[chapterIndex] = .loading("加载中")
-        } else {
-            chapterLoadStates[chapterIndex] = chapterLoadStates[chapterIndex]
-                ?? .idle
+        do {
+            guard let book = currentBook, chapters.indices.contains(chapterIndex) else {
+                throw AppError.parsing("缺少章节上下文")
+            }
+            if forceRefresh || chapterContents[chapterIndex].isEmpty {
+                chapterLoadStates[chapterIndex] = .loading("加载中")
+                chapterStateStore.markLoading(chapterIndex: chapterIndex,
+                    title: chapters[chapterIndex].name, installPlaceholderPage: true)
+                mergePages(preservePosition: true, centerChapter: currentChapterIndex,
+                    newPages: pages.filter { $0.chapterIndex != chapterIndex }
+                        + chapterStateStore.pages.filter { $0.chapterIndex == chapterIndex })
+                let content: ChapterContent
+                if let provider = chapterContentProvider {
+                    content = try await provider(book, chapterIndex, forceRefresh)
+                } else {
+                    content = try await bookService.getChapterContent(for: book,
+                        index: chapterIndex, useReplaceRule: book.useReplaceRule ?? false,
+                        type: nil, needRefresh: forceRefresh)
+                }
+                try Task.checkCancellation()
+                chapterContents[chapterIndex] = content.content
+            }
+            let bounds = containerSize.width > 0 && containerSize.height > 0
+                ? containerSize : UIScreen.main.bounds.size
+            let freshPages = try ReaderPaginator.paginate(
+                content: chapterContents[chapterIndex], chapterIndex: chapterIndex,
+                chapterTitle: chapters[chapterIndex].name,
+                settings: settings ?? ReadingSettings.load(), pageBounds: bounds)
+            chapterStateStore.setChapterPages(chapterIndex, pages: freshPages)
+            mergePages(preservePosition: true, centerChapter: currentChapterIndex,
+                newPages: pages.filter { $0.chapterIndex != chapterIndex } + freshPages)
+            chapterLoadStates[chapterIndex] = .idle
+            hasError = false
+        } catch {
+            let failedPages = pages.filter { $0.chapterIndex == chapterIndex }.map {
+                var page = $0
+                page.isLoadingPlaceholder = false
+                page.isErrorPlaceholder = true
+                page.content = error.localizedDescription
+                return page
+            }
+            mergePages(preservePosition: true, centerChapter: currentChapterIndex,
+                newPages: pages.filter { $0.chapterIndex != chapterIndex } + failedPages)
+            chapterStateStore.markFailed(chapterIndex: chapterIndex,
+                errorText: error.localizedDescription,
+                chapterTitle: chapters.indices.contains(chapterIndex) ? chapters[chapterIndex].name : "")
+            chapterLoadStates[chapterIndex] = .idle
+            hasError = true
         }
     }
 
@@ -130,7 +206,8 @@ extension ReaderViewModel {
 
     /// 伪代码 0x1008731e0（L655-662）：当前章付费判定（isPay 域联动）。
     var currentChapterNeedsPay: Bool {
-        false
+        chapters.indices.contains(currentChapterIndex)
+            && (chapters[currentChapterIndex].isPay ?? false)
     }
 
     /// 伪代码 0x10087f528（L668-732）：付费动作（确认域 + 解锁链）。

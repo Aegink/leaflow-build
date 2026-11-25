@@ -101,9 +101,12 @@ enum RuleSampleSelfTest {
         guard ProcessInfo.processInfo.arguments.contains("-selfTestRules")
         else { return }
         beginOutput()
-        run()
-        emitRaw("SELFTEST_END")
-        exit(0)
+        Task { @MainActor in
+            run()
+            await ReaderSampleSelfTest.run(emit: emit)
+            emitRaw("SELFTEST_END")
+            exit(0)
+        }
     }
 
     static func run() {

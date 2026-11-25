@@ -24,7 +24,9 @@ import SwiftUI
 struct ReaderView: View {
     @State private var viewModel = ReaderViewModel()
     @Binding var settings: ReadingSettings
-    var bookId: Int
+    var bookId: Int = 0
+    var book: Book? = nil
+    @State private var showBookmarks = false
 
     @State private var showChapterList = false
     @State private var showSearch = false
@@ -175,16 +177,32 @@ struct ReaderView: View {
             .easeInOut(duration: 0.2), value: viewModel.menuVisible)
         .onAppear {
             Task {
+                if let book { viewModel.configure(book: book, settings: settings) }
                 await viewModel.loadBookWithProgress(
                     bookId, needRefresh: false, targetChapterIndex: nil, targetPageOffset: nil)
             }
         }
+        .sheet(isPresented: $showBookmarks) {
+            NavigationStack {
+                BookmarkListView(bookUrl: viewModel.currentBook?.bookUrl ?? "",
+                    onSelect: { bookmark in
+                        showBookmarks = false
+                        viewModel.jumpToChapter(bookmark.chapterIndex, pageIndex: nil)
+                    })
+            }
+        }
+        .onDisappear { viewModel.saveProgress() }
     }
 
     /// readerToolbarContent（@ToolbarContentBuilder 显式域——
     /// toolbar(content:) 重载歧义消解，wave-16）。
     @ToolbarContentBuilder
     private func readerToolbarContent() -> some ToolbarContent {
+        ToolbarItem(placement: .navigationBarTrailing) {
+            Button(action: { showBookmarks = true }) {
+                Image(systemName: "bookmark")
+            }
+        }
         ToolbarItem(placement: .navigationBarTrailing) {
             Button(action: { showChapterList = true }) {
                 Image(systemName: "list.bullet")
