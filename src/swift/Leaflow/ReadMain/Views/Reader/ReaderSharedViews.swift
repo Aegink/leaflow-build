@@ -623,16 +623,3 @@ struct GlassBatchContainer<Content: View>: View {
 /// 动作表玻璃背景（类型树 L11159 空结构，样式承载域）。
 struct ActionSheetGlassBackground {}
 
-/// 已解析卡片背景（类型树 L2265-2275）。
-struct AppThemeResolvedCardBackground {
-    let image: UIImage?
-    let layout: HighlightBackgroundImageLayout
-    let imageMode: AppThemeCardBackgroundImageMode
-    let cacheIdentifier: String?
-    let color: Color
-    let opacity: Double
-    let borderColor: Color
-    let borderOpacity: Double
-    let borderWidth: CGFloat
-}
-

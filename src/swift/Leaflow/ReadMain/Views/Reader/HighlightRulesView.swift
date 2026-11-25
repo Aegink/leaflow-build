@@ -176,7 +176,9 @@ struct HighlightRulesView: View {
         }
         .navigationTitle("高亮规则")
         .toolbar {
-            EditButton()
+            ToolbarItem(placement: .topBarLeading) {
+                EditButton()
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button {
