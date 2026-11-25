@@ -406,8 +406,10 @@ struct ReaderSettingsView: View {
             Picker("朗读引擎", selection: Binding(
                 get: { preferences.selectedEngine },
                 set: { preferences.selectEngine($0) })) {
-                Text("系统 TTS").tag(ReadAloudEngineSelection.system)
-                Text("在线朗读源").tag(ReadAloudEngineSelection.http)
+                Text("系统 TTS").tag(ReadAloudEngineSelection.system(voiceIdentifier: preferences.systemVoiceIdentifier))
+                ForEach(TtsSourceStore.loadSources()) { source in
+                    Text(source.name).tag(ReadAloudEngineSelection.http(sourceID: source.id))
+                }
             }
             LabeledContent(
                 "当前音色",

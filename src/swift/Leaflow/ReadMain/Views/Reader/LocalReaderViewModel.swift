@@ -101,7 +101,8 @@ final class LocalReaderViewModel {
 
     /// 伪代码 0x1007474e0（L111）。
     var isSpeechPreparing: Bool {
-        false
+        ReaderSpeechSupport.sharedCoordinator.owns(self)
+            && ReaderSpeechSupport.sharedCoordinator.state == .preparing
     }
 
     init(
@@ -194,6 +195,7 @@ final class LocalReaderViewModel {
     /// 伪代码 0x10074c99c（L454-475）：页集提交（chapterPageMeta.didset L48 确证）。
     private func commitPages(newPages: [PageData]) {
         pages = newPages
+        chapterPageMeta.removeAll()
         for page in newPages {
             let meta = chapterPageMeta[page.chapterIndex]
             let start = meta?.start ?? page.pageIndex
@@ -206,14 +208,15 @@ final class LocalReaderViewModel {
     /// 伪代码 0x10074cc08（L484-511）：页集重建。
     func rebuildPages(resyncSpeech: Bool) async {
         var allPages: [PageData] = []
+        let chapters = localBookService.loadChapters(for: book.id.uuidString) ?? []
         for (index, content) in chapterContents.enumerated() {
             allPages.append(contentsOf: paginateChapterForBuild(
                 content: content, chapterIndex: index,
-                chapterTitle: book.name))
+                chapterTitle: chapters.indices.contains(index) ? chapters[index].title : book.name))
         }
         commitPages(newPages: allPages)
         if resyncSpeech {
-            syncSpeechForPageChange(to: currentPageIndex)
+            await ReaderSpeechSupport.sharedCoordinator.paginationDidChange(owner: self)
         }
     }
 
@@ -329,15 +332,12 @@ final class LocalReaderViewModel {
 
     /// 伪代码 0x10074fcb4（L765-771）：朗读开关。
     func toggleSpeech() {
-        if activeReadAloudAnchor == nil {
-            // 启动朗读（T-801 分册域）。
-        } else {
-            stopSpeech()
-        }
+        ReaderSpeechSupport.sharedCoordinator.toggle(owner: self)
     }
 
     /// 伪代码 0x10074fc44（L773-775）：停止朗读。
     func stopSpeech() {
+        ReaderSpeechSupport.sharedCoordinator.stop(owner: self)
         activeReadAloudAnchor = nil
         speechHighlight = .none
     }
@@ -352,19 +352,18 @@ final class LocalReaderViewModel {
 
     /// 伪代码 0x10074fe68（L787-792）：页变化朗读同步。
     func syncSpeechForPageChange(to index: Int) {
-        guard let page = pages.indices.contains(index) ? pages[index] : nil else { return }
-        speechHighlight = ReaderSpeechHighlight(
-            anchor: activeReadAloudAnchor, pages: [page])
+        guard pages.indices.contains(index) else { return }
+        ReaderSpeechSupport.sharedCoordinator.seekToCurrentPage(owner: self)
     }
 
     /// 伪代码 0x100750108（L806-816）：朗读展示。
     func readAloudShow(location: ReadAloudLocation) {
-        // ReadAloudLocation 无 anchor 成员——pageIndex 定位域桥
-        // （ReaderSpeechHighlight(anchor:) 链对齐，wave-69）。
-        activeReadAloudAnchor = ReadAloudAnchor(
-            location: .init(pageIndex: location.pageIndex),
-            rangeInPage: NSRange(), rangeInChapter: nil,
-            startUTF16Offset: 0, isChapterTitle: false)
+        guard let index = pages.firstIndex(where: {
+            $0.chapterIndex == location.chapterIndex && $0.pageIndex == location.pageIndex
+        }) else { return }
+        currentPageIndex = index
+        currentChapterIndex = location.chapterIndex
+        activeReadAloudAnchor = ReaderSpeechSupport.sharedCoordinator.currentAnchor
         updateHighlightForSpeech()
     }
 
@@ -379,11 +378,26 @@ final class LocalReaderViewModel {
     }
 
     /// 伪代码 0x100750890（L836-848）：朗读换章。
-    func readAloudChangeChapter(by delta: Int) async -> ReadAloudChapterAdvanceResult {
+    func readAloudChangeChapter(by delta: Int) async -> ReadAloudChapterChangeResult {
         let target = currentChapterIndex + delta
         guard chapterContents.indices.contains(target) else { return .exhausted }
-        await jumpToChapter(target, coordinateReadAloud: true)
+        await jumpToChapter(target, coordinateReadAloud: false)
+        guard let index = pages.firstIndex(where: {
+            $0.chapterIndex == target && ReadAloudQueueBuilder.isReadable($0)
+        }) else { return .exhausted }
+        currentPageIndex = index
         return .advanced
+    }
+
+    var readAloudPages: [PageData] { pages }
+    var readAloudCurrentPageIndex: Int { currentPageIndex }
+    var readAloudMetadata: ReadAloudMetadata {
+        .init(bookName: book.name, chapterName: currentPage?.chapterTitle ?? "", author: book.author ?? "")
+    }
+    func readAloudSaveProgress() { saveProgress() }
+    func readAloudSessionDidFinish() {
+        activeReadAloudAnchor = nil
+        speechHighlight = .none
     }
 
     // MARK: 标题预热

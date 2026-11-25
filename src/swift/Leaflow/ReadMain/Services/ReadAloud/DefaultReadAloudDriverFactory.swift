@@ -24,7 +24,7 @@ import Foundation
 /// @MainActor：preferences 域为 ReadAloudPreferences MainActor 隔离——
 /// 消费方 ReadAloudCoordinator 亦然（wave-16）。
 @MainActor
-final class DefaultReadAloudDriverFactory {
+final class DefaultReadAloudDriverFactory: ReadAloudDriverFactory {
 
     private let preferences: ReadAloudPreferences
     private let sources: HttpTtsSourceRepository
@@ -47,11 +47,11 @@ final class DefaultReadAloudDriverFactory {
     func makeDriver(for selection: ReadAloudEngineSelection) throws
         -> ReadAloudDriver {
         switch selection {
-        case .http:
+        case .http(let sourceID):
+            sources.reload()
             // HttpReadAloudDriver 分派域 L322-L358 确证。
-            guard let source = sources.sources.first else {
-                throw HttpTtsSourceRepository.HttpTtsSourceRepositoryError
-                    .invalidPayload
+            guard let source = sources.sources.first(where: { $0.id == sourceID }) else {
+                throw ReadAloudDriverFactoryError.sourceNotFound(sourceID)
             }
 
             return HttpReadAloudDriver(
@@ -63,11 +63,11 @@ final class DefaultReadAloudDriverFactory {
                 decoder: HttpTtsAudioDecoder(),
                 audioCache: HttpTtsAudioCache(),
                 startupTimeoutNanoseconds: 8_000_000_000)
-        case .system:
+        case .system(let voiceIdentifier):
             return SystemReadAloudDriver(
                 output: nil,
-                voiceIdentifier: "",
-                rate: preferences.systemRate,
+                voiceIdentifier: voiceIdentifier,
+                rate: preferences.systemMultiplierToRate(preferences.systemRate),
                 pitch: preferences.systemPitch,
                 queueAhead: preferences.systemQueueAhead,
                 startTimeoutNanoseconds: 8_000_000_000)

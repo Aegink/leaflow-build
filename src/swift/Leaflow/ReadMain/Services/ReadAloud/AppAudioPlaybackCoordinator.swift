@@ -29,7 +29,7 @@ import MediaPlayer
 
 /// 音频播放协调器（acquire 0x 域 L99-101 确证：租约抢占链）。
 @MainActor
-final class AppAudioPlaybackCoordinator {
+final class AppAudioPlaybackCoordinator: AppAudioPlaybackCoordinating {
 
     /// 播放客户端（AppAudioPlaybackClient 签名域确证）。
     struct AppAudioPlaybackClient: Hashable {
@@ -96,16 +96,23 @@ final class AppAudioPlaybackCoordinator {
         // 抢占现租约（onPreempt 域确证）。
         if let current = state.activeLease {
             preemptHandlers[current.id]?()
-            suspend(current)
+            release(current)
         }
         state.generation += 1
         let lease = AppAudioPlaybackLease(
             id: UUID(), client: client)
         state.activeLease = lease
         // 会话激活（activate 域确证）。
-        try await activate(
-            lease, requestGeneration: state.generation,
-            action: "acquire")
+        let token = state.generation
+        do {
+            try await activate(lease, requestGeneration: token, action: "acquire")
+        } catch {
+            release(lease)
+            throw error
+        }
+        guard state.generation == token, state.activeLease?.id == lease.id else {
+            throw CancellationError()
+        }
         preemptHandlers[lease.id] = onPreempt
         interruptionHandlers[lease.id] = onInterruption
         remoteCommandsByLease[lease.id] = remoteCommands
@@ -121,8 +128,12 @@ final class AppAudioPlaybackCoordinator {
         action: String
     ) async throws {
         let options = ReadAloudAudioSessionActivationOptions()
-        state.backendLease = try await audioSession.activate(
-            options: options)
+        let backendLease = try await audioSession.activate(options: options)
+        guard state.generation == requestGeneration, state.activeLease?.id == lease.id else {
+            await audioSession.deactivate(lease: backendLease)
+            throw CancellationError()
+        }
+        state.backendLease = backendLease
         try await reconfigureMixing()
     }
 
@@ -150,9 +161,10 @@ final class AppAudioPlaybackCoordinator {
     /// release(lease)（签名域确证：去激活 + 清锁屏）。
     func release(_ lease: AppAudioPlaybackLease) {
         guard state.activeLease?.id == lease.id else { return }
+        let backendLease = state.backendLease
+        state.generation += 1
         Task {
-            await audioSession.deactivate(
-                lease: state.backendLease)
+            if let backendLease { await audioSession.deactivate(lease: backendLease) }
         }
         state.backendLease = nil
         state.activeLease = nil
@@ -178,6 +190,10 @@ final class AppAudioPlaybackCoordinator {
         nowPlaying.publish(metadata: metadata)
     }
 
+    func updateNowPlaying(state: ReadAloudPlaybackState) {
+        (nowPlaying as? ReadAloudNowPlayingController)?.update(state: state)
+    }
+
     /// clearNowPlaying(for:)（签名域确证）。
     func clearNowPlaying(for lease: AppAudioPlaybackLease) {
         nowPlaying.clear()
@@ -191,15 +207,18 @@ final class AppAudioPlaybackCoordinator {
         commands: AppAudioRemoteCommands
     ) {
         let center = MPRemoteCommandCenter.shared()
+        (nowPlaying as? ReadAloudNowPlayingController)?.configureCommands(commands)
         center.playCommand.isEnabled = commands.onPlay != nil
         center.pauseCommand.isEnabled = commands.onPause != nil
         center.togglePlayPauseCommand.isEnabled =
             commands.onTogglePlayPause != nil
+        center.nextTrackCommand.isEnabled = commands.onSeekForward != nil
+        center.previousTrackCommand.isEnabled = commands.onSeekBackward != nil
     }
 
     /// logSession(_:lease:)（签名域确证：诊断域）。
     private func logSession(_ action: String, lease: AppAudioPlaybackLease) {
-        // 会话诊断域（logSession 签名还原桥）。
+        Logger.log("音频会话操作=\(action)，客户端=\(lease.client.name)，租约=\(lease.id)", level: .verbose)
     }
 
     /// 中断观察（onInterruption 域确证：转发现租约处理器）。

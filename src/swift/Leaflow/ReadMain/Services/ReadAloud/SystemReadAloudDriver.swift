@@ -1,29 +1,11 @@
 // 原路径: ReadMain/Services/ReadAloud/SystemReadAloudDriver.swift
-// 证据:
-//   - PGO: 40 条记录（index/task_functions.csv T-801-10 /
-//     SystemReadAloudDriver.swift；伪代码域 240 行）
-//   - CovMap: 上述 L 区段（init 七参/start/seek/pause/resume/stop/
-//     enqueueMore/handle/rebind/queue/watchdog 域）
-//   - IDA: src/pseudocode/Leaflow/ReadMain/Services/ReadAloud/
-//     SystemReadAloudDriver.c（855 行）
-//   - 块体确证（签名域）：
-//     init(output: SystemSpeechOutput?, voiceIdentifier: String,
-//     rate: Float, pitch: Float, queueAhead: Int,
-//     startTimeoutNanoseconds: UInt64, makeOutput: ...) /
-//     start(segments:) / seek(segments:) / pause / resume / stop /
-//     bindOutput() / enqueueMore() / handle(SystemSpeechOutputEvent) /
-//     replaceOutput() / replaceQueue(with:) /
-//     resetPlayback(rebindOutput: Bool) / scheduleStartWatchdog
-//   - 事实：系统朗读驱动（AVSpeechSynthesizer 队列域 + 看门狗）
-// 状态: 语义级还原（不是原始源码；变量名/注释为还原者所加）
-// 置信度: high（十四签名域确证）
-// 还原: 2026-11-20
-
+// 证据: SystemReadAloudDriver.c PGO init/start/seek/pause/resume/stop、入队与看门狗。
+// index/swift_types_dump.txt:5360-5397：请求 UUID、段索引、已发布锚点与启动重试字段。
+// 本批恢复请求身份、UTF-16 锚点与事件链；真机发声仍需待验清单证据。
 import AVFoundation
 
-/// 系统朗读驱动（init 七参签名域确证）。
 final class SystemReadAloudDriver: ReadAloudDriver {
-
+    var onEvent: ((ReadAloudDriverEvent) -> Void)?
     private var output: SystemSpeechOutput?
     private let voiceIdentifier: String
     private let rate: Float
@@ -31,184 +13,166 @@ final class SystemReadAloudDriver: ReadAloudDriver {
     private let queueAhead: Int
     private let startTimeoutNanoseconds: UInt64
     private let makeOutput: () -> SystemSpeechOutput
-
     private var segments: [ReadAloudSegment] = []
+    private var requestIndices: [UUID: Int] = [:]
+    private var publishedAnchorIndices: [UUID: Int] = [:]
     private var nextIndex = 0
     private var generation = 0
     private var isPlaying = false
+    private var isPaused = false
+    private var didReceiveStart = false
+    private var didRetryWithFallbackVoice = false
+    private var activeVoiceIdentifier: String
     private var startWatchdog: Task<Void, Never>?
 
-    /// init 七参（签名域确证）。
-    init(
-        output: SystemSpeechOutput?,
-        voiceIdentifier: String,
-        rate: Float,
-        pitch: Float,
-        queueAhead: Int,
-        startTimeoutNanoseconds: UInt64,
+    init(output: SystemSpeechOutput?, voiceIdentifier: String,
+        rate: Float, pitch: Float, queueAhead: Int, startTimeoutNanoseconds: UInt64,
         makeOutput: @escaping () -> SystemSpeechOutput = {
-            SystemSpeechOutput(synthesizer: AVSpeechSynthesizer())
-        }
-    ) {
+            AVSystemSpeechOutput(synthesizer: AVSpeechSynthesizer())
+        }) {
         self.output = output
         self.voiceIdentifier = voiceIdentifier
+        self.activeVoiceIdentifier = voiceIdentifier
         self.rate = rate
         self.pitch = pitch
-        self.queueAhead = queueAhead
+        self.queueAhead = max(0, queueAhead)
         self.startTimeoutNanoseconds = startTimeoutNanoseconds
         self.makeOutput = makeOutput
-        bindOutput()
     }
 
-    deinit {
-        output?.stop()
-    }
+    deinit { startWatchdog?.cancel(); output?.stop() }
 
-    /// bindOutput（签名域确证：事件链桥）。
     private func bindOutput() {
+        let token = generation
         output?.onEvent = { [weak self] event in
             Task { @MainActor in
-                self?.handle(event)
+                guard let self, self.generation == token else { return }
+                self.handle(event)
             }
         }
     }
 
-    /// start(segments:)（签名域确证：新代次启动）。
     func start(segments: [ReadAloudSegment]) {
         stop()
-        generation += 1
         self.segments = segments
-        nextIndex = 0
+        activeVoiceIdentifier = voiceIdentifier
+        didReceiveStart = false
+        didRetryWithFallbackVoice = false
         isPlaying = true
-        if output == nil {
-            replaceOutput()
-        } else {
-            bindOutput()
-        }
-        scheduleStartWatchdog()
+        if output == nil { replaceOutput() } else { bindOutput() }
         enqueueMore()
+        scheduleStartWatchdog()
     }
 
-    /// seek(segments:)（签名域确证）。
-    func seek(segments: [ReadAloudSegment]) {
-        start(segments: segments)
-    }
-
-    /// pause（签名域确证）。
-    func pause() {
-        isPlaying = false
-        output?.pause()
-    }
-
-    /// resume（签名域确证）。
+    func seek(segments: [ReadAloudSegment]) { start(segments: segments) }
+    func pause() { isPaused = true; output?.pause(); startWatchdog?.cancel() }
     func resume() {
-        isPlaying = true
+        guard isPlaying else { return }
+        isPaused = false
         output?.resume()
         enqueueMore()
+        if !didReceiveStart { scheduleStartWatchdog() }
     }
 
-    /// stop（签名域确证）。
     func stop() {
         generation += 1
         isPlaying = false
+        isPaused = false
         segments = []
         nextIndex = 0
-        resetPlayback(rebindOutput: false)
         startWatchdog?.cancel()
+        resetPlayback(rebindOutput: false)
     }
 
-    /// enqueueMore（签名域确证：queueAhead 预入队域）。
-    /// 队列长度经 pendingCount 桥（queue 私有域，wave-16）。
     private func enqueueMore() {
-        guard isPlaying, let output else { return }
-        let enqueued = output.pendingCount
-        let inFlight = activeRequest == nil ? 0 : 1
-        let target = queueAhead - enqueued - inFlight
-        for _ in 0..<max(target, 0) {
-            guard nextIndex < segments.count else { return }
-            let segment = segments[nextIndex]
+        guard isPlaying, !isPaused, let output else { return }
+        // 当前请求加预读段数，预读为 0 时也必须启动一段。
+        while requestIndices.count < queueAhead + 1 && nextIndex < segments.count {
+            let index = nextIndex
             nextIndex += 1
-            let request = SystemSpeechRequest(
-                text: segment.playbackText, rate: rate, pitch: pitch)
+            let text = segments[index].playbackText
+            guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                onEvent?(.segmentSkipped(segmentIndex: index, message: "朗读段没有正文"))
+                continue
+            }
+            let request = SystemSpeechRequest(text: text, voiceIdentifier: activeVoiceIdentifier,
+                rate: rate, pitch: pitch)
+            requestIndices[request.id] = index
             output.enqueue(request)
         }
+        if nextIndex == segments.count && requestIndices.isEmpty {
+            isPlaying = false
+            startWatchdog?.cancel()
+            onEvent?(.finished)
+        }
     }
 
-    private var activeRequest: SystemSpeechRequest?
-
-    /// handle(SystemSpeechOutputEvent)（签名域确证：事件分派域）。
-    private func handle(_ event: SystemSpeechOutput.DelegateEvent) {
+    private func handle(_ event: SystemSpeechOutputEvent) {
+        guard isPlaying else { return }
         switch event {
-        case .started(let request):
-            activeRequest = request
-        case .willSpeak:
-            break
-        case .finished, .cancelled:
-            activeRequest = nil
-            guard nextIndex < segments.count else {
-                isPlaying = false
-                return
-            }
+        case .started(let id):
+            guard let index = requestIndices[id] else { return }
+            didReceiveStart = true
+            startWatchdog?.cancel()
+            onEvent?(.started(segmentIndex: index))
+            publishAnchor(requestID: id, index: index, offset: 0)
+        case .rangeChanged(let id, let range):
+            guard let index = requestIndices[id], !isPaused else { return }
+            publishAnchor(requestID: id, index: index, offset: range.location)
+        case .finished(let id):
+            guard requestIndices.removeValue(forKey: id) != nil else { return }
+            publishedAnchorIndices.removeValue(forKey: id)
             enqueueMore()
+        case .cancelled(let id):
+            guard requestIndices.removeValue(forKey: id) != nil else { return }
+            publishedAnchorIndices.removeValue(forKey: id)
+            stop()
+            onEvent?(.failed(message: "系统朗读请求被取消"))
         }
     }
 
-    /// replaceOutput（签名域确证：输出重建桥）。
-    private func replaceOutput() {
-        output = makeOutput()
-        bindOutput()
+    private func publishAnchor(requestID: UUID, index: Int, offset: Int) {
+        let segment = segments[index]
+        let absoluteOffset = max(0, offset) + segment.playbackStartUTF16Offset
+        guard let anchorIndex = segment.anchors.indices.last(where: {
+            $0 >= segment.playbackStartAnchorIndex
+                && segment.anchors[$0].startUTF16Offset <= absoluteOffset
+        }), publishedAnchorIndices[requestID] != anchorIndex else { return }
+        publishedAnchorIndices[requestID] = anchorIndex
+        onEvent?(.anchorChanged(segmentIndex: index, anchor: segment.anchors[anchorIndex]))
     }
 
-    /// replaceQueue(with:)（签名域确证）。
-    private func replaceQueue(with segments: [ReadAloudSegment]) {
-        self.segments = segments
-        nextIndex = 0
-        output?.stop()
-        enqueueMore()
-    }
+    private func replaceOutput() { output = makeOutput(); bindOutput() }
+    private func replaceQueue(with segments: [ReadAloudSegment]) { start(segments: segments) }
 
-    /// resetPlayback(rebindOutput:)（签名域确证）。
     private func resetPlayback(rebindOutput: Bool) {
+        requestIndices.removeAll()
+        publishedAnchorIndices.removeAll()
+        output?.onEvent = nil
         output?.stop()
-        if rebindOutput {
-            replaceOutput()
-        }
-        activeRequest = nil
+        if rebindOutput { replaceOutput() }
     }
 
-    /// scheduleStartWatchdog（签名域确证：启动看门狗域）。
     private func scheduleStartWatchdog() {
         startWatchdog?.cancel()
-        startWatchdog = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: self?
-                .startTimeoutNanoseconds ?? 8_000_000_000)
-            guard !Task.isCancelled, let self, isPlaying,
-                  nextIndex == 0 else {
+        let token = generation
+        startWatchdog = Task { @MainActor [weak self] in
+            guard let delay = self?.startTimeoutNanoseconds else { return }
+            try? await Task.sleep(nanoseconds: delay)
+            guard let self, !Task.isCancelled, self.generation == token,
+                  self.isPlaying, !self.isPaused, !self.didReceiveStart else { return }
+            if self.didRetryWithFallbackVoice {
+                self.stop()
+                self.onEvent?(.failed(message: "系统朗读启动超时"))
                 return
             }
-            // 启动超时：重绑输出域。
-            resetPlayback(rebindOutput: true)
-            enqueueMore()
+            self.didRetryWithFallbackVoice = true
+            self.activeVoiceIdentifier = ""
+            self.nextIndex = self.requestIndices.values.min() ?? self.nextIndex
+            self.generation += 1
+            self.resetPlayback(rebindOutput: true)
+            self.enqueueMore()
+            self.scheduleStartWatchdog()
         }
-    }
-}
-
-/// 系统语音请求（enqueue(SystemSpeechRequest) 域还原桥）。
-struct SystemSpeechRequest: Equatable {
-    let text: String
-    let rate: Float
-    let pitch: Float
-    let language: String?
-    let volume: Float
-
-    init(
-        text: String, rate: Float, pitch: Float,
-        language: String? = nil, volume: Float = 1.0
-    ) {
-        self.text = text
-        self.rate = rate
-        self.pitch = pitch
-        self.language = language
-        self.volume = volume
     }
 }

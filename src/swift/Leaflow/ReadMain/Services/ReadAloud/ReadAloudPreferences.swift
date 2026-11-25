@@ -49,8 +49,18 @@ final class ReadAloudPreferences: ObservableObject {
 
     private let defaults: UserDefaults
 
-    @Published var selectedEngine: ReadAloudEngineSelection
-    @Published var systemVoice: ReadAloudVoice?
+    @Published private(set) var selectedHTTPSourceID: Int64?
+    @Published private(set) var systemVoiceIdentifier: String
+    var selectedEngine: ReadAloudEngineSelection {
+        if let selectedHTTPSourceID { return .http(sourceID: selectedHTTPSourceID) }
+        return .system(voiceIdentifier: systemVoiceIdentifier)
+    }
+    var systemVoice: ReadAloudVoice? {
+        AVSpeechSynthesisVoice(identifier: systemVoiceIdentifier).map(ReadAloudVoice.init)
+    }
+    var availableSystemVoices: [ReadAloudVoice] {
+        AVSpeechSynthesisVoice.speechVoices().map(ReadAloudVoice.init)
+    }
     @Published var systemRate: Float
     @Published var systemPitch: Float
     @Published var systemQueueAhead: Int
@@ -59,6 +69,7 @@ final class ReadAloudPreferences: ObservableObject {
     @Published var httpTailTrimMilliseconds: Int
 
     private static let engineKey = "reader_readaloud_engine"
+    private static let httpSourceKey = "reader_readaloud_http_source_id"
     private static let systemVoiceKey = "reader_readaloud_voice"
     private static let systemRateKey = "reader_readaloud_system_rate"
     private static let systemPitchKey = "reader_readaloud_system_pitch"
@@ -70,9 +81,8 @@ final class ReadAloudPreferences: ObservableObject {
     /// init(defaults:)（签名域确证）。
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        let rawEngine = defaults.string(forKey: Self.engineKey)
-        selectedEngine = ReadAloudEngineSelection(
-            rawValue: rawEngine ?? "") ?? .system
+        systemVoiceIdentifier = defaults.string(forKey: Self.systemVoiceKey) ?? ""
+        selectedHTTPSourceID = (defaults.object(forKey: Self.httpSourceKey) as? NSNumber)?.int64Value
         systemRate = defaults.float(forKey: Self.systemRateKey)
         systemPitch = defaults.float(forKey: Self.systemPitchKey)
         systemQueueAhead = defaults.integer(forKey: Self.systemQueueKey)
@@ -85,19 +95,19 @@ final class ReadAloudPreferences: ObservableObject {
         if httpRate == 0 { httpRate = 1.0 }
         if httpDownloadAhead == 0 { httpDownloadAhead = 2 }
         if httpTailTrimMilliseconds == 0 { httpTailTrimMilliseconds = 80 }
+        reload()
     }
 
     /// reload（签名域确证）。
     func reload() {
-        let rawEngine = defaults.string(forKey: Self.engineKey)
-        selectedEngine = ReadAloudEngineSelection(
-            rawValue: rawEngine ?? "") ?? .system
-        systemRate = defaults.float(forKey: Self.systemRateKey)
-        systemPitch = defaults.float(forKey: Self.systemPitchKey)
-        systemQueueAhead = defaults.integer(forKey: Self.systemQueueKey)
-        httpRate = defaults.float(forKey: Self.httpRateKey)
-        httpDownloadAhead = defaults.integer(forKey: Self.httpAheadKey)
-        httpTailTrimMilliseconds = defaults.integer(forKey: Self.httpTrimKey)
+        systemVoiceIdentifier = defaults.string(forKey: Self.systemVoiceKey) ?? ""
+        selectedHTTPSourceID = (defaults.object(forKey: Self.httpSourceKey) as? NSNumber)?.int64Value
+        systemRate = normalizedSystemRate((defaults.object(forKey: Self.systemRateKey) as? NSNumber)?.floatValue ?? 1)
+        systemPitch = normalizedSystemPitch((defaults.object(forKey: Self.systemPitchKey) as? NSNumber)?.floatValue ?? 1)
+        systemQueueAhead = normalizedSystemQueueAhead((defaults.object(forKey: Self.systemQueueKey) as? NSNumber)?.intValue ?? 2)
+        httpRate = normalizedHTTPRate((defaults.object(forKey: Self.httpRateKey) as? NSNumber)?.floatValue ?? 1)
+        httpDownloadAhead = normalizedHTTPDownloadAhead((defaults.object(forKey: Self.httpAheadKey) as? NSNumber)?.intValue ?? 2)
+        httpTailTrimMilliseconds = normalizedHTTPTailTrim((defaults.object(forKey: Self.httpTrimKey) as? NSNumber)?.intValue ?? 80)
     }
 
     // MARK: 归一化域（normalized 六件签名域确证）
@@ -165,7 +175,16 @@ final class ReadAloudPreferences: ObservableObject {
     }
 
     func selectEngine(_ selection: ReadAloudEngineSelection) {
-        selectedEngine = selection
+        switch selection {
+        case .system(let identifier):
+            selectedHTTPSourceID = nil
+            systemVoiceIdentifier = identifier
+            defaults.removeObject(forKey: Self.httpSourceKey)
+            defaults.set(identifier, forKey: Self.systemVoiceKey)
+        case .http(let sourceID):
+            selectedHTTPSourceID = sourceID
+            defaults.set(sourceID, forKey: Self.httpSourceKey)
+        }
         defaults.set(selection.rawValue, forKey: Self.engineKey)
     }
 
@@ -193,7 +212,9 @@ final class ReadAloudPreferences: ObservableObject {
         using repository: HttpTtsSourceRepository
     ) {
         let legacy = defaults.integer(forKey: "reader_tts_selected")
-        guard legacy != 0 else { return }
+        guard selectedHTTPSourceID == nil, legacy != 0,
+              repository.source(id: Int64(legacy)) != nil else { return }
+        selectEngine(.http(sourceID: Int64(legacy)))
         defaults.removeObject(forKey: "reader_tts_selected")
     }
 }
@@ -205,15 +226,13 @@ extension ReadAloudPreferences {
     /// 伪代码 0x100296258（L129-135）：系统语音选择（identifier 域——
     /// ReadAloudVoice.init(voice:) 签名域桥）。
     func selectSystemVoice(identifier: String) {
-        if let voice = AVSpeechSynthesisVoice(identifier: identifier) {
-            systemVoice = ReadAloudVoice(voice: voice)
-        }
+        guard identifier.isEmpty || AVSpeechSynthesisVoice(identifier: identifier) != nil else { return }
+        selectEngine(.system(voiceIdentifier: identifier))
     }
 
     /// 伪代码 0x100295a60（L143-147）：HTTP 语音选择移除。
     func removeHTTPSelection() {
-        // HTTP 语音选择清除域（engine 复位推断）。
-        selectedEngine = .system
+        selectEngine(.system(voiceIdentifier: systemVoiceIdentifier))
     }
 }
 

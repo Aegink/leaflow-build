@@ -1,167 +1,91 @@
 // 原路径: ReadMain/Views/Reader/ReaderViewModel+Speech.swift
-// 证据:
-//   - PGO: 12 条记录（index/task_functions.csv T-801-13 /
-//     ReaderViewModel+Speech.swift；三签名域）
-//   - CovMap: 上述 L 区段（toggleSpeech/stopSpeech/
-//     syncSpeechForPageChange 域）
-//   - IDA: src/pseudocode/Leaflow/ReadMain/Views/Reader/
-//     ReaderViewModel+Speech.c（615 行）
-//   - 块体确证（签名域）：
-//     ReaderViewModel.toggleSpeech() / stopSpeech() /
-//     syncSpeechForPageChange(to: Int)（页切换联动域）+ readAloud 六件
-//     （readAloudAdvanceChapter/readAloudChangeChapter(by:)/
-//     readAloudCurrentPageIndex/readAloudMetadata/readAloudPages/
-//     loadChapterForReadAloud）+ commitPageTurn/handleSliderPageChange
-//     联动域
-//   - 事实：阅读页朗读联动（页切换同步 + 章节推进 + 元数据域）
-//   - 还原桥：ReadAloudCoordinator 实例桥（readAloudCoordinator 桥，
-//     T-801-08 分册类型）经 TtsPlayable.playerCoordinator 注入
-// 状态: 语义级还原（不是原始源码；变量名/注释为还原者所加）
-// 置信度: high（三签名域 + readAloud 桥域确证）
-// 还原: 2026-11-20
-
+// 证据: ReaderViewModel+Speech.c：0x100895694 L47-57 show；
+// 0x10089590c L63-72 advance；0x100896178 L74-82 change。
+// 属主八项要求来自 index/task_functions.csv 与类型表 17684。
 import Foundation
 
-/// 阅读页朗读联动扩展（toggleSpeech/stopSpeech 签名域确证）。
 extension ReaderViewModel {
+    var readAloudCoordinator: ReadAloudCoordinator { ReaderSpeechSupport.sharedCoordinator }
+    var readAloudOwner: ReadAloudSessionOwner { self }
 
-    /// readAloudCoordinator 桥（TtsPlayable.playerCoordinator 注入域；
-    /// 共享实例随 T-801-08 分册类型落地）。
-    var readAloudCoordinator: ReadAloudCoordinator {
-        ReaderSpeechSupport.sharedCoordinator
-    }
+    func toggleSpeech() { readAloudCoordinator.toggle(owner: self) }
+    func stopSpeech() { readAloudCoordinator.stop(owner: self) }
 
-    /// readAloudOwner（owner 域还原桥）。
-    var readAloudOwner: ReadAloudSessionOwner {
-        ReadAloudSessionOwner()
-    }
-
-    /// toggleSpeech()（签名域确证：播放/暂停切换域）。
-    func toggleSpeech() {
-        if readAloudCoordinator.isSpeaking {
-            readAloudCoordinator.pause()
-        } else {
-            readAloudCoordinator.start(owner: readAloudOwner)
-        }
-    }
-
-    /// stopSpeech()（签名域确证）。
-    func stopSpeech() {
-        readAloudCoordinator.stop(owner: readAloudOwner)
-    }
-
-    /// syncSpeechForPageChange(to: Int)（签名域确证：翻页同步域）。
     func syncSpeechForPageChange(to pageIndex: Int) {
-        guard readAloudCoordinator.isSpeaking else { return }
-        Task { @MainActor in
-            await readAloudCoordinator.paginationDidChange(
-                owner: readAloudOwner)
+        guard readAloudCoordinator.owns(self), pages.indices.contains(pageIndex) else { return }
+        readAloudCoordinator.seekToCurrentPage(owner: self)
+    }
+
+    var readAloudCurrentPageIndex: Int { currentPageIndex }
+    var readAloudPages: [PageData] { pages }
+    var readAloudMetadata: ReadAloudMetadata {
+        .init(bookName: currentBook?.name ?? bookName,
+            chapterName: chapters.indices.contains(currentChapterIndex) ? chapters[currentChapterIndex].name : "",
+            author: currentBook?.author ?? "")
+    }
+
+    func readAloudShow(location: ReadAloudLocation) {
+        guard let index = pages.firstIndex(where: {
+            $0.chapterIndex == location.chapterIndex && $0.pageIndex == location.pageIndex
+        }) else { return }
+        currentPageIndex = index
+        currentChapterIndex = location.chapterIndex
+        speechSessionPreparing = false
+        applyReadAloudAnchor(readAloudCoordinator.currentAnchor)
+    }
+
+    func readAloudSaveProgress() {
+        if let book = currentBook, let page = currentPage {
+            let position = readAloudCoordinator.currentAnchor?.rangeInChapter?.location
+                ?? page.contentRangeInChapter?.location ?? 0
+            bookService.saveReadProgress(book: book, chapterIndex: page.chapterIndex,
+                chapterTitle: page.chapterTitle, position: Double(position))
         }
     }
 
-    // MARK: readAloud 桥域（TtsPlayable 协议域还原桥）
+    func readAloudSessionDidFinish() {
+        speechSessionPreparing = false
+        applyReadAloudAnchor(nil)
+    }
 
-    /// readAloudAdvanceChapter（签名域确证：章末推进域）。
-    func readAloudAdvanceChapter() async {
+    func readAloudAdvanceChapter() async -> ReadAloudChapterAdvanceResult {
         await readAloudChangeChapter(by: 1)
     }
 
-    /// readAloudChangeChapter(by: Int)（签名域确证）。
-    func readAloudChangeChapter(by offset: Int) async {
-        let target = max(0, min(
-            currentChapterIndex + offset, totalChapters - 1))
+    func readAloudChangeChapter(by offset: Int) async -> ReadAloudChapterChangeResult {
+        let target = currentChapterIndex + offset
+        guard chapters.indices.contains(target) else { return .exhausted }
         await loadChapterForReadAloud(target)
+        guard let index = pages.firstIndex(where: {
+            $0.chapterIndex == target && ReadAloudQueueBuilder.isReadable($0)
+        }) else { return .exhausted }
+        currentChapterIndex = target
+        currentPageIndex = index
+        return .advanced
     }
 
-    /// readAloudCurrentPageIndex getter（签名域确证）。
-    var readAloudCurrentPageIndex: Int {
-        currentPageIndex
-    }
-
-    /// readAloudMetadata getter（签名域确证：锁屏元数据域）。
-    var readAloudMetadata: ReadAloudMetadata {
-        ReadAloudMetadata(
-            bookName: bookName,
-            chapterName: currentChapterTitleForSpeech,
-            author: bookAuthorForSpeech)
-    }
-
-    /// readAloudPages getter（签名域确证）。
-    var readAloudPages: [PageData] {
-        pages
-    }
-
-    /// loadChapterForReadAloud(Int)（签名域确证：跳章桥）。
     func loadChapterForReadAloud(_ index: Int) async {
-        await jumpToChapterForReadAloud(index)
+        await loadChapterContent(index, forceRefresh: false)
     }
 
-    /// 章节跳转桥（ReaderViewModel 翻页域还原桥；目标章节经页装载）。
-    private func jumpToChapterForReadAloud(_ index: Int) async {
-        guard index != currentChapterIndex,
-              chapterContents.indices.contains(index) else {
-            return
-        }
-        await rebuildForReadAloud(chapterIndex: index)
-    }
-
-    /// rebuildForReadAloud(chapterIndex:)（翻页重建域还原桥）。
-    private func rebuildForReadAloud(chapterIndex: Int) async {
-        // 分页重建域（ReaderViewModel 翻页链还原桥）。
-    }
-
-    /// 元数据辅助桥（VM 域还原桥）。
-    private var currentChapterTitleForSpeech: String {
-        chapterContents.indices.contains(currentChapterIndex)
-            ? chapterContents[currentChapterIndex]
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            : ""
-    }
-
-    private var bookAuthorForSpeech: String {
-        ""
-    }
+    func commitPageTurn() { saveProgress() }
+    func readAloudShow() { speechSessionPreparing = false }
 }
 
-/// 朗读协调器共享桥（readAloudCoordinator 域还原桥）。
 @MainActor
 enum ReaderSpeechSupport {
+    static let preferences = ReadAloudPreferences()
+    static let sources = HttpTtsSourceRepository()
     static let sharedCoordinator = ReadAloudCoordinator(
-        factory: DefaultReadAloudDriverFactory(
-            preferences: ReadAloudPreferences(),
-            sources: HttpTtsSourceRepository(),
-            synthesizer: HttpTtsSynthesizer(
-                transport: URLSession.shared,
-                webSocketTransport: TtsWebSocketTransportStub(),
-                runtimeStore: .shared)))
+        factory: DefaultReadAloudDriverFactory(preferences: preferences, sources: sources,
+            synthesizer: HttpTtsSynthesizer(transport: URLSession.shared,
+                webSocketTransport: TtsWebSocketTransportStub(), runtimeStore: .shared)),
+        preferences: preferences)
 }
 
-/// WS 传输桩（HttpTtsWebSocketTransporting 域还原桥）。
+// WebSocket 传输尚未完成，不能把 HTTP 固定样本当作该分支验收。
 final class TtsWebSocketTransportStub: HttpTtsWebSocketTransporting {
-    func connect(
-        request: URLRequest,
-        configuration: HttpTtsWebSocketConfiguration
-    ) async throws -> HttpTtsWebSocketConnection {
+    func connect(request: URLRequest, configuration: HttpTtsWebSocketConfiguration) async throws -> HttpTtsWebSocketConnection {
         throw HttpTtsWebSocketError.connectionFailed
     }
 }
-
-// MARK: - T-1401-06 逐域补齐（语音域）
-
-extension ReaderViewModel {
-
-    /// 伪代码 0x1008952c0（L16-20）：翻页提交（语音锚点随页域联动）。
-    func commitPageTurn() {
-        if let anchor = activeReadAloudAnchor {
-            Logger.log(
-                "speech commitPageTurn anchor=\(anchor.chapterIndex)",
-                level: .verbose)
-        }
-    }
-
-    /// 伪代码 0x100895694（L47-57）：朗读展示态（speech 高亮域）。
-    func readAloudShow() {
-        speechSessionPreparing = false
-    }
-}
-

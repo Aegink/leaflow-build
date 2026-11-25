@@ -23,7 +23,15 @@ import AVFoundation
 
 /// HTTP TTS AV 音频输出（schedule 0x 域确证：AVAudioEngine +
 /// AVAudioPlayerNode 流式调度）。
-final class AVHttpTtsAudioOutput {
+protocol HttpTtsAudioOutput: AnyObject {
+    func prepare(format: ReadAloudAudioFormat) throws
+    func schedule(_ buffer: ReadAloudAudioBuffer, completion: @escaping @MainActor @Sendable () -> Void)
+    func play() throws
+    func pause()
+    func stop()
+}
+
+final class AVHttpTtsAudioOutput: HttpTtsAudioOutput {
 
     /// engine/player（variable initialization 域 L9/L45 确证）。
     private let engine = AVAudioEngine()

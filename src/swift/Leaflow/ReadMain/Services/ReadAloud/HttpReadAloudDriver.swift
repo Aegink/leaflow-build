@@ -1,39 +1,11 @@
 // 原路径: ReadMain/Services/ReadAloud/HttpReadAloudDriver.swift
-// 证据:
-//   - PGO: 88 条记录（index/task_functions.csv T-801-05 /
-//     HttpReadAloudDriver.swift；伪代码域 260 行）
-//   - CovMap: 上述 L 区段（init 九参/prepare/schedule/startQueue/
-//     waitForPlaybackWindow/publish/markSegmentSettled/resetPlayback/
-//     watchdog/pause/resume/stop/seek 域）
-//   - IDA: src/pseudocode/Leaflow/ReadMain/Services/ReadAloud/
-//     HttpReadAloudDriver.c（1631 行）
-//   - 块体确证（签名域）：
-//     init(source: HttpTts, speechRate: Float, downloadAhead: Int,
-//     tailTrimMilliseconds: Int, synthesizer: HttpTtsSynthesizing,
-//     decoder: HttpTtsAudioDecoding, audioCache: HttpTtsAudioCache,
-//     startupTimeoutNanoseconds: UInt64, makeOutput: ...) /
-//     start(segments:) / seek(segments:) / pause / resume / stop /
-//     prepare(_: ReadAloudSegment, targetFormat: ReadAloudAudioFormat?)
-//     async / schedule(slices:) / startQueue(_:) /
-//     waitForPlaybackWindow(index:generation:) async /
-//     publishCurrentSliceIfNeeded / didCompleteSlice(generation:) /
-//     markSegmentSettled(Int) / resetPlayback(releaseOutput: Bool) /
-//     scheduleStartupWatchdog(generation: Int)
-//   - ivar 域（DefaultReadAloudDriverFactory.c L322-L358 交叉确证）：
-//     playbackContinuation/generation/lastCompletedSegmentIndex/
-//     lastPublishedSegmentIndex/didScheduleAllSegments
-//   - 字符串域（位模式，scratch/t80105_driver_strings.txt）：
-//     ' 段已缓存' L479（缓存命中域）
-//   - 事实：分段合成 + 切片调度 + 播放窗口门 + 启动看门狗
-// 状态: 语义级还原（不是原始源码；变量名/注释为还原者所加）
-// 置信度: high（十五签名域 + ivar 交叉确证）
-// 还原: 2026-11-20
-
+// 证据: HttpReadAloudDriver.c 的 prepare/schedule/startQueue、播放窗口与启动看门狗 PGO 域。
+// DefaultReadAloudDriverFactory.c L322-358 交叉确证代次、已完成/已发布段和调度完成字段。
+// 本批恢复全队列有界调度、播放与事件；段内音频时间轴仍按 T-1602 继续核原版。
 import AVFoundation
 
-/// HTTP 朗读驱动（init 九参签名域确证）。
 final class HttpReadAloudDriver: ReadAloudDriver {
-
+    var onEvent: ((ReadAloudDriverEvent) -> Void)?
     private let source: HttpTts
     private let speechRate: Float
     private let downloadAhead: Int
@@ -42,39 +14,29 @@ final class HttpReadAloudDriver: ReadAloudDriver {
     private let decoder: HttpTtsAudioDecoding
     private let audioCache: HttpTtsAudioCache
     private let startupTimeoutNanoseconds: UInt64
-    private let makeOutput: () -> AVHttpTtsAudioOutput
-
-    /// ivar 域（factory L322-L358 交叉确证）。
+    private let makeOutput: () -> HttpTtsAudioOutput
+    private var output: HttpTtsAudioOutput?
     private var generation = 0
+    private var segmentQueue: [ReadAloudSegment] = []
+    private var scheduledIndices: Set<Int> = []
     private var lastCompletedSegmentIndex = -1
     private var lastPublishedSegmentIndex = -1
     private var didScheduleAllSegments = false
-    private var playbackContinuation:
-        CheckedContinuation<Void, Never>?
-    private var output: AVHttpTtsAudioOutput?
-    private var segmentQueue: [ReadAloudSegment] = []
-    private var queueIndex = 0
     private var isPlaying = false
+    private var isPaused = false
+    private var didStartPlayback = false
+    private var producerTask: Task<Void, Never>?
     private var startupWatchdog: Task<Void, Never>?
 
-    /// init 九参（签名域确证）。
-    init(
-        source: HttpTts,
-        speechRate: Float,
-        downloadAhead: Int,
-        tailTrimMilliseconds: Int,
-        synthesizer: HttpTtsSynthesizing,
-        decoder: HttpTtsAudioDecoding,
-        audioCache: HttpTtsAudioCache,
+    init(source: HttpTts, speechRate: Float, downloadAhead: Int,
+        tailTrimMilliseconds: Int, synthesizer: HttpTtsSynthesizing,
+        decoder: HttpTtsAudioDecoding, audioCache: HttpTtsAudioCache,
         startupTimeoutNanoseconds: UInt64,
-        makeOutput: @escaping () -> AVHttpTtsAudioOutput = {
-            AVHttpTtsAudioOutput()
-        }
-    ) {
+        makeOutput: @escaping () -> HttpTtsAudioOutput = { AVHttpTtsAudioOutput() }) {
         self.source = source
         self.speechRate = speechRate
-        self.downloadAhead = downloadAhead
-        self.tailTrimMilliseconds = tailTrimMilliseconds
+        self.downloadAhead = max(1, downloadAhead)
+        self.tailTrimMilliseconds = max(0, tailTrimMilliseconds)
         self.synthesizer = synthesizer
         self.decoder = decoder
         self.audioCache = audioCache
@@ -82,187 +44,150 @@ final class HttpReadAloudDriver: ReadAloudDriver {
         self.makeOutput = makeOutput
     }
 
-    /// start(segments:)（签名域确证：新代次启动）。
+    deinit { producerTask?.cancel(); startupWatchdog?.cancel(); output?.stop() }
+
     func start(segments: [ReadAloudSegment]) {
         stop()
-        generation += 1
         segmentQueue = segments
-        queueIndex = 0
-        lastCompletedSegmentIndex = -1
-        lastPublishedSegmentIndex = -1
-        didScheduleAllSegments = false
         isPlaying = true
         output = makeOutput()
-        scheduleStartupWatchdog(generation: generation)
         startQueue(segments)
+        scheduleStartupWatchdog(generation: generation)
     }
 
-    /// seek(segments:)（签名域确证：重定位新代次）。
-    func seek(segments: [ReadAloudSegment]) {
-        start(segments: segments)
-    }
-
-    /// pause（签名域确证）。
-    func pause() {
-        isPlaying = false
-        output?.pause()
-    }
-
-    /// resume（签名域确证）。
+    func seek(segments: [ReadAloudSegment]) { start(segments: segments) }
+    func pause() { isPaused = true; output?.pause(); startupWatchdog?.cancel() }
     func resume() {
-        isPlaying = true
-        try? output?.play()
+        guard isPlaying else { return }
+        isPaused = false
+        do {
+            if !scheduledIndices.isEmpty {
+                try output?.play()
+                publishCurrentSliceIfNeeded()
+            }
+            if !didStartPlayback { scheduleStartupWatchdog(generation: generation) }
+        } catch { fail(error.localizedDescription) }
     }
 
-    /// stop（签名域确证：代次失效 + 输出释放）。
     func stop() {
         generation += 1
         isPlaying = false
-        segmentQueue = []
-        queueIndex = 0
-        didScheduleAllSegments = false
-        resetPlayback(releaseOutput: true)
+        isPaused = false
+        producerTask?.cancel()
+        producerTask = nil
         startupWatchdog?.cancel()
+        segmentQueue = []
+        resetPlayback(releaseOutput: true)
     }
 
-    /// prepare(_:targetFormat:)（签名域确证：缓存命中 → 合成 → 解码）。
-    private func prepare(
-        _ segment: ReadAloudSegment,
-        targetFormat: ReadAloudAudioFormat?
-    ) async throws -> ReadAloudAudioBuffer {
-        // ' 段已缓存' L479 域确证：缓存优先。
-        if let cached = audioCache.data(
-            source: source, text: segment.playbackText,
-            speechRate: speechRate) {
-            return try await decoder.decode(
-                cached, targetFormat: targetFormat?.avAudioFormat)
+    private func prepare(_ segment: ReadAloudSegment,
+        targetFormat: ReadAloudAudioFormat?) async throws -> ReadAloudAudioBuffer {
+        let data: Data
+        if let cached = audioCache.data(source: source, text: segment.playbackText, speechRate: speechRate) {
+            data = cached
+        } else {
+            data = try await synthesizer.synthesize(source: source, text: segment.playbackText, speechRate: speechRate)
+            try Task.checkCancellation()
+            audioCache.insert(data, source: source, text: segment.playbackText, speechRate: speechRate)
         }
-        let data = try await synthesizer.synthesize(
-            source: source, text: segment.playbackText,
-            speechRate: speechRate)
-        audioCache.insert(
-            data, source: source, text: segment.playbackText,
-            speechRate: speechRate)
-        return try await decoder.decode(
-            data, targetFormat: targetFormat?.avAudioFormat)
+        try Task.checkCancellation()
+        let buffer = try await decoder.decode(data, targetFormat: targetFormat?.avAudioFormat)
+        let trim = AVAudioFrameCount(buffer.pcmBuffer.format.sampleRate * Double(tailTrimMilliseconds) / 1000)
+        if buffer.pcmBuffer.frameLength > trim { buffer.pcmBuffer.frameLength -= trim }
+        return buffer
     }
 
-    /// startQueue(_:)（签名域确证：预取 + 切片调度链）。
     private func startQueue(_ segments: [ReadAloudSegment]) {
-        Task { [weak self] in
-            guard let self else { return }
-            let output = output
+        let token = generation
+        producerTask = Task { @MainActor [weak self] in
+            guard let self, let output = self.output else { return }
             do {
-                try await output?.prepare(
-                    format: ReadAloudAudioFormat.standard)
-            } catch {
-                return
-            }
-            let prefetchLimit = min(downloadAhead, segments.count)
-            for (index, segment) in segments.prefix(
-                prefetchLimit).enumerated() {
-                guard generationCurrent(index: index) else { return }
-                await scheduleSegment(segment, index: index)
-            }
-            await waitForPlaybackWindow(index: 0, generation: generation)
-        }
-    }
-
-    private func generationCurrent(index: Int) -> Bool {
-        queueIndex <= index && isPlaying
-    }
-
-    /// scheduleSegment 桥（schedule(slices:) 域还原桥）。
-    private func scheduleSegment(_ segment: ReadAloudSegment, index: Int) {
-        Task { [weak self] in
-            guard let self else { return }
-            let buffer: ReadAloudAudioBuffer
-            do {
-                buffer = try await prepare(
-                    segment, targetFormat: ReadAloudAudioFormat.standard)
-            } catch {
-                markSegmentSettled(index)
-                return
-            }
-            output?.schedule(buffer) { [weak self] in
-                Task { @MainActor in
-                    self?.didCompleteSlice(generation: self?.generation ?? 0)
+                try output.prepare(format: .standard)
+                for (index, segment) in segments.enumerated() {
+                    await self.waitForPlaybackWindow(index: index, generation: token)
+                    guard self.generation == token, !Task.isCancelled else { return }
+                    guard !segment.playbackText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                        self.markSegmentSettled(index)
+                        self.onEvent?(.segmentSkipped(segmentIndex: index, message: "朗读段没有正文"))
+                        continue
+                    }
+                    let buffer = try await self.prepare(segment, targetFormat: .standard)
+                    guard self.generation == token, !Task.isCancelled else { return }
+                    self.scheduledIndices.insert(index)
+                    output.schedule(buffer) { [weak self] in
+                        self?.didCompleteSlice(index: index, generation: token)
+                    }
+                    if !self.isPaused {
+                        try output.play()
+                        self.publishCurrentSliceIfNeeded()
+                    }
                 }
+                guard self.generation == token, !Task.isCancelled else { return }
+                self.didScheduleAllSegments = true
+                self.finishIfSettled()
+            } catch is CancellationError {
+                return
+            } catch {
+                guard self.generation == token else { return }
+                self.fail(error.localizedDescription)
             }
         }
     }
 
-    /// schedule(slices:)（签名域确证）。
-    private func schedule(slices: [ReadAloudAudioBuffer]) {
-        for slice in slices {
-            output?.schedule(slice) { [weak self] in
-                Task { @MainActor in
-                    self?.didCompleteSlice(generation: self?.generation ?? 0)
-                }
-            }
+    private func waitForPlaybackWindow(index: Int, generation token: Int) async {
+        while generation == token, !Task.isCancelled,
+            scheduledIndices.count >= downloadAhead {
+            try? await Task.sleep(nanoseconds: 20_000_000)
         }
     }
 
-    /// waitForPlaybackWindow(index:generation:)（签名域确证：
-    /// 播放窗口门）。
-    private func waitForPlaybackWindow(index: Int, generation: Int) async {
-        while queueIndex <= index && isPlaying && self.generation == generation {
-            try? await Task.sleep(nanoseconds: 200_000_000)
-        }
-    }
-
-    /// didCompleteSlice(generation:)（签名域确证：代次守卫）。
-    private func didCompleteSlice(generation: Int) {
-        guard generation == self.generation else { return }
-        lastCompletedSegmentIndex += 1
+    private func didCompleteSlice(index: Int, generation token: Int) {
+        guard token == generation, isPlaying, scheduledIndices.remove(index) != nil else { return }
+        markSegmentSettled(index)
         publishCurrentSliceIfNeeded()
-        // 预取下一批（downloadAhead 域确证）。
-        let nextIndex = lastCompletedSegmentIndex + downloadAhead
-        if nextIndex < segmentQueue.count {
-            scheduleSegment(segmentQueue[nextIndex], index: nextIndex)
-        } else if lastCompletedSegmentIndex >= segmentQueue.count - 1 {
-            didScheduleAllSegments = true
-        }
+        finishIfSettled()
     }
 
-    /// publishCurrentSliceIfNeeded（签名域确证：进度发布门）。
     private func publishCurrentSliceIfNeeded() {
-        guard lastPublishedSegmentIndex < lastCompletedSegmentIndex else {
-            return
-        }
-        lastPublishedSegmentIndex = lastCompletedSegmentIndex
-    }
-
-    /// markSegmentSettled(Int)（签名域确证）。
-    private func markSegmentSettled(_ index: Int) {
-        if index >= lastCompletedSegmentIndex {
-            lastCompletedSegmentIndex = index
+        guard !isPaused, let index = scheduledIndices.min(), lastPublishedSegmentIndex != index else { return }
+        lastPublishedSegmentIndex = index
+        didStartPlayback = true
+        startupWatchdog?.cancel()
+        onEvent?(.started(segmentIndex: index))
+        if let anchor = segmentQueue[index].firstPlaybackAnchor {
+            onEvent?(.anchorChanged(segmentIndex: index, anchor: anchor))
         }
     }
 
-    /// resetPlayback(releaseOutput:)（签名域确证）。
+    private func markSegmentSettled(_ index: Int) { lastCompletedSegmentIndex = max(lastCompletedSegmentIndex, index) }
+
+    private func finishIfSettled() {
+        guard isPlaying, didScheduleAllSegments, scheduledIndices.isEmpty else { return }
+        isPlaying = false
+        startupWatchdog?.cancel()
+        onEvent?(.finished)
+    }
+
     private func resetPlayback(releaseOutput: Bool) {
         output?.stop()
-        if releaseOutput {
-            output = nil
-        }
+        if releaseOutput { output = nil }
+        scheduledIndices.removeAll()
         lastCompletedSegmentIndex = -1
         lastPublishedSegmentIndex = -1
+        didScheduleAllSegments = false
+        didStartPlayback = false
     }
 
-    /// scheduleStartupWatchdog(generation:)（签名域确证：启动超时域）。
-    private func scheduleStartupWatchdog(generation: Int) {
+    private func fail(_ message: String) { stop(); onEvent?(.failed(message: message)) }
+
+    private func scheduleStartupWatchdog(generation token: Int) {
         startupWatchdog?.cancel()
-        startupWatchdog = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: self?
-                .startupTimeoutNanoseconds ?? 8_000_000_000)
-            guard !Task.isCancelled, let self,
-                  self.generation == generation,
-                  lastCompletedSegmentIndex < 0 else {
-                return
-            }
-            // 启动超时：重置当前代次。
-            resetPlayback(releaseOutput: false)
+        startupWatchdog = Task { @MainActor [weak self] in
+            guard let delay = self?.startupTimeoutNanoseconds else { return }
+            try? await Task.sleep(nanoseconds: delay)
+            guard let self, !Task.isCancelled, self.generation == token,
+                self.isPlaying, !self.isPaused, !self.didStartPlayback else { return }
+            self.fail("在线朗读启动超时")
         }
     }
 }

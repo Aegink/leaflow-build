@@ -398,9 +398,13 @@ struct ReaderTtsQuickSettingsPanel: View {
             } label: {
                 Label("切换语音", systemImage: "waveform")
             }
-            Picker(selection: .constant(ReadAloudEngineSelection.system)) {
-                Text("系统语音").tag(ReadAloudEngineSelection.system)
-                Text("在线引擎").tag(ReadAloudEngineSelection.http)
+            Picker(selection: Binding(
+                get: { ReaderSpeechSupport.preferences.selectedEngine },
+                set: { ReaderSpeechSupport.sharedCoordinator.selectEngine($0) })) {
+                Text("系统语音").tag(ReadAloudEngineSelection.system(voiceIdentifier: ReaderSpeechSupport.preferences.systemVoiceIdentifier))
+                ForEach(TtsSourceStore.loadSources()) { source in
+                    Text(source.name).tag(ReadAloudEngineSelection.http(sourceID: source.id))
+                }
             } label: {
                 Label("引擎", systemImage: "cpu")
             }

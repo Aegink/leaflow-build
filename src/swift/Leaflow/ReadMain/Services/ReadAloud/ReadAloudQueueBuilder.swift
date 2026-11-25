@@ -20,6 +20,30 @@
 
 import Foundation
 
+/// 0x100299f44 L7-23：同章定位，保留目标段的起播锚点索引。
+struct ReadAloudQueueSnapshot {
+    let chapterIndex: Int
+    let segments: [ReadAloudSegment]
+
+    func segments(startingAt location: ReadAloudLocation) -> [ReadAloudSegment] {
+        guard location.chapterIndex == chapterIndex else { return [] }
+        for (index, segment) in segments.enumerated() {
+            if let anchorIndex = segment.anchors.firstIndex(where: {
+                $0.location == location
+            }) {
+                var result = Array(segments[index...])
+                result[0].playbackStartAnchorIndex = anchorIndex
+                return result
+            }
+            if let first = segment.firstAnchor,
+               first.location.pageIndex > location.pageIndex {
+                return Array(segments[index...])
+            }
+        }
+        return []
+    }
+}
+
 /// 朗读队列构建器（build/buildOffMain 签名域确证）。
 enum ReadAloudQueueBuilder {
 
@@ -34,7 +58,7 @@ enum ReadAloudQueueBuilder {
     static func build(
         from pages: [PageData], includeChapterTitle: Bool
     ) -> [ReadAloudSegment] {
-        let fragments = pages.map { page -> (PageData,
+        let fragments = pages.filter(isReadable).map { page -> (PageData,
                                              [ParagraphFragment]) in
             (page, paragraphFragments(in: page.content))
         }
@@ -44,23 +68,32 @@ enum ReadAloudQueueBuilder {
             let fragments = entry.1
             guard !fragments.isEmpty else { return nil }
             var anchors: [ReadAloudAnchor] = []
+            var text = ""
             if includeChapterTitle && page.isFirstPageOfChapter {
-                anchors.append(
+                let title = normalizedTitle(page.chapterTitle)
+                if !title.isEmpty {
+                    text = title + "\n"
+                    anchors.append(
                     ReadAloudAnchor(
-                        location: .init(pageIndex: page.pageIndex),
-                        rangeInPage: NSRange(), rangeInChapter: nil,
+                        location: .init(pageIndex: page.pageIndex, chapterIndex: page.chapterIndex),
+                        rangeInPage: NSRange(location: 0, length: title.utf16.count), rangeInChapter: nil,
                         startUTF16Offset: 0, isChapterTitle: true))
+                }
             }
             for fragment in fragments {
+                let chapterRange = page.contentRangeInChapter.map {
+                    NSRange(location: $0.location + fragment.rangeInPage.location,
+                        length: fragment.rangeInPage.length)
+                }
                 anchors.append(
                     ReadAloudAnchor(
-                        location: .init(pageIndex: page.pageIndex),
+                        location: .init(pageIndex: page.pageIndex, chapterIndex: page.chapterIndex),
                         rangeInPage: fragment.rangeInPage,
-                        rangeInChapter: page.contentRangeInChapter,
-                        startUTF16Offset: fragment.startUTF16Offset,
+                        rangeInChapter: chapterRange,
+                        startUTF16Offset: text.utf16.count,
                         isChapterTitle: false))
+                text += fragment.text + "\n"
             }
-            let text = fragments.map(\.text).joined()
             return ReadAloudSegment(anchors: anchors, text: text)
         }
     }
@@ -101,10 +134,13 @@ enum ReadAloudQueueBuilder {
         let trimmed = substring.trimmingCharacters(
             in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        let leading = (substring as NSString).rangeOfCharacter(
+            from: CharacterSet.whitespacesAndNewlines.inverted).location
+        let actualRange = NSRange(location: range.location + leading, length: trimmed.utf16.count)
         fragments.append(
             ParagraphFragment(
-                text: trimmed, rangeInPage: range,
-                startUTF16Offset: range.location))
+                text: trimmed, rangeInPage: actualRange,
+                startUTF16Offset: actualRange.location))
     }
 
     /// nextLineEnd(in:from:)（签名域确证：换行探测域）。
@@ -140,12 +176,3 @@ enum ReadAloudQueueBuilder {
             && !page.content.isEmpty
     }
 }
-
-extension ReadAloudQueueBuilder {
-
-    /// 伪代码 0x100299f44（L7-23）：段落切分（fragment 文本聚合域）。
-    static func segments() -> [String] {
-        []
-    }
-}
-

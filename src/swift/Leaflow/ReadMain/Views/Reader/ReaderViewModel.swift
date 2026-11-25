@@ -85,6 +85,10 @@ final class ReaderViewModel {
     }
 
     private(set) var activeReadAloudAnchor: ReadAloudAnchor?
+    func applyReadAloudAnchor(_ anchor: ReadAloudAnchor?) {
+        activeReadAloudAnchor = anchor
+        speechHighlight = ReaderSpeechHighlight(anchor: anchor, pages: pages)
+    }
     private var autoLoadSuppressionReason: String?
 
     // MARK: - T-1401-05 逐域补齐（核心域）——状态成员归位（wave-16 修复：

@@ -75,6 +75,7 @@ struct ReadAloudAnchor: Equatable {
 struct ReadAloudSegment: Equatable {
     var anchors: [ReadAloudAnchor]
     var text: String
+    var playbackStartAnchorIndex: Int = 0
 
     init(anchors: [ReadAloudAnchor], text: String) {
         self.anchors = anchors
@@ -93,7 +94,7 @@ struct ReadAloudSegment: Equatable {
 
     /// playbackAnchors getter（签名域确证：非章节标题锚过滤）。
     var playbackAnchors: [ReadAloudAnchor] {
-        anchors.filter { !$0.isChapterTitle }
+        Array(anchors.dropFirst(max(0, playbackStartAnchorIndex)))
     }
 
     /// firstPlaybackAnchor getter（签名域确证）。
@@ -108,7 +109,8 @@ struct ReadAloudSegment: Equatable {
 
     /// playbackText getter（签名域确证：标题锚剥离正文域）。
     var playbackText: String {
-        text
+        let offset = min(max(0, playbackStartUTF16Offset), text.utf16.count)
+        return (text as NSString).substring(from: offset)
     }
 }
 
@@ -119,14 +121,14 @@ enum ReadAloudPlaybackState: Equatable {
     case preparing
     case playing
     case paused
-    case finished
+    case failed(message: String)
 
     /// isActive getter（0x100292480 块体确证）。
     var isActive: Bool {
         switch self {
         case .preparing, .playing, .paused:
             return true
-        case .idle, .finished:
+        case .idle, .failed:
             return false
         }
     }
@@ -205,13 +207,16 @@ enum ReadAloudAudioInterruption {
 
 /// 驱动事件（handle(_: ReadAloudDriverEvent) 域还原桥）。
 enum ReadAloudDriverEvent {
-    case segmentCompleted(index: Int)
-    case segmentFailed(index: Int, error: Error)
+    case started(segmentIndex: Int)
+    case anchorChanged(segmentIndex: Int, anchor: ReadAloudAnchor)
+    case segmentSkipped(segmentIndex: Int, message: String)
+    case failed(message: String)
     case finished
 }
 
 /// 驱动协议（makeDriver(for:) 返回域还原桥）。
 protocol ReadAloudDriver: AnyObject {
+    var onEvent: ((ReadAloudDriverEvent) -> Void)? { get set }
     func start(segments: [ReadAloudSegment])
     func seek(segments: [ReadAloudSegment])
     func pause()
@@ -220,9 +225,21 @@ protocol ReadAloudDriver: AnyObject {
 }
 
 /// 引擎选择（makeDriver(for:) 分派域确证）。
-enum ReadAloudEngineSelection: String, CaseIterable {
-    case http
-    case system
+enum ReadAloudEngineSelection: Hashable {
+    case http(sourceID: Int64)
+    case system(voiceIdentifier: String)
+
+    var rawValue: String {
+        switch self {
+        case .http: return "http"
+        case .system: return "system"
+        }
+    }
+}
+
+@MainActor
+protocol ReadAloudDriverFactory {
+    func makeDriver(for selection: ReadAloudEngineSelection) throws -> ReadAloudDriver
 }
 
 /// 会话激活选项（activate(options:) 域还原桥）。
@@ -254,6 +271,8 @@ protocol AppAudioPlaybackCoordinating: AnyObject {
         remoteCommands: AppAudioPlaybackCoordinator.AppAudioRemoteCommands
     ) async throws -> AppAudioPlaybackCoordinator.AppAudioPlaybackLease
     func release(_ lease: AppAudioPlaybackCoordinator.AppAudioPlaybackLease)
+    func publishNowPlaying(_ metadata: ReadAloudMetadata)
+    func updateNowPlaying(state: ReadAloudPlaybackState)
 }
 
 /// 错误呈现协议（errorPresenter 域还原桥）。

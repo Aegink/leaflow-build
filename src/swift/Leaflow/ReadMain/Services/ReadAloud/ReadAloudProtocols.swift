@@ -17,18 +17,36 @@
 
 import Foundation
 
+/// 元数据 17684 与 PGO 八项要求：属主为阅读模型对象，按对象身份隔离会话。
+@MainActor
+protocol ReadAloudSessionOwner: AnyObject {
+    var readAloudPages: [PageData] { get }
+    var readAloudCurrentPageIndex: Int { get }
+    var readAloudMetadata: ReadAloudMetadata { get }
+    func readAloudShow(location: ReadAloudLocation)
+    func readAloudSaveProgress()
+    func readAloudSessionDidFinish()
+    func readAloudAdvanceChapter() async -> ReadAloudChapterAdvanceResult
+    func readAloudChangeChapter(by delta: Int) async -> ReadAloudChapterChangeResult
+}
+
+// 换章结果的具体档位仍需补二进制判定；暂以已存在的推进/章界结果承载。
+typealias ReadAloudChapterChangeResult = ReadAloudChapterAdvanceResult
+
 /// 驱动工厂错误（0x100299d2c L56-61 块体确证；枚举本体随
 /// ReadAloudModels.swift T-801-08 域落地，此处为引用登记）。
 // ReadAloudDriverFactoryError（T-801-08 ReadAloudModels.swift 域）
 
 /// 驱动工厂错误（errorDescription 0x100299d2c L56-61 域；容器缺失还原）。
 enum ReadAloudDriverFactoryError: LocalizedError {
-        case outputPreparationFailed
+    case sourceNotFound(Int64)
+    case outputPreparationFailed
     case engineUnavailable
     case voiceNotFound(String)
 
     var errorDescription: String? {
         switch self {
+        case .sourceNotFound(let id): return "未找到朗读源：\(id)"
         case .outputPreparationFailed:
             return "朗读输出准备失败"
         case .engineUnavailable:

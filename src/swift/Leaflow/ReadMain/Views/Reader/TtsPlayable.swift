@@ -25,7 +25,8 @@ import Foundation
 import SwiftUI
 
 /// TTS 可播放协议（readAloudPreferences/httpTtsSources 扩展域确证）。
-protocol TtsPlayable: AnyObject {
+@MainActor
+protocol TtsPlayable: ReadAloudSessionOwner {
 
     /// 封面域（ttsCoverUrl/ttsCoverBook getter 签名确证）。
     var ttsCoverUrl: String? { get }
@@ -50,7 +51,7 @@ extension TtsPlayable {
 
     /// readAloudPreferences getter（0x1008b8064 L42 域确证）。
     var readAloudPreferences: ReadAloudPreferences {
-        ReadAloudPreferences()
+        ReaderSpeechSupport.preferences
     }
 
     /// httpTtsSources getter（0x1008b8118 L43 域确证）。
@@ -65,20 +66,17 @@ extension ReaderViewModel: TtsPlayable {
 
     /// ttsCoverUrl getter（0x1008b8160 L49 域确证）。
     var ttsCoverUrl: String? {
-        nil
+        currentBook?.coverUrl
     }
 
     /// ttsCoverBook getter（0x1008b82ac L50 域确证）。
     var ttsCoverBook: Book? {
-        var cover = Book()
-        cover.name = bookName
-        cover.bookUrl = bookUrl
-        return cover
+        currentBook
     }
 
     /// ttsBookAuthor getter（0x1008b81cc L51 域确证）。
     var ttsBookAuthor: String? {
-        nil
+        currentBook?.author
     }
 
     /// ttsChapterCount getter（0x1008b82d4 L53 域确证）。
@@ -88,10 +86,7 @@ extension ReaderViewModel: TtsPlayable {
 
     /// ttsChapterName(at:)（0x1008b82f0 L54 域确证）。
     func ttsChapterName(at index: Int) -> String {
-        chapterContents.indices.contains(index)
-            ? chapterContents[index]
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            : ""
+        chapters.indices.contains(index) ? chapters[index].name : ""
     }
 
     /// ttsBookFingerprint getter（0x1008b8330 L60 域确证）。
@@ -100,7 +95,7 @@ extension ReaderViewModel: TtsPlayable {
     }
 
     var bookUrl: String {
-        bookName
+        currentBook?.bookUrl ?? ""
     }
 }
 
@@ -123,7 +118,7 @@ extension LocalReaderViewModel: TtsPlayable {
 
     /// ttsBookAuthor getter（0x1008b83d0 L62 域确证）。
     var ttsBookAuthor: String? {
-        nil
+        book.author
     }
 
     /// ttsChapterCount getter（0x1008b86a0 L64 域确证）。
@@ -143,19 +138,20 @@ extension LocalReaderViewModel: TtsPlayable {
 
     /// 元数据辅助桥（本地书域还原桥）。
     private var bookTitleForSpeech: String {
-        "本地书"
+        book.name
     }
 
     private var bookFingerprintForSpeech: String {
-        "local"
+        book.id.uuidString
     }
 
     private var chapterCount: Int {
-        0
+        chapterContents.count
     }
 
     private func chapterTitle(at index: Int) -> String {
-        ""
+        let chapters = LocalBookService.shared.loadChapters(for: book.id.uuidString) ?? []
+        return chapters.indices.contains(index) ? chapters[index].title : ""
     }
 }
 

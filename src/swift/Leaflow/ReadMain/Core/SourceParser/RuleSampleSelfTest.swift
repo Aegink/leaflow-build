@@ -104,6 +104,7 @@ enum RuleSampleSelfTest {
         Task { @MainActor in
             run()
             await ReaderSampleSelfTest.run(emit: emit)
+            await ReadAloudSampleSelfTest.run(emit: emit)
             emitRaw("SELFTEST_END")
             exit(0)
         }
