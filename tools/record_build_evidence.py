@@ -33,7 +33,7 @@ def record(root: Path, source: Path, run_id: str, sha: str) -> int:
     for path in source.rglob("*SelfTest.swift"):
         text = path.read_text(encoding="utf-8")
         declared.update(re.findall(r'(?:Sample\(\s*name:|emit\(\s*(?:name:)?)\s*"([^"]+)"', text))
-    all_pass = set(passed) == declared and not failed and "SELFTEST_END" in selftest
+    all_pass = bool(declared) and set(passed) == declared and not failed and "SELFTEST_END" in selftest
     smoke = read("smoke-result.txt")
     smoke_pass = sum(re.search(rf"^{key}=1$", smoke, re.M) is not None
                      for key in ("alive", "sources_alive", "bookshelf_alive"))

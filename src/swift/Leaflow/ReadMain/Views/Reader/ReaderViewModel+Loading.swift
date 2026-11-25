@@ -77,7 +77,10 @@ extension ReaderViewModel {
                 currentPageIndex = chapterPages.indices.contains(clamped)
                     ? chapterPages[clamped].offset : 0
             } else {
-                let position = Int(book.durChapterPos ?? 0)
+                let rawPosition = book.durChapterPos ?? 0
+                let maximum = max(0, chapterContents[currentChapterIndex].utf16.count - 1)
+                let position = Int(rawPosition.isFinite
+                    ? min(max(0, rawPosition), Double(maximum)) : 0)
                 currentPageIndex = chapterPages.first(where: {
                     guard let range = $0.element.contentRangeInChapter else { return false }
                     return NSLocationInRange(position, range)

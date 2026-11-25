@@ -9,7 +9,7 @@ enum ReaderSampleSelfTest {
         do {
             let book = try JSONDecoder().decode(Book.self, from: Data("""
                 {"name":"固定三章","bookUrl":"https://sample.invalid/book",
-                 "bookSourceUrl":"https://sample.invalid","durChapterIndex":1,"durChapterPos":0}
+                 "bookSourceUrl":"https://sample.invalid","durChapterIndex":1,"durChapterPos":300}
                 """.utf8))
             let chapters = try JSONDecoder().decode([Chapter].self, from: Data("""
                 [{"name":"第一章","url":"/1","index":0},
@@ -28,16 +28,25 @@ enum ReaderSampleSelfTest {
             }
             await vm.loadBookWithProgress(nil, needRefresh: false,
                 targetChapterIndex: nil, targetPageOffset: nil)
-            emit("reader_progress_restore", ["1", "false", "true"],
-                [String(vm.currentChapterIndex), String(vm.hasError), String(!vm.pages.isEmpty)])
+            let restoredPosition = vm.currentPage?.contentRangeInChapter.map {
+                NSLocationInRange(300, $0)
+            } ?? false
+            emit("reader_progress_restore", ["1", "false", "true", "true"],
+                [String(vm.currentChapterIndex), String(vm.hasError),
+                 String(!vm.pages.isEmpty), String(restoredPosition)])
             // 乱序完成：3 → 1，不得让 Task 完成顺序污染页面顺序。
             await vm.loadChapterContent(2, forceRefresh: false)
             await vm.loadChapterContent(0, forceRefresh: false)
             emit("reader_three_chapters", ["0", "1", "2"],
                 Array(Set(vm.pages.map(\.chapterIndex))).sorted().map(String.init))
             let ordered = vm.pages.map { $0.chapterIndex * 10_000 + $0.pageIndex }
-            emit("reader_page_order", ["true", "false"],
-                [String(ordered == ordered.sorted()), String(vm.pages.contains { $0.isLoadingPlaceholder })])
+            let realContent = (0..<3).allSatisfy { chapter in
+                vm.pages.filter { $0.chapterIndex == chapter }
+                    .map(\.content).joined().contains("固定正文，第\(chapter + 1)章")
+            }
+            emit("reader_page_order", ["true", "false", "true"],
+                [String(ordered == ordered.sorted()),
+                 String(vm.pages.contains { $0.isLoadingPlaceholder }), String(realContent)])
         } catch {
             emit("reader_progress_restore", ["通过"], [error.localizedDescription])
             emit("reader_three_chapters", ["通过"], [])

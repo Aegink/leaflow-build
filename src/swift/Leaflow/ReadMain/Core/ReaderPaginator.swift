@@ -200,7 +200,7 @@ enum ReaderPaginator {
                 chapterIndex: chapterIndex,
                 pageIndex: pageIndexCounter,
                 content: normalizedText,
-                contentRangeInChapter: nil,
+                contentRangeInChapter: nsRange,
                 imageSourceUrl: nil,
                 imageSourceStorageKind: nil,
                 imageBaseUrl: nil,
@@ -253,6 +253,9 @@ enum ReaderPaginator {
             ))
         }
 
+        for index in pages.indices {
+            pages[index].chapterTotalPages = pages.count
+        }
         return pages
     }
 

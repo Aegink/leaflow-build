@@ -10,6 +10,20 @@ import re
 from collections import defaultdict
 from pathlib import Path
 
+STUB_MARKERS = ("待真机", "骨架", "占位", "计数器桩", "推断", "未展开", "TODO", "真机核清")
+
+
+def matrix_failures(rows: list[dict], swift_root: Path) -> list[str]:
+    stale = []
+    for row in rows:
+        path = swift_root / row["file"].replace(".c", ".swift")
+        text = path.read_text(encoding="utf-8", errors="replace") if path.exists() else ""
+        lines = text.count("\n") + 1 if path.exists() else 0
+        markers = sum(text.count(marker) for marker in STUB_MARKERS)
+        if lines != row["swift_lines"] or markers != row["markers"]:
+            stale.append(row["file"])
+    return [f"矩阵过期：{len(stale)} 个文件需重跑 verify_restoration_matrix.py"] if stale else []
+
 
 def swift_code(text: str) -> str:
     """剔除注释和字面量，保留行号，不把取证注释当成入口。"""
