@@ -32,7 +32,9 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             build 2>&1 | tee build.log
-          echo "xcodebuild exit: ${PIPESTATUS[0]}" >> build.log
+          STATUS=${PIPESTATUS[0]}
+          echo "xcodebuild exit: $STATUS" >> build.log
+          if [ "$STATUS" -ne 0 ]; then exit "$STATUS"; fi
 
       - name: Rule sample self-test (-selfTestRules)
         id: selftest
@@ -134,7 +136,9 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             -derivedDataPath build/device \
             build 2>&1 | tee device-build.log
-          echo "xcodebuild exit: ${PIPESTATUS[0]}" >> device-build.log
+          STATUS=${PIPESTATUS[0]}
+          echo "xcodebuild exit: $STATUS" >> device-build.log
+          if [ "$STATUS" -ne 0 ]; then exit "$STATUS"; fi
 
       - name: Package unsigned IPA
         run: |
@@ -156,6 +160,7 @@ jobs:
       # ---------- 错误提取（两个构建域合并） ----------
 
       - name: Extract unique errors
+        if: always()
         run: |
           grep -E ": error:" build.log device-build.log 2>/dev/null \
             | sed 's/^.*error:/error:/' | sort -u > errors.txt || true
@@ -169,6 +174,7 @@ jobs:
       # 硬门禁：构建错误 > 0 或自测有 fail → job 失败（此前 set +e
       # 会把含错误的构建也标 success）。
       - name: Enforce gates (zero errors + zero self-test failures)
+        if: always()
         run: |
           python3 -I tools/record_build_evidence.py
           COUNT=$(cat error_count.txt 2>/dev/null || echo 0)

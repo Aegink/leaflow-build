@@ -78,6 +78,11 @@ def file_acceptance(row: dict | None, record: dict, target: float,
     evidence = samples.get("evidence") or {}
     sample_names = record.get("samples", [])
     device = record.get("device") or {}
+    checklist_id = device.get("checklist_id", "")
+    checklist = root / "docs" / "11" / "待验清单.md"
+    checklist_ok = bool(checklist_id and checklist.is_file() and re.search(
+        r'^\|\s*' + re.escape(checklist_id) + r'\s*\|[^\n]*\|\s*\[x\]\s*\|',
+        checklist.read_text(encoding="utf-8"), re.M | re.I))
     artifact = device.get("artifact", "")
     artifact_path = (root / artifact).resolve() if artifact else None
     artifact_ok = bool(artifact_path and artifact_path.is_relative_to(root.resolve())
@@ -93,7 +98,7 @@ def file_acceptance(row: dict | None, record: dict, target: float,
         "build": build_ok,
         "device": bool(device.get("checked") is True and device.get("model")
                        and device.get("os") and device.get("source_digest") == digest
-                       and artifact_ok),
+                       and artifact_ok and checklist_ok),
     }
     return {"checks": checks, "restored": all(checks.values())}
 

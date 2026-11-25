@@ -58,6 +58,7 @@ struct SplashOverlayView: View {
 
     /// 伪代码 0x100b6da78（L62-85）：SplashOverlayTheme.splashImageDatas(for:)（确证）
     /// 解析启动图与时长。
+    @MainActor
     static func resolveSplash() -> (image: UIImage, duration: Double)? {
         let manager = AppThemeManager.shared
         let theme = manager.currentTheme
@@ -76,6 +77,7 @@ enum SplashOverlayTheme {
         case dark
     }
 
+    @MainActor
     static func splashImageDatas(for variant: SplashVariant) -> [Data] {
         AppThemeManager.shared.currentTheme.splashImageDatas(
             for: variant == .dark ? .dark : .light)
