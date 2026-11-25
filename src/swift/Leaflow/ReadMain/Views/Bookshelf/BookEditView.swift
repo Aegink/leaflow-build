@@ -82,9 +82,11 @@ struct BookEditView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("关闭") { dismiss() }
+                        .accessibilityIdentifier("book-edit-close")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("保存") { saveBook() }
+                        .accessibilityIdentifier("book-edit-save")
                         .disabled(title.isEmpty)
                 }
             }

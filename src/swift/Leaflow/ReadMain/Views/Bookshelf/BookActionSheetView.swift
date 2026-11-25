@@ -191,6 +191,7 @@ struct BookActionSheetView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("关闭") { dismiss() }
+                        .accessibilityIdentifier("book-actions-close")
                 }
             }
             .sheet(isPresented: $showVariableEditor) {

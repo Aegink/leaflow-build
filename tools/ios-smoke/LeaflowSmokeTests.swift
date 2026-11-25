@@ -41,7 +41,12 @@ final class LeaflowSmokeTests: XCTestCase {
         XCTAssertTrue(title.waitForExistence(timeout: 10))
         XCTAssertEqual(title.value as? String, "固定书架样本")
         capture("book-edit")
-        app.buttons["关闭"].firstMatch.tap()
+        let editClose = app.buttons["book-edit-close"]
+        XCTAssertTrue(editClose.isHittable)
+        editClose.tap()
+        XCTAssertTrue(NSPredicate(format: "exists == false").evaluate(with: editClose)
+            || XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"),
+                object: editClose)], timeout: 10) == .completed)
         XCTAssertTrue(app.buttons["换封面"].waitForExistence(timeout: 10))
         app.buttons["换封面"].tap()
         XCTAssertTrue(app.staticTexts["当前封面"].waitForExistence(timeout: 10))
