@@ -411,7 +411,7 @@ struct ReaderSettingsView: View {
     }
 
     /// adjustmentSlider（Double 绑定重载；朗读域）。
-    private func adjustmentSlider(
+    func adjustmentSlider(
         _ title: String,
         value: Binding<Double>,
         range: ClosedRange<Double>,

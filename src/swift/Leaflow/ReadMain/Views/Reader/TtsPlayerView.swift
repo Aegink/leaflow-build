@@ -477,5 +477,3 @@ struct ReaderTtsQuickSettingsPanel: View {
         .buttonStyle(.plain)
     }
 }
-
-
