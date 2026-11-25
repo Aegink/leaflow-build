@@ -12,14 +12,36 @@ from pathlib import Path
 
 STUB_MARKERS = ("待真机", "骨架", "占位", "计数器桩", "推断", "未展开", "TODO", "真机核清")
 
+# 拆分只改变源码文件边界，规模、函数和桩仍计入同一个原始文件。
+SWIFT_SOURCE_PARTS = {
+    "ReadMain/Views/Reader/ReaderSettingsView.swift": ["ReadMain/Views/Reader/ReaderSettingsView+Speech.swift"],
+    "ReadMain/Views/Reader/TtsPlayerView.swift": ["ReadMain/Views/Reader/TtsPlayerView+Controls.swift"],
+}
+
+
+def source_paths(root: Path, relative: str) -> list[Path]:
+    relative = str(relative).replace("\\", "/")
+    names = [relative, *SWIFT_SOURCE_PARTS.get(relative, [])]
+    paths = [root / name for name in names]
+    if relative in SWIFT_SOURCE_PARTS:
+        for path in paths:
+            if root.resolve() not in path.resolve().parents or not path.is_file():
+                raise ValueError(f"原始文件的拆分源码缺失或越界：{path}")
+    return paths
+
+
+def source_metrics(root: Path, relative: str) -> tuple[int, int, str]:
+    texts = [path.read_text(encoding="utf-8", errors="replace")
+             for path in source_paths(root, relative) if path.exists()]
+    text = "\n".join(texts)
+    return (sum(part.count("\n") + 1 for part in texts),
+            sum(text.count(marker) for marker in STUB_MARKERS), text)
+
 
 def matrix_failures(rows: list[dict], swift_root: Path) -> list[str]:
     stale = []
     for row in rows:
-        path = swift_root / row["file"].replace(".c", ".swift")
-        text = path.read_text(encoding="utf-8", errors="replace") if path.exists() else ""
-        lines = text.count("\n") + 1 if path.exists() else 0
-        markers = sum(text.count(marker) for marker in STUB_MARKERS)
+        lines, markers, _ = source_metrics(swift_root, row["file"].replace(".c", ".swift"))
         if lines != row["swift_lines"] or markers != row["markers"]:
             stale.append(row["file"])
     return [f"矩阵过期：{len(stale)} 个文件需重跑 verify_restoration_matrix.py"] if stale else []

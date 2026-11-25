@@ -23,9 +23,9 @@ import Foundation
 /// 朗读位置（pageIndex/chapterIndex 域确证）。
 struct ReadAloudLocation: Equatable, Hashable {
     var pageIndex: Int
-    var chapterIndex: Int? = nil
+    var chapterIndex: Int
 
-    init(pageIndex: Int, chapterIndex: Int? = nil) {
+    init(pageIndex: Int, chapterIndex: Int = 0) {
         self.pageIndex = pageIndex
         self.chapterIndex = chapterIndex
     }
