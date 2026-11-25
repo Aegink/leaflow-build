@@ -187,7 +187,15 @@ final class SelectableReaderTextView: UITextView, ReaderTextSelectionHandling {
     }
 
     @objc func lookUpInDictionary(_ sender: Any?) {
-        // 查词入口（UIReferenceLibraryViewController 域，待真机对照）。
+        guard let selected = selectedTextForMenuAction() else { return }
+        var responder: UIResponder? = self
+        while let current = responder {
+            if let controller = current as? UIViewController {
+                controller.present(UIReferenceLibraryViewController(term: selected), animated: true)
+                return
+            }
+            responder = current.next
+        }
     }
 
     @objc func createReplaceRule(_ sender: Any?) {
@@ -204,9 +212,21 @@ final class SelectableReaderTextView: UITextView, ReaderTextSelectionHandling {
     override func buildMenu(with builder: UIMenuBuilder) {
         super.buildMenu(with: builder)
         guard isSelectableText else { return }
-        let replace = UIAction(title: "创建替换规则") { [weak self] _ in self?.createReplaceRule(nil) }
-        let bookmark = UIAction(title: "添加书签") { [weak self] _ in self?.addBookmark(nil) }
-        builder.insertSibling(UIMenu(options: .displayInline, children: [replace, bookmark]), afterMenu: .standardEdit)
+        // 0x1008b67fc：移除系统重复组，再插入字典/替换/书签三个原版动作。
+        for identifier: UIMenu.Identifier in [.lookup, .learn, .share, .textStyle, .autoFill] {
+            builder.remove(menu: identifier)
+        }
+        let dictionary = UIAction(title: "字典", image: UIImage(systemName: "character.book.closed")) {
+            [weak self] _ in self?.lookUpInDictionary(nil)
+        }
+        let replace = UIAction(title: "替换", image: UIImage(systemName: "arrow.triangle.2.circlepath")) {
+            [weak self] _ in self?.createReplaceRule(nil)
+        }
+        let bookmark = UIAction(title: "书签", image: UIImage(systemName: "bookmark")) {
+            [weak self] _ in self?.addBookmark(nil)
+        }
+        builder.insertSibling(UIMenu(options: .displayInline, children: [dictionary, replace, bookmark]),
+            afterMenu: .standardEdit)
     }
 
     private func postSelectedTextAction(_ name: Notification.Name) {
