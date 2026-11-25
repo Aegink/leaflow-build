@@ -24,6 +24,7 @@ enum SourceImportSampleSelfTest {
             emit("source_import_local_roundtrip", ["1", "1", "第一版", "local"],
                 [String(first), String(firstDisk.count), firstDisk.first?.bookSourceName ?? "",
                     firstDisk.first?.storageKind.rawValue ?? ""])
+            if first < 0 { print("导入样本诊断：\(service.lastImportError ?? "未知错误")") }
 
             let update = await service.importSourcesAsync(from: "[" + json("第二版") + "]", storageKind: .local)
             emit("source_import_duplicate_update", ["0", "1", "第二版"],
@@ -41,6 +42,13 @@ enum SourceImportSampleSelfTest {
             emit("source_import_reload_idempotent", ["1", "第三版"],
                 [String(reloaded.bookSources.filter { $0.storageKind == .local }.count),
                     reloaded.bookSources.first(where: { $0.storageKind == .local })?.bookSourceName ?? ""])
+
+            let cold = SourceService(storageDirectory: directory)
+            let extra = json("冷启动新增").replacingOccurrences(of: "/import\"", with: "/extra\"")
+            let coldCount = await cold.importSourcesAsync(from: extra, storageKind: .local)
+            emit("source_import_cold_merge", ["1", "2", "第三版", "冷启动新增"],
+                [String(coldCount), String(cold.loadSourcesFromDisk().count),
+                    cold.bookSources.first?.bookSourceName ?? "", cold.bookSources.last?.bookSourceName ?? ""])
 
             let failedDirectory = directory.appendingPathComponent("普通文件")
             try Data().write(to: failedDirectory)
@@ -87,6 +95,15 @@ enum SourceImportSampleSelfTest {
             emit("source_import_remote_failure", ["-1", "0", "false"],
                 [String(failedRemote), String(remoteFailure.bookSources.count),
                     String(manager.fileExists(atPath: remoteFailure.sourcesFileURL.path))])
+
+            let objectRules = #"{"bookSourceUrl":"https://sample.invalid/rules","bookSourceName":"规则对象","ruleSearch":{"bookList":"//li","name":"//a/text()"},"header":{"Accept":"text/html"}}"#
+            let textRules = #"{"bookSourceUrl":"https://sample.invalid/rules","bookSourceName":"规则文本","ruleSearch":"{\"bookList\":\"//li\",\"name\":\"//a/text()\"}","enabled":false}"#
+            let object = SourceService.parseImportedSources(from: Data(objectRules.utf8)).sources?.first
+            let text = SourceService.parseImportedSources(from: Data(textRules.utf8)).sources?.first
+            emit("source_import_keyed_decoding", ["规则对象", "//li", "text/html", "规则文本", "//a/text()", "false"],
+                [object?.bookSourceName ?? "", object?.ruleSearch.bookList ?? "",
+                    object?.headerMap["Accept"] ?? "", text?.bookSourceName ?? "",
+                    text?.ruleSearch.name ?? "", String(text?.enabled ?? true)])
         } catch {
             emit("source_import_setup", ["成功"], [error.localizedDescription])
             return

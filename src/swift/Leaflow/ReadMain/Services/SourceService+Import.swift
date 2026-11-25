@@ -36,6 +36,11 @@ extension SourceService {
             copy.storageKind = kind
             return copy
         }
+        // 冷启动的外部文件/URL导入也要先合并磁盘书源，不能覆盖已有配置。
+        if !hasLoadedOnce && bookSources.isEmpty {
+            bookSources = loadSourcesFromDisk()
+            hasLoadedOnce = true
+        }
         do {
             if kind == .remote {
                 try await saveRemoteSources(imported)

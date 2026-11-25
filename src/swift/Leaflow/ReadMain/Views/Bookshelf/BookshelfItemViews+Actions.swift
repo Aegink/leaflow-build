@@ -13,11 +13,11 @@ struct NetworkBookActionsModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .onLongPressGesture {
+            .highPriorityGesture(LongPressGesture(minimumDuration: 0.5).onEnded { _ in
                 guard isEnabled else { return }
                 pendingReaderBook = nil
                 showActionSheet = true
-            }
+            }, including: isEnabled ? .all : .none)
             .sheet(isPresented: $showActionSheet, onDismiss: schedulePendingReaderOpenIfPossible) {
                 BookActionSheetView(book: book, onRead: { selected in
                     pendingReaderBook = selected
