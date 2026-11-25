@@ -14,6 +14,11 @@ STUB_MARKERS = ("待真机", "骨架", "占位", "计数器桩", "推断", "未�
 
 # 拆分只改变源码文件边界，规模、函数和桩仍计入同一个原始文件。
 SWIFT_SOURCE_PARTS = {
+    "ReadMain/Views/Bookshelf/BookActionSheetView.swift": [
+        "ReadMain/Views/Bookshelf/BookActionSheetView+Content.swift"],
+    "ReadMain/Views/Bookshelf/BookshelfItemViews.swift": [
+        "ReadMain/Views/Bookshelf/BookshelfItemViews+Actions.swift",
+        "ReadMain/Views/Bookshelf/BookshelfItemViews+Cards.swift"],
     "ReadMain/Views/Reader/ReaderSettingsView.swift": ["ReadMain/Views/Reader/ReaderSettingsView+Speech.swift"],
     "ReadMain/Views/Reader/TtsPlayerView.swift": ["ReadMain/Views/Reader/TtsPlayerView+Controls.swift",
         "ReadMain/Views/Reader/TtsPlayerView+QuickSettings.swift"],
@@ -85,6 +90,8 @@ def build_failures(build: dict, samples: dict, digest: str) -> list[str]:
         failures.append("D7 构建或样本存在错误/结果未知")
     if build.get("smoke_pass") != 3 or build.get("crash_count") != 0:
         failures.append("D7 三入口冒烟未通过或存在崩溃/结果未知")
+    if build.get("ui_smoke_required") and build.get("ui_smoke_pass") is not True:
+        failures.append("D7 UI 交互冒烟未全部通过")
     evidence = samples.get("evidence") or {}
     declared = set(samples.get("sample_names", []))
     passed = set(evidence.get("passed_samples", []))

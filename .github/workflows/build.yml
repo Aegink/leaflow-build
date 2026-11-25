@@ -9,7 +9,7 @@ jobs:
   build:
     # ARM 执行器容量不足时使用同版本 Intel 池，保留构建和样本门禁。
     runs-on: macos-15-intel
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -152,6 +152,25 @@ jobs:
           fi
           cat smoke-result.txt
 
+      - name: UI smoke (real gestures and rendered pages)
+        run: |
+          set +e
+          UDID=$(xcrun simctl list devices available | grep -m1 "iPhone" | grep -oE '[0-9A-F-]{36}')
+          xcrun simctl boot "$UDID" 2>/dev/null
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl ui "$UDID" content_size large
+          xcrun simctl ui "$UDID" appearance light
+          xcodebuild test \
+            -project Leaflow.xcodeproj -scheme Leaflow \
+            -destination "platform=iOS Simulator,id=$UDID" \
+            -parallel-testing-enabled NO -resultBundlePath ui-smoke.xcresult \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO 2>&1 | tee ui-smoke.log
+          STATUS=${PIPESTATUS[0]}
+          echo "ui_test_exit=$STATUS" > ui-smoke-result.txt
+          xcrun xcresulttool export attachments --path ui-smoke.xcresult --output-path ui-screenshots
+          xcrun simctl shutdown "$UDID" 2>/dev/null
+          exit "$STATUS"
+
       # ---------- 阶段 2：未签名设备 IPA（TrollStore 用） ----------
 
       - name: Build (iOS device, unsigned, Release)
@@ -207,7 +226,7 @@ jobs:
       - name: Enforce gates (zero errors + zero self-test failures)
         if: always()
         run: |
-          python3 -I tools/record_build_evidence.py
+          python3 -I tools/record_build_evidence.py --require-ui-smoke
           COUNT=$(cat error_count.txt 2>/dev/null || echo 0)
           PASS=$(grep -c "SELFTEST .* pass=true" selftest.log 2>/dev/null || true)
           FAIL=$(grep -c "SELFTEST .* pass=false" selftest.log 2>/dev/null || true)
@@ -248,4 +267,7 @@ jobs:
             sim-sources.png
             sim-bookshelf.png
             sim-tts-*.png
+            ui-smoke.log
+            ui-smoke-result.txt
+            ui-screenshots/
           if-no-files-found: warn

@@ -13,9 +13,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CHECKS = runpy.run_path(str(ROOT / "tools" / "restoration_gate_checks.py"))
+UI_SMOKE_NAMES = {"bookshelf_card_read_dismissal", "bookshelf_grid_editing",
+                  "bookshelf_edit_cover_entries", "bookshelf_delete_confirmation",
+                  "tts_rendered_skins", "tts_large_text_scroll"}
 
 
-def record(root: Path, source: Path, run_id: str, sha: str) -> int:
+def record(root: Path, source: Path, run_id: str, sha: str, require_ui_smoke: bool = False) -> int:
     def read(name):
         path = root / name
         return path.read_text(encoding="utf-8", errors="replace") if path.exists() else ""
@@ -39,6 +42,12 @@ def record(root: Path, source: Path, run_id: str, sha: str) -> int:
                      for key in ("alive", "sources_alive", "bookshelf_alive"))
     crashes = re.findall(r"^crash_reports=(\d+)$", smoke, re.M)
     crash_count = int(crashes[-1]) if crashes else None
+    ui_log = read("ui-smoke.log")
+    ui_passed = sorted(set(re.findall(r"SMOKE_UI (\S+) pass=true", ui_log)))
+    ui_exits = re.findall(r"^ui_test_exit=(\d+)$", read("ui-smoke-result.txt"), re.M)
+    ui_ok = (bool(ui_exits) and ui_exits[-1] == "0" and set(ui_passed) == UI_SMOKE_NAMES)
+    if require_ui_smoke and not ui_ok:
+        errors = max(errors, 1)
     digest = CHECKS["source_digest"](source)
     build = dict(run_id=run_id, head_sha=sha, source_digest=digest, errors=errors,
                  simulator_exit=exits[0][-1] if exits[0] else None,
@@ -46,6 +55,9 @@ def record(root: Path, source: Path, run_id: str, sha: str) -> int:
                  selftest_pass=len(passed), selftest_fail=len(failed) if all_pass else max(1, len(failed)),
                  smoke_pass=smoke_pass, crash_count=crash_count,
                  recorded_at=datetime.now(timezone.utc).isoformat())
+    if require_ui_smoke:
+        build.update(ui_smoke_required=True, ui_smoke_pass=ui_ok, ui_passed=ui_passed,
+                     ui_test_exit=ui_exits[-1] if ui_exits else None)
     samples = dict(run_id=run_id, source_digest=digest, unique_samples=len(passed),
                    passed_samples=passed, failed_samples=failed,
                    pass_lines=len(re.findall(r"SELFTEST \S+ pass=true", selftest)),
@@ -63,7 +75,8 @@ if __name__ == "__main__":
     parser.add_argument("--source", type=Path, default=ROOT / "src/swift/Leaflow")
     parser.add_argument("--run-id", default=os.environ.get("GITHUB_RUN_ID", ""))
     parser.add_argument("--head-sha", default=os.environ.get("GITHUB_SHA", ""))
+    parser.add_argument("--require-ui-smoke", action="store_true")
     args = parser.parse_args()
     if not args.run_id or not args.head_sha:
         parser.error("必须提供可追溯的 run-id 和 head-sha")
-    raise SystemExit(record(args.artifacts, args.source, args.run_id, args.head_sha))
+    raise SystemExit(record(args.artifacts, args.source, args.run_id, args.head_sha, args.require_ui_smoke))

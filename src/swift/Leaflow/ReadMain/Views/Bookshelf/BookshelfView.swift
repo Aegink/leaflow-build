@@ -257,14 +257,11 @@ struct BookshelfView: View {
                     onDelete: { localBookService.deleteBook($0) })
                 .onTapGesture { openReader(item: item) }
         } else {
-        BookCardItem(book: item.book, cardHeight: 72.0)
-            .networkBookActions(
-                book: item.book,
+            BookCardItem(book: item.book, cardHeight: 72,
+                isSelected: vm.selectedIds.contains(item.id), isEditing: vm.isEditMode,
                 onDelete: { deleteBook(item.book) },
-                onOpenReader: { openReader(item: item) })
-            .onTapGesture {
-                openReader(item: item)
-            }
+                onOpenReader: { openReader(item: BookshelfItem(book: $0)) },
+                onTap: { handleNetworkBookTap(item) })
         }
     }
 
@@ -280,18 +277,20 @@ struct BookshelfView: View {
                     onDelete: { localBookService.deleteBook($0) })
                 .onTapGesture { openReader(item: item) }
         } else {
-        BookGridItem(book: item.book)
-            .networkBookActions(
-                book: item.book,
+            BookGridItem(book: item.book,
+                isSelected: vm.selectedIds.contains(item.id), isEditing: vm.isEditMode,
                 onDelete: { deleteBook(item.book) },
-                onOpenReader: { openReader(item: item) })
-            .onTapGesture {
-                openReader(item: item)
-            }
+                onOpenReader: { openReader(item: BookshelfItem(book: $0)) },
+                onTap: { handleNetworkBookTap(item) })
         }
     }
 
     // MARK: 工具栏（0x100452940 L281-301 域确证）
+
+    private func handleNetworkBookTap(_ item: BookshelfItem) {
+        if vm.isEditMode { toggleSelection(item.id) }
+        else { openReader(item: item) }
+    }
 
     /// standardToolbarContent getter（0x100452940 L281-301 域确证）。
     @ToolbarContentBuilder

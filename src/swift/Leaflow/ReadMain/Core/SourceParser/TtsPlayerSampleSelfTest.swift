@@ -136,16 +136,18 @@ struct TtsPlayerSmokeView: View {
     @State private var showSettings = false
     @State private var timer = TtsSleepTimer()
     var body: some View {
+        Group {
         if ProcessInfo.processInfo.arguments.contains("-smokeTtsQuick") {
-            ScrollView {
-                ReaderTtsQuickSettingsPanel(vm: vm, sleepTimer: timer,
-                    onOpenPlayer: {}, onSettings: {}, onStop: {}, coordinator: vm.readAloudCoordinator,
-                    preferences: vm.readAloudPreferences).padding()
-            }
+            ReaderTtsQuickSettingsPanel(vm: vm, sleepTimer: timer,
+                onOpenPlayer: {}, onSettings: {}, onStop: {}, coordinator: vm.readAloudCoordinator,
+                preferences: vm.readAloudPreferences).padding()
         } else {
             TtsPlayerView(vm: vm, isPresented: $isPresented, showChapterList: $showChapterList,
                 showSettings: $showSettings, sleepTimer: timer)
         }
+        }
+        .preferredColorScheme(ProcessInfo.processInfo.arguments.contains("-smokeDark") ? .dark : .light)
+        .dynamicTypeSize(ProcessInfo.processInfo.arguments.contains("-smokeLargeText") ? .accessibility5 : .large)
     }
 }
 

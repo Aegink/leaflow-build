@@ -34,6 +34,7 @@ struct ReaderTtsQuickSettingsPanel<A: TtsPlayable>: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
         }
         .frame(maxHeight: 460)
+        .accessibilityIdentifier("tts-quick-settings")
         .onAppear { sleepTimer.bind(to: vm); sleepTimer.refresh() }
     }
 
