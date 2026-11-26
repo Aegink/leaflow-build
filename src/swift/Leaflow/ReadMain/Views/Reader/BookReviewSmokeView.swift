@@ -32,6 +32,8 @@ struct BookReviewSmokeView: View {
         .task {
             guard !ready else { return }
             let directory = FileManager.default.temporaryDirectory.appendingPathComponent("review-smoke-sources")
+            do { try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true) }
+            catch { failure = "固定样本目录创建失败：\(error.localizedDescription)"; return }
             let service = SourceService(storageDirectory: directory)
             guard let data = try? JSONEncoder().encode([source]),
                   await service.importSourcesAsync(from: String(decoding: data, as: UTF8.self), storageKind: .local) >= 0

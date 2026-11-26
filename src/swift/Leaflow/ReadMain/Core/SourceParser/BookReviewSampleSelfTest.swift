@@ -101,6 +101,7 @@ enum BookReviewSampleSelfTest {
         let manager = FileManager.default
         let directory = manager.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         do {
+            try manager.createDirectory(at: directory, withIntermediateDirectories: true)
             defer { try? manager.removeItem(at: directory) }
             let original = SourceService(storageDirectory: directory)
             let text = String(decoding: try JSONEncoder().encode([source]), as: UTF8.self)

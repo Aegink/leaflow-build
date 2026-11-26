@@ -58,11 +58,12 @@ extension AnalyzeRule {
     /// 伪代码 0x10005db60（L154-256）：`book` 对象 shell 安装（force 重装）。
     /// shell 属性集合按 Legado book 对象惯例（推断 5）。
     func installBookObjectShell(force: Bool) -> String {
-        let context = Self.jsContextHandle()
+        let context = jsContextHandle()
         JSContextPool.warmup(count: context)
+        let signature = "book|\(book?.name ?? "")|\(book?.bookUrl ?? "")"
         let installed = context.objectForKeyedSubscript("__bookObjectSignature")?.toString()
-        if !force, installed != nil {
-            return installed!
+        if !force, installed == signature {
+            return signature
         }
         let bookObject: [String: Any] = [
             "name": book?.name ?? "",
@@ -81,18 +82,18 @@ extension AnalyzeRule {
             "isVip": false,
         ]
         context.setObject(bookObject, forKeyedSubscript: "book" as NSString)
-        let signature = "book|\(book?.name ?? "")|\(book?.bookUrl ?? "")"
         context.setObject(signature, forKeyedSubscript: "__bookObjectSignature" as NSString)
         return signature
     }
 
     /// 伪代码 0x10005e7cc（L258-307）：`chapter` 对象 shell 安装。
     func installChapterObjectShell(force: Bool) -> String {
-        let context = Self.jsContextHandle()
+        let context = jsContextHandle()
         JSContextPool.warmup(count: context)
+        let signature = "chapter|\(currentChapter?.url ?? "")|\(currentChapter?.index ?? -1)"
         let installed = context.objectForKeyedSubscript("__chapterObjectSignature")?.toString()
-        if !force, installed != nil {
-            return installed!
+        if !force, installed == signature {
+            return signature
         }
         let chapterObject: [String: Any] = [
             "title": currentChapter?.title ?? "",
@@ -106,7 +107,6 @@ extension AnalyzeRule {
             },
         ]
         context.setObject(chapterObject, forKeyedSubscript: "chapter" as NSString)
-        let signature = "chapter|\(currentChapter?.url ?? "")|\(currentChapter?.index ?? -1)"
         context.setObject(signature, forKeyedSubscript: "__chapterObjectSignature" as NSString)
         return signature
     }
@@ -116,7 +116,7 @@ extension AnalyzeRule {
     /// 否则重建 shell 并写入 `__bookState`。
     func syncBookObject(force: Bool) {
         let signature = installBookObjectShell(force: force)
-        let context = Self.jsContextHandle()
+        let context = jsContextHandle()
         JSContextPool.warmup(count: context)
         if !force {
             if let existing = context.objectForKeyedSubscript("__bookObjectSignature")?
@@ -133,7 +133,7 @@ extension AnalyzeRule {
     /// 伪代码 0x10005ff48（L488-536）：chapter 状态同步（同构）。
     func syncChapterObject(force: Bool) {
         let signature = installChapterObjectShell(force: force)
-        let context = Self.jsContextHandle()
+        let context = jsContextHandle()
         JSContextPool.warmup(count: context)
         if !force {
             if let existing = context.objectForKeyedSubscript("__chapterObjectSignature")?
@@ -168,7 +168,7 @@ extension AnalyzeRule {
 
     /// 伪代码 0x10005ecd4（L336-349）：book 桥方法是否已挂。
     func hasBookBridgeMethods() -> Bool {
-        let context = Self.jsContextHandle()
+        let context = jsContextHandle()
         return context.objectForKeyedSubscript("book") != nil
     }
 
@@ -177,7 +177,7 @@ extension AnalyzeRule {
     /// 伪代码 0x10005d678（L111-152）：动态注册 book/chapter 桥闭包（事实 21）。
     /// 闭包 #1-#8 与伪代码一一对应；键集来自字符串常量表。
     func installDynamicBookAndChapterBridgeBlocks() {
-        let context = Self.jsContextHandle()
+        let context = jsContextHandle()
         JSContextPool.warmup(count: context)
 
         // 闭包 #1（L118-120）：AnalyzeRule 提供者。

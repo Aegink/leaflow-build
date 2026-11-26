@@ -55,11 +55,7 @@ struct AnalyzeRuleStringRuleEvaluator {
     func evaluate(_ script: String) throws -> Result {
         context.prepareJavaScriptEvaluationContext()
         let input = context.contentString
-        AnalyzeRule.setJavaScriptRuntimeBindingValue(
-            named: "result",
-            value: input,
-            rawJSONString: nil,
-            preferJSONObjectBinding: false)
+        context.jsContextHandle().setObject(input, forKeyedSubscript: "result" as NSString)
 
         guard let evaluated = context.safeEvaluateScript(
             script,

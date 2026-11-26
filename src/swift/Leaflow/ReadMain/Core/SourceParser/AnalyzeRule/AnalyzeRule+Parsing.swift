@@ -96,9 +96,9 @@ extension AnalyzeRule {
                 previousResult: accumulated,
                 previousResultIsCurrentContent: offset == 0
             )
-            if let result {
-                accumulated = result
-            }
+            // 0x1000640b8：本段失败即清空累积，不得把输入HTML当作成功正文。
+            guard let result else { return nil }
+            accumulated = result
         }
         return accumulated as? String
     }
