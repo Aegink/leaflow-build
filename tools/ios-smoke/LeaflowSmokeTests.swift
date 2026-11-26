@@ -165,12 +165,7 @@ final class LeaflowSmokeTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["sample"].waitForExistence(timeout: 20))
         text.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.08)).press(forDuration: 1)
         capture("reader-selection-menu")
-        let replace = app.buttons["替换"]
-        if !replace.waitForExistence(timeout: 5) {
-            let more = app.buttons["More"]
-            XCTAssertTrue(more.waitForExistence(timeout: 5))
-            more.tap()
-        }
+        let replace = app.menuItems["替换"]
         XCTAssertTrue(replace.waitForExistence(timeout: 10))
         replace.tap()
         let input = app.textFields["reader-replace-text"]
