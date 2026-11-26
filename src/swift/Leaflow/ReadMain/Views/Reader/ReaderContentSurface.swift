@@ -50,7 +50,7 @@ struct ReaderContentSurface: View {
         GeometryReader { geometry in
             ZStack {
                 // 背景层（ReaderContentBackground，闭包 #1 确证）。
-                ReaderContentBackground(settings: settings)
+                ReaderContentBackground(settings: settings, size: geometry.size)
                     .ignoresSafeArea()
 
                 mainContent(isDoublePageActive: ReaderDoublePagePolicy.isEffective(
@@ -135,9 +135,19 @@ struct ReaderContentSurface: View {
 /// 内容背景（ReaderContentBackground，mangle 内私有类型确证）。
 struct ReaderContentBackground: View {
     var settings: ReadingSettings
+    var size: CGSize
 
+    @ViewBuilder
     var body: some View {
-        Color(uiColor: settings.textUIColor)
+        if let image = settings.backgroundUIImage {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: max(0, size.width), height: max(0, size.height))
+                .clipped()
+        } else {
+            settings.backgroundColor
+        }
     }
 }
 

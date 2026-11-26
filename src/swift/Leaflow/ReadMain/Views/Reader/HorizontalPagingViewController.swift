@@ -59,6 +59,9 @@ final class HorizontalPagingViewController: UIViewController, UIScrollViewDelega
     private var tapGesture: UITapGestureRecognizer?
     private var verticalPanGesture: UIPanGestureRecognizer?
     private var immediateDriver = ImmediatePageTurnGestureDriver(configuration: .init())
+    private var pagePool: ReaderPageControllerPool?
+    private let renderer = ReaderTwoPageRenderer()
+    private var speechHighlight = ReaderSpeechHighlight.none
 
     /// 伪代码 0x1007091f0（L5）：屏幕边缘手势延迟。
     override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge {
@@ -71,6 +74,7 @@ final class HorizontalPagingViewController: UIViewController, UIScrollViewDelega
     override func viewDidLoad() {
         super.viewDidLoad()
         view.clipsToBounds = true
+        renderer.install(in: self)
         setupGestures()
         displayCurrentPage()
     }
@@ -101,7 +105,7 @@ final class HorizontalPagingViewController: UIViewController, UIScrollViewDelega
         settings newSettings: ReadingSettings,
         bookName: String,
         totalChapters: Int,
-        speechHighlight: Any?,
+        speechHighlight: ReaderSpeechHighlight,
         isDoublePageActive: Bool
     ) {
         self.pages = newPages
@@ -110,6 +114,18 @@ final class HorizontalPagingViewController: UIViewController, UIScrollViewDelega
         self.bookName = bookName
         self.totalChapters = totalChapters
         self.isDoublePageActive = isDoublePageActive
+        self.speechHighlight = speechHighlight
+        if pagePool == nil {
+            pagePool = ReaderPageControllerPool(settings: newSettings, bookName: bookName,
+                totalChapters: totalChapters, speechHighlight: speechHighlight,
+                usesTransparentPageBackground: false)
+        }
+        pagePool?.update(pages: newPages, settings: newSettings, bookName: bookName,
+            totalChapters: totalChapters, speechHighlight: speechHighlight,
+            onCommentTap: { [weak self] _, _ in self?.onCommentTap?() })
+        if isViewLoaded {
+            updateBackground(color: newSettings.readerBackgroundUIColor, image: newSettings.backgroundUIImage)
+        }
 
         // 伪代码：isTransitioning == false 时直接刷新。
         if !isTransitioning {
@@ -128,6 +144,14 @@ final class HorizontalPagingViewController: UIViewController, UIScrollViewDelega
         guard isViewLoaded else { return }
         view.backgroundColor = color
         if let image {
+            if backgroundImageView == nil {
+                let imageView = UIImageView(frame: view.bounds)
+                imageView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+                imageView.contentMode = .scaleAspectFill
+                imageView.clipsToBounds = true
+                view.insertSubview(imageView, at: 0)
+                backgroundImageView = imageView
+            }
             backgroundImageView?.image = image
             backgroundImageView?.isHidden = false
         } else {
@@ -138,14 +162,18 @@ final class HorizontalPagingViewController: UIViewController, UIScrollViewDelega
     /// 伪代码 0x1007094d4（L256-278）：显示当前页。
     /// 逻辑：isViewLoaded → PageTurnResolver.targetIndex(from:direction:)。
     func displayCurrentPage() {
-        guard isViewLoaded, currentIndex < pages.count else { return }
-        // 渲染当前页（伪代码 PageTurnResolver.targetIndex 调用）。
+        guard isViewLoaded else { return }
         updateCurrentDisplay()
     }
 
     /// 伪代码 0x10070a3a4（L280-296）：更新当前显示。
     func updateCurrentDisplay() {
-        // 伪代码：pagePool 检查 + 渲染。
+        guard pages.indices.contains(currentIndex),
+              let controller = pagePool?.viewController(for: currentIndex, isDoublePage: isDoublePageActive)
+        else { renderer.clear(); return }
+        renderer.setCurrentViewController(controller)
+        controller.view.setNeedsLayout()
+        controller.view.layoutIfNeeded()
     }
 
     /// 伪代码 0x10070a17c（L310-324）：延迟页面更新。
@@ -153,11 +181,15 @@ final class HorizontalPagingViewController: UIViewController, UIScrollViewDelega
     ///       needsPostSettlementRefresh == 1 → refresh。
     func applyDeferredPageUpdates() {
         if needsPostSettlementRebuild {
-            // 伪代码：ReaderPageControllerPool.update(pages:settings:bookName:totalChapters:speechHighlight:onCommentTap:)。
+            if let settings {
+                pagePool?.update(pages: pages, settings: settings, bookName: bookName,
+                    totalChapters: totalChapters, speechHighlight: speechHighlight,
+                    onCommentTap: { [weak self] _, _ in self?.onCommentTap?() })
+            }
             needsPostSettlementRebuild = false
         }
         if needsPostSettlementRefresh {
-            // 伪代码：刷新当前显示。
+            updateCurrentDisplay()
             needsPostSettlementRefresh = false
         }
     }

@@ -62,6 +62,11 @@ final class ReaderSpreadContentViewController: UIViewController {
         layoutPageViews()
     }
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        layoutPageViews()
+    }
+
     /// 伪代码 0x10083dc1c（L38-42）：活动选择处理器（主子页代理）。
     var activeSelectionHandler: ReaderTextSelectionHandling? {
         primaryChild?.contentSelectionHandler
@@ -233,12 +238,8 @@ final class ReaderSpreadContentViewController: UIViewController {
         self.settings = settings
         self.bookName = bookName
         self.totalChapters = totalChapters
-        if let first = pages.first {
-            primaryChild = embedIfNeeded(primaryChild, pageData: first)
-        }
-        if let second = pages.second {
-            secondaryChild = embedIfNeeded(secondaryChild, pageData: second)
-        }
+        primaryChild = embedIfNeeded(primaryChild, pageData: pages.first)
+        secondaryChild = embedIfNeeded(secondaryChild, pageData: pages.second)
         layoutPageViews()
     }
 }

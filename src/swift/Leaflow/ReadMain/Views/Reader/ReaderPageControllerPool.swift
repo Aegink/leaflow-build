@@ -29,6 +29,7 @@ final class ReaderPageControllerPool {
     private let usesTransparentPageBackground: Bool
 
     private var pages: [PageData] = []
+    private var onCommentTap: ((ParagraphComment, Int) -> Void)?
     private var singlePool: [Int: PageContentViewController] = [:]
     private var singleOrder: [Int] = []
     private var spreadPool: [Int: ReaderSpreadContentViewController] = [:]
@@ -64,8 +65,9 @@ final class ReaderPageControllerPool {
         bookName = newBookName
         totalChapters = newTotalChapters
         speechHighlight = newSpeechHighlight
+        self.onCommentTap = onCommentTap
         for (index, controller) in singlePool {
-            if index < newPages.count {
+            if newPages.indices.contains(index) {
                 configure(controller, for: index, onCommentTap: onCommentTap)
             }
         }
@@ -74,16 +76,17 @@ final class ReaderPageControllerPool {
     /// 伪代码 0x1007bd5f8（L63-74）：预取指定页。
     func prepare(index: Int, isDoublePage: Bool, bounds: CGRect) {
         _ = bounds
-        if isDoublePage {
-            _ = spreadController(for: index)
-        } else {
-            _ = pageController(for: index)
-        }
+        _ = viewController(for: index, isDoublePage: isDoublePage)
+    }
+
+    func viewController(for index: Int, isDoublePage: Bool) -> UIViewController? {
+        guard pages.indices.contains(index) else { return nil }
+        return isDoublePage ? spreadController(for: index) : pageController(for: index)
     }
 
     /// 伪代码 0x1007bd2f0（L80-94）：刷新显示 VC。
     func refresh(_ viewController: UIViewController, for index: Int, isDoublePage: Bool) {
-        guard index < pages.count else { return }
+        guard pages.indices.contains(index) else { return }
         let page = pages[index]
         if let content = viewController as? PageContentViewController {
             content.configure(
@@ -146,14 +149,12 @@ final class ReaderPageControllerPool {
     /// 伪代码 0x1007bdae4（L149-172）：取/建单页 VC。
     private func pageController(for index: Int) -> PageContentViewController {
         if let cached = singlePool[index] {
+            configure(cached, for: index, onCommentTap: onCommentTap)
             return cached
         }
         let controller = PageContentViewController(isInteractive: true)
-        controller.configure(
-            pageData: pages[index],
-            settings: settings,
-            bookName: bookName,
-            totalChapters: totalChapters)
+        controller.useTransparentBackground = usesTransparentPageBackground
+        configure(controller, for: index, onCommentTap: onCommentTap)
         singlePool[index] = controller
         singleOrder.append(index)
         trimPagesIfNeeded()
@@ -163,6 +164,8 @@ final class ReaderPageControllerPool {
     /// 伪代码 0x1007bd7b0（L174-203）：取/建双页 VC。
     private func spreadController(for index: Int) -> ReaderSpreadContentViewController {
         if let cached = spreadPool[index] {
+            cached.refresh(pages: visiblePair(for: index), settings: settings,
+                bookName: bookName, totalChapters: totalChapters)
             return cached
         }
         let controller = ReaderSpreadContentViewController()
@@ -183,13 +186,14 @@ final class ReaderPageControllerPool {
         for index: Int,
         onCommentTap: ((ParagraphComment, Int) -> Void)?
     ) {
-        guard index < pages.count else { return }
+        guard pages.indices.contains(index) else { return }
         controller.onCommentTap = { comment in onCommentTap?(comment, index) }
         controller.configure(
             pageData: pages[index],
             settings: settings,
             bookName: bookName,
             totalChapters: totalChapters)
+        ReaderSpeechHighlightRenderer.apply(speechHighlight, to: controller, pageIndex: index)
     }
 
     /// 伪代码 0x1007bdf4c（L248-251）：显示起始索引。

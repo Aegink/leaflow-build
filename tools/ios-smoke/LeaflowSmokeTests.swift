@@ -190,6 +190,10 @@ final class LeaflowSmokeTests: XCTestCase {
             launch(["-smokeBookReview", mode].filter { !$0.isEmpty })
             let more = app.buttons["更多操作"]
             XCTAssertTrue(more.waitForExistence(timeout: 30))
+            if mode != "-smokeReviewNoChapters" {
+                XCTAssertTrue(app.textViews.matching(NSPredicate(format: "value CONTAINS %@",
+                    "固定正文，请从更多操作打开评论。")).firstMatch.waitForExistence(timeout: 20))
+            }
             capture("book-review-before-more")
             print("阅读更多操作按钮：\(more.debugDescription)")
             more.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
