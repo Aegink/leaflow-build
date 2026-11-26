@@ -169,6 +169,14 @@ jobs:
           STATUS=${PIPESTATUS[0]}
           echo "ui_test_exit=$STATUS" > ui-smoke-result.txt
           xcrun xcresulttool export attachments --path ui-smoke.xcresult --output-path ui-screenshots
+          xcrun xcresulttool export diagnostics --path ui-smoke.xcresult --output-path ui-diagnostics
+          xcrun simctl spawn "$UDID" log show --last 20m --style compact \
+            --predicate 'process == "Leaflow"' > ui-app.log 2>&1
+          mkdir -p ui-crashes
+          find ~/Library/Logs/DiagnosticReports -maxdepth 2 -type f -iname '*Leaflow*' \
+            -exec cp {} ui-crashes/ \;
+          CRASH=$(find ui-crashes -type f | wc -l | tr -d ' ')
+          echo "crash_reports=$CRASH" >> ui-smoke-result.txt
           xcrun simctl shutdown "$UDID" 2>/dev/null
           exit "$STATUS"
 
@@ -271,4 +279,7 @@ jobs:
             ui-smoke.log
             ui-smoke-result.txt
             ui-screenshots/
+            ui-diagnostics/
+            ui-crashes/
+            ui-app.log
           if-no-files-found: warn

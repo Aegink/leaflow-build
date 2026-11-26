@@ -194,6 +194,8 @@ final class LeaflowSmokeTests: XCTestCase {
             more.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
             let review = app.buttons["评论"]
             let opened = review.waitForExistence(timeout: 10)
+            print("阅读更多操作后应用状态：\(app.state.rawValue)")
+            XCTAssertEqual(app.state, .runningForeground, "打开更多操作后应用异常退出")
             capture("book-review-after-more")
             print("阅读更多操作展开后层级：\(app.debugDescription)")
             XCTAssertTrue(opened)

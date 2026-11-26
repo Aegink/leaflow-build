@@ -51,10 +51,17 @@ def record(root: Path, source: Path, run_id: str, sha: str, require_ui_smoke: bo
                      for key in ("alive", "sources_alive", "bookshelf_alive"))
     crashes = re.findall(r"^crash_reports=(\d+)$", smoke, re.M)
     crash_count = int(crashes[-1]) if crashes else None
+    ui_crashes = re.findall(r"^crash_reports=(\d+)$", read("ui-smoke-result.txt"), re.M)
+    if ui_crashes:
+        crash_count = max(crash_count or 0, int(ui_crashes[-1]))
+    elif require_ui_smoke:
+        crash_count = None
     ui_log = read("ui-smoke.log")
     ui_passed = sorted(set(re.findall(r"SMOKE_UI (\S+) pass=true", ui_log)))
     ui_exits = re.findall(r"^ui_test_exit=(\d+)$", read("ui-smoke-result.txt"), re.M)
     ui_ok = (bool(ui_exits) and ui_exits[-1] == "0" and set(ui_passed) == UI_SMOKE_NAMES)
+    if require_ui_smoke and crash_count != 0:
+        errors = max(errors, 1)
     if require_ui_smoke and not ui_ok:
         errors = max(errors, 1)
     digest = CHECKS["source_digest"](source)
