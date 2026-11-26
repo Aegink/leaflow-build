@@ -103,7 +103,8 @@ struct ReaderBottomToolbar: View {
                     isSliderChanging = true
                     onSliderDragging?(Int(newValue))
                 }),
-            in: 0...Double(max(0, chapterPageCount - 1)),
+            // SwiftUI步进滑杆不接受0...0；零页/单页保留显示，但禁止交互。
+            in: 0...Double(max(1, chapterPageCount - 1)),
             step: 1.0,
             onEditingChanged: { editing in
                 if editing {
@@ -116,6 +117,8 @@ struct ReaderBottomToolbar: View {
                 }
             })
             .tint(Color(hex: theme.textColorHex))
+            .disabled(chapterPageCount <= 1)
+            .accessibilityLabel("章节进度")
     }
 
     /// 控制行（上一章/朗读/搜索/设置/下一章）。

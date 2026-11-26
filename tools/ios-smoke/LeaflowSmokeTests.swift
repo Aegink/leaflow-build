@@ -185,7 +185,8 @@ final class LeaflowSmokeTests: XCTestCase {
     }
     func testBookReviewRenderedStates() {
         for (mode, expected) in [("", "固定评论"), ("-smokeReviewEmpty", "暂无评论"),
-                                 ("-smokeReviewError", "book-review-error")] {
+                                 ("-smokeReviewError", "book-review-error"),
+                                 ("-smokeReviewNoChapters", "固定评论")] {
             launch(["-smokeBookReview", mode].filter { !$0.isEmpty })
             let more = app.buttons["更多操作"]
             XCTAssertTrue(more.waitForExistence(timeout: 30))
@@ -199,6 +200,9 @@ final class LeaflowSmokeTests: XCTestCase {
             capture("book-review-after-more")
             print("阅读更多操作展开后层级：\(app.debugDescription)")
             XCTAssertTrue(opened)
+            let progress = app.sliders["章节进度"]
+            XCTAssertTrue(progress.exists)
+            XCTAssertFalse(progress.isEnabled)
             XCTAssertTrue(review.isEnabled)
             review.tap()
             let result = app.staticTexts[expected]

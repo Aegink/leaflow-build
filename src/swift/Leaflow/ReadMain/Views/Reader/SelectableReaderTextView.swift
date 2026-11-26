@@ -175,8 +175,9 @@ final class SelectableReaderTextView: UITextView, ReaderTextSelectionHandling {
                   range.location <= value.length, range.length <= value.length - range.location else { return nil }
             selected = value.substring(with: range)
         }
-        let trimmed = selected?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed?.isEmpty == false ? trimmed : nil
+        // 0x1008b65a4的小字符串字节E2 80 8B为U+200B；原版不裁剪普通空白。
+        let cleaned = selected?.replacingOccurrences(of: "\u{200B}", with: "")
+        return cleaned?.isEmpty == false ? cleaned : nil
     }
 
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {

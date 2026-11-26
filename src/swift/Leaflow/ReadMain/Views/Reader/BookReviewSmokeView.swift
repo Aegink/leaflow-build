@@ -40,7 +40,10 @@ struct BookReviewSmokeView: View {
             else { failure = "固定样本写盘失败"; return }
             vm.sourceService = service
             vm.containerSize = CGSize(width: 320, height: 480)
-            vm.chapterListProvider = { _, _ in [BookReviewSampleSelfTest.chapter()] }
+            vm.chapterListProvider = { _, _ in
+                ProcessInfo.processInfo.arguments.contains("-smokeReviewNoChapters")
+                    ? [] : [BookReviewSampleSelfTest.chapter()]
+            }
             vm.chapterContentProvider = { _, _, _ in
                 ChapterContent(content: "固定正文，请从更多操作打开评论。", nextUrl: nil, isPay: false,
                     comments: [], readerAccessURL: nil, chapterTitle: "第一章")

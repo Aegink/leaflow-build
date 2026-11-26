@@ -26,13 +26,20 @@ enum ReaderSelectionSampleSelfTest {
         }
         text.createReplaceRule(nil)
         text.addBookmark(nil)
-        text.text = "   "
-        text.selectedRange = NSRange(location: 0, length: 3)
+        text.text = "\u{200B}"
+        text.selectedRange = NSRange(location: 0, length: 1)
         text.createReplaceRule(nil)
-        emit("reader_selection_notifications", ["选文😀", "选文😀", "true"],
+        emit("reader_selection_notifications", ["  选文😀  ", "  选文😀  ", "true"],
             [replacePayload, bookmarkPayload, String(text.selectedTextForMenuAction() == nil)])
         center.removeObserver(replaceToken)
         center.removeObserver(bookmarkToken)
+        var cleaned: [String] = []
+        for value in [" \n\u{200B}正文😀\u{200B} ", "\u{FFFC}", "   ", "\u{200B}\u{200B}"] {
+            text.text = value
+            text.selectedRange = NSRange(location: 0, length: value.utf16.count)
+            cleaned.append(text.selectedTextForMenuAction() ?? "无选文")
+        }
+        emit("reader_selection_zero_width_cleanup", [" \n正文😀 ", "\u{FFFC}", "   ", "无选文"], cleaned)
 
         let manager = FileManager.default
         let directory = manager.temporaryDirectory.appendingPathComponent(UUID().uuidString)
