@@ -133,8 +133,10 @@ final class LeaflowSmokeTests: XCTestCase {
         input.tap()
         input.typeText(#"{"bookSourceUrl":"https://sample.invalid/ui-import","bookSourceName":"固定导入样本"}"#)
         app.buttons["source-import-submit"].tap()
+        // 保存回调后延迟关闭；列表可先出现在下层，须等真实弹层消失再继续。
+        XCTAssertTrue(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"), object: input)], timeout: 15) == .completed)
         XCTAssertTrue(app.staticTexts["固定导入样本"].firstMatch.waitForExistence(timeout: 20))
-        XCTAssertFalse(input.exists)
         capture("source-import-list")
         launch(["-smokeSources", "-sourceManageViewingRemote", "NO"])
         XCTAssertTrue(app.staticTexts["固定导入样本"].firstMatch.waitForExistence(timeout: 30))
