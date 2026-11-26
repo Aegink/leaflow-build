@@ -164,7 +164,8 @@ extension AnalyzeUrl {
             body: body,
             code: http.statusCode,
             message: message,
-            headers: headers
+            headers: headers,
+            url: http.url?.absoluteString
         )
     }
 
@@ -217,6 +218,7 @@ struct StrResponse {
     var code: Int
     var message: String
     var headers: [String: String]
+    var url: String? = nil
 }
 
 // MARK: - 静态支撑

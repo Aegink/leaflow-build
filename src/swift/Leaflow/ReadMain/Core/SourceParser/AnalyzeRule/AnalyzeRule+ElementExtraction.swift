@@ -689,10 +689,10 @@ extension AnalyzeRule {
         _ nodes: [KannaXMLElement], parent: AnalyzeRule? = nil
     ) -> [AnalyzeRule] {
         nodes.compactMap { node in
-            // Kanna XMLElement 无 xmlString——innerHTML 等价桥（协议域）。
+            // 保留当前节点和属性，后续同一规则再次选取自身时不能丢根。
             childRule(
                 for: node, parent: parent,
-                contentClosure: { node.innerHTML ?? "" })
+                contentClosure: { node.toHTML ?? "" })
         }
     }
 
@@ -796,7 +796,7 @@ extension AnalyzeRule {
         // 此前固定 sharedInstance() → 子元素 baseUrl 为空，相对
         // bookUrl/chapterUrl 无法解析为绝对地址。
         let parent = parent ?? sharedInstance()
-        let child = AnalyzeRule(source: source as? BookSource, parent: parent)
+        let child = AnalyzeRule(source: source as? BookSource ?? parent.source, parent: parent)
         child.book = parent.book
         let content = contentClosure()
         guard !content.isEmpty else { return nil }

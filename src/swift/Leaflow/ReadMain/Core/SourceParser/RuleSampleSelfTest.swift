@@ -109,6 +109,7 @@ enum RuleSampleSelfTest {
             BookshelfActionSampleSelfTest.run(emit: emit)
             await SourceImportSampleSelfTest.run(emit: emit)
             await ReaderSelectionSampleSelfTest.run(emit: emit)
+            await BookReviewSampleSelfTest.run(emit: emit)
             emitRaw("SELFTEST_END")
             exit(0)
         }

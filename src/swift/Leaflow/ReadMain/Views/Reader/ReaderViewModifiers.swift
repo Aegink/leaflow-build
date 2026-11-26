@@ -251,10 +251,7 @@ struct ReaderAuxiliaryPresentationModifier: ViewModifier {
                         vm.jumpToChapter(chapterIndex, pageIndex: nil)
                     })
             }
-            .sheet(isPresented: $showReview) {
-                BookReviewView(
-                    bookUrl: vm.currentBookSource?.bookSourceUrl ?? "")
-            }
+            .modifier(ReaderReviewPresentationModifier(vm: vm, showReview: $showReview))
             .sheet(isPresented: $showBookmarkList) {
                 BookmarkListView()
             }

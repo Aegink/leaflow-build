@@ -122,11 +122,12 @@ extension SourceService {
             comments: nil, readerAccessURL: nil, chapterTitle: nil)
     }
 
-    /// 伪代码 0x1003c1fb4（L548-565）：书评。
+    /// 0x1003c1cec→0x1003c1d6c实际转发书评，PGO exploreBook标签交错。
     func getReviews(
-        source: BookSource, book: Book, chapter: Chapter
+        source: BookSource, book: Book, chapter: Chapter?,
+        request: LocalSourceParser.ReviewRequest? = nil
     ) async throws -> [BookReview] {
-        [] // 书评规则域（ReviewRule），样本待真机对照。
+        try await LocalSourceParser.getReviews(source: source, book: book, chapter: chapter, request: request)
     }
 
     // MARK: 错误分类

@@ -133,14 +133,6 @@ extension LocalSourceParser {
         return ""
     }
 
-    /// 伪代码 0x10014a9c0（L3512-3563）：段评获取（reviews 规则域）。
-    static func getReviews(
-        source: BookSource, chapter: BookChapter, body: String
-    ) -> [ParagraphComment] {
-        Logger.log("[local] getReviews", level: .verbose)
-        return []
-    }
-
     /// 伪代码 0x10011a570（L3568-3584）：旧版 cookie 迁移（UserDefaults →
     /// HTTPCookieStorage 域）。
     static func migrateLegacyPersistedCookies(sourceKey: String) {

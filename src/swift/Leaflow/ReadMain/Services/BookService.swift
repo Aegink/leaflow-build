@@ -84,11 +84,12 @@ final class BookService: ObservableObject {
     private var readyContinuations: [CheckedContinuation<Void, Never>] = []
     private var ready = false
 
-    private let sourceService = SourceService()
+    private let sourceService: SourceService
     private let chapterCache = ChapterCacheService.shared
 
     /// init（0x1002e6b14 L109-123 域确证）。
-    init() {
+    init(sourceService: SourceService = .shared) {
+        self.sourceService = sourceService
         try? FileManager.default.createDirectory(
             at: storageDirectory, withIntermediateDirectories: true)
         migrateFromUserDefaultsIfNeeded()
@@ -372,6 +373,7 @@ final class BookService: ObservableObject {
             bookUrl: cacheKey) {
             return cached
         }
+        await sourceService.loadLocalSources()
         guard let source = findSource(byUrl: bookSourceUrl, bookUrl: bookUrl)
         else {
             throw AppError.parsing("书源未找到")
@@ -400,6 +402,7 @@ final class BookService: ObservableObject {
         for book: Book, index: Int, useReplaceRule: Bool, type: Int?,
         needRefresh: Bool = false
     ) async throws -> ChapterContent {
+        await sourceService.loadLocalSources()
         guard let source = findSource(
             byUrl: book.bookSourceUrl ?? "", bookUrl: book.bookUrl ?? "")
         else {

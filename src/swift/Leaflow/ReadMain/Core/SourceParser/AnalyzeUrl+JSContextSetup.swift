@@ -205,13 +205,18 @@ extension AnalyzeUrl {
 
     /// source 垫片：_source* 键桥接到当前书源（事实 11）。
     func sourceShimScript(context: AnalyzeUrl) -> String {
-        let sourceKey = self.sourceKey
-        let sourceName = self.sourceName
+        let sourceKey = source?.bookSourceUrl ?? self.sourceKey
+        let sourceName = source?.bookSourceName ?? self.sourceName
+        // 使用JSON字面量，源名称中的引号和换行不能变成可执行脚本。
+        let values = [sourceKey, sourceName]
+        let data = (try? JSONSerialization.data(withJSONObject: values)) ?? Data("[\"\",\"\"]".utf8)
+        let encoded = String(decoding: data, as: UTF8.self)
         return """
         (function() {
             var java = this.java;
-            var _sourceKey = '\(sourceKey)';
-            var _sourceName = '\(sourceName)';
+            var _sourceValues = \(encoded);
+            var _sourceKey = _sourceValues[0];
+            var _sourceName = _sourceValues[1];
             var _sourceGetVariable = function() { return ''; };
             var _sourceSetVariable = function(v) { };
             var _sourceGet = function(k) { return ''; };

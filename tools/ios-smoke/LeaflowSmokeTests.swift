@@ -183,6 +183,27 @@ final class LeaflowSmokeTests: XCTestCase {
         capture("reader-replace-applied")
         passed("reader_selected_text_replacement")
     }
+    func testBookReviewRenderedStates() {
+        for (mode, expected) in [("", "固定评论"), ("-smokeReviewEmpty", "暂无评论"),
+                                 ("-smokeReviewError", "book-review-error")] {
+            launch(["-smokeBookReview", mode].filter { !$0.isEmpty })
+            let more = app.buttons["更多操作"]
+            XCTAssertTrue(more.waitForExistence(timeout: 30))
+            more.tap()
+            let review = app.buttons["评论"]
+            XCTAssertTrue(review.waitForExistence(timeout: 10))
+            XCTAssertTrue(review.isEnabled)
+            review.tap()
+            let result = app.staticTexts[expected]
+            XCTAssertTrue(result.waitForExistence(timeout: 20))
+            capture("book-review" + mode)
+            app.buttons["book-review-close"].tap()
+            XCTAssertTrue(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "exists == false"), object: result)], timeout: 10) == .completed)
+        }
+        passed("book_review_rendered_states")
+    }
+
     private func openActions() {
         let title = app.staticTexts["固定书架样本"].firstMatch
         XCTAssertTrue(title.waitForExistence(timeout: 20))

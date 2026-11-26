@@ -79,13 +79,13 @@ struct RssSource: Codable, Identifiable, Equatable {
     }
 }
 
-/// 书评（pgo_only BookReview.id = UUID() 确证）。
+/// 类型表4633-4639与0x10014aeec：头像、正文、时间、引用，不含作者和评分。
 struct BookReview: Codable, Identifiable, Equatable {
     var id = UUID()
-    var authorName: String
+    var avatar: String?
     var content: String
-    var date: String?
-    var rating: Double?
+    var postTime: String?
+    var quote: String?
 }
 
 /// 发现页过滤器（pgo_only ExploreFilter.id = UUID()/selectedIndex = 0 确证）。

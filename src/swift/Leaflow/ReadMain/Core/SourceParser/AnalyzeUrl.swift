@@ -74,6 +74,7 @@ final class AnalyzeUrl {
     var url: String = ""
     var baseUrl: String = ""
     var ruleUrl: String
+    let source: BookSource?
     var sourceKey: String
     var sourceName: String
     var page: Int = 1
@@ -99,10 +100,12 @@ final class AnalyzeUrl {
         ruleUrl: String,
         key: String?,
         page: Int,
-        baseUrl: String
+        baseUrl: String,
+        source: BookSource? = nil
     ) {
         // 伪代码 0x100083c54（L634-668）。
         self.ruleUrl = ruleUrl
+        self.source = source
         self.sourceKey = key ?? ""
         self.sourceName = key ?? ""
         self.page = page
@@ -220,6 +223,8 @@ final class AnalyzeUrl {
         parseHeaders(headersJson)
 
         // 事实 9：相对 URL 解析。
+        url = working
+        resolvedUrl = ""
         resolveRelativeUrl()
         url = resolvedUrl.isEmpty ? working : resolvedUrl
         if url.isEmpty, suppressRequestWhenResolvedUrlIsEmpty {

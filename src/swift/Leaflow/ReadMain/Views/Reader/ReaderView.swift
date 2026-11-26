@@ -21,12 +21,15 @@
 import SwiftUI
 
 /// 阅读器根视图。
+@MainActor
 struct ReaderView: View {
     @State private var viewModel = ReaderViewModel()
     @Binding var settings: ReadingSettings
     var bookId: Int = 0
     var book: Book? = nil
     @State private var showBookmarks = false
+    @State private var showReview = false
+    var reviewRequest: LocalSourceParser.ReviewRequest? = nil
 
     @State private var showChapterList = false
     @State private var showSearch = false
@@ -47,6 +50,15 @@ struct ReaderView: View {
     @State private var pendingTtsSettings = false
     @State private var ttsSleepTimer = TtsSleepTimer()
     @ObservedObject private var speechCoordinator = ReaderSpeechSupport.sharedCoordinator
+
+    init(settings: Binding<ReadingSettings>, bookId: Int = 0, book: Book? = nil,
+         viewModel: ReaderViewModel? = nil, reviewRequest: LocalSourceParser.ReviewRequest? = nil) {
+        _settings = settings
+        self.bookId = bookId
+        self.book = book
+        _viewModel = State(initialValue: viewModel ?? ReaderViewModel())
+        self.reviewRequest = reviewRequest
+    }
 
     var body: some View {
         // 伪代码 0x1008477c0（L107-218）。
@@ -86,6 +98,11 @@ struct ReaderView: View {
                             id: "search", title: "搜索",
                             systemImage: "magnifyingglass") {
                             showSearch = true
+                        },
+                        ReaderMoreActionItem(
+                            id: "review", title: "评论", systemImage: "text.bubble",
+                            isEnabled: viewModel.currentBookSource != nil && viewModel.currentBook != nil) {
+                            showReview = true
                         },
                         ReaderMoreActionItem(
                             id: "settings", title: "设置",
@@ -217,6 +234,7 @@ struct ReaderView: View {
         }
         .onDisappear { viewModel.saveProgress() }
         .modifier(ReaderSelectionPresentationModifier(vm: viewModel))
+        .modifier(ReaderReviewPresentationModifier(vm: viewModel, showReview: $showReview, request: reviewRequest))
     }
 
     /// readerToolbarContent（@ToolbarContentBuilder 显式域——
@@ -248,13 +266,14 @@ struct ReaderView: View {
             Button(action: { showTopMoreActions.toggle() }) {
                 Image(systemName: "ellipsis.circle")
             }
+            .accessibilityLabel("更多操作")
         }
     }
 
 
     /// 伪代码 0x10084b8cc（L230-249）：任一呈现层可见判定。
     private var isAnyReaderPresentationVisible: Bool {
-        showChapterList || showSearch || showSettings || showCommentBrowser
+        showChapterList || showSearch || showSettings || showCommentBrowser || showReview
             || showTopMoreActions || showTtsPlayer || showTtsQuickSettings || viewModel.menuVisible
     }
 }

@@ -51,6 +51,7 @@ extension ReaderViewModel {
 
         do {
             guard let book = currentBook else { throw AppError.parsing("缺少书籍上下文") }
+            await refreshCurrentBookSource()
             let list: [Chapter]
             if let provider = chapterListProvider {
                 list = try await provider(book, needRefresh)

@@ -40,7 +40,8 @@ final class ReaderViewModel {
     var totalChapters = 0
     var currentBook: Book?
     var chapters: [Chapter] = []
-    @ObservationIgnored lazy var bookService = BookService()
+    @ObservationIgnored var sourceService = SourceService.shared
+    @ObservationIgnored lazy var bookService = BookService(sourceService: sourceService)
     @ObservationIgnored var replaceRuleService = ReplaceRuleService.shared
     // 固定样本可替换 I/O，仍执行生产装配、分页和导航链。
     var chapterListProvider: ((Book, Bool) async throws -> [Chapter])?
@@ -50,9 +51,17 @@ final class ReaderViewModel {
         currentBook = book
         bookName = book.name
         self.settings = settings
-        currentBookSource = SourceService().bookSources.first {
+        if !sourceService.hasLoadedOnce && sourceService.bookSources.isEmpty {
+            sourceService.quickLoadLocalSources()
+        }
+        currentBookSource = sourceService.bookSources.first {
             $0.bookSourceUrl == book.bookSourceUrl
         }
+    }
+
+    func refreshCurrentBookSource() async {
+        await sourceService.loadLocalSources()
+        currentBookSource = sourceService.bookSources.first { $0.bookSourceUrl == currentBook?.bookSourceUrl }
     }
 
     var currentPage: PageData? {
