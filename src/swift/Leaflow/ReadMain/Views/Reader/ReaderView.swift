@@ -113,6 +113,7 @@ struct ReaderView: View {
                     onHeaderTap: { showTopMoreActions = false },
                     onDismiss: { showTopMoreActions = false },
                     cover: { EmptyView() })
+                    .accessibilityIdentifier("reader-more-actions")
                     .padding(.top, 8)
                     .transition(
                         .move(edge: .top).combined(with: .opacity))
@@ -263,10 +264,14 @@ struct ReaderView: View {
         }
         // T-1601-C0：顶部更多操作入口（ReaderTopMoreActionsPanel）。
         ToolbarItem(placement: .navigationBarTrailing) {
-            Button(action: { showTopMoreActions.toggle() }) {
+            Button(action: {
+                showTopMoreActions.toggle()
+                Logger.log("阅读更多操作展开状态：\(showTopMoreActions)", level: .info)
+            }) {
                 Image(systemName: "ellipsis.circle")
             }
             .accessibilityLabel("更多操作")
+            .accessibilityValue(showTopMoreActions ? "已展开" : "已收起")
         }
     }
 

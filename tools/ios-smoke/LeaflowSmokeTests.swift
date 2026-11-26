@@ -189,9 +189,14 @@ final class LeaflowSmokeTests: XCTestCase {
             launch(["-smokeBookReview", mode].filter { !$0.isEmpty })
             let more = app.buttons["更多操作"]
             XCTAssertTrue(more.waitForExistence(timeout: 30))
-            more.tap()
+            capture("book-review-before-more")
+            print("阅读更多操作按钮：\(more.debugDescription)")
+            more.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
             let review = app.buttons["评论"]
-            XCTAssertTrue(review.waitForExistence(timeout: 10))
+            let opened = review.waitForExistence(timeout: 10)
+            capture("book-review-after-more")
+            print("阅读更多操作展开后层级：\(app.debugDescription)")
+            XCTAssertTrue(opened)
             XCTAssertTrue(review.isEnabled)
             review.tap()
             let result = app.staticTexts[expected]
