@@ -10,14 +10,14 @@
 //     0x1003633cc L93-96（(title, pageIndex, order) 元组比较确证）
 //   - CovMap: 上述 L 区段
 //   - IDA: src/pseudocode/Leaflow/ReadMain/Services/PDFPageImageSource.c
-//   - 事实：pdf:// URL 形态（makeURL(bookId:fileName:pageIndex:) 签名确证）；
+//   - 事实：qireader-pdf-page URL形态（0x101266700及URLComponents取证）；
 //     目录链 —— PDFDocument.outlineRoot → visit 递归（depth 参与确证）→
 //     (title, pageIndex, order) 元组排序（closure 0x1003633cc 确证）；
 //     renderPage —— UIGraphicsImageRenderer（closure #1 确证）
 // 状态: 语义级还原（不是原始源码；变量名/注释为还原者所加）
 // 置信度:
 //   - parse/renderPage/outline 递归: high（调用/闭包确证）
-//   - makeURL 形态: medium-high（签名确证；分隔符待真机对照）
+//   - makeURL形态：high（协议、路径页号和file查询项确证）
 // 还原: 2026-11-19
 
 import Foundation
@@ -30,21 +30,35 @@ enum PDFPageImageSource {
     // MARK: URL 形态
 
     /// pgo_only makeURL(bookId:fileName:pageIndex:)（签名确证）。
-    /// 形态：pdf://<bookId>/<fileName>/<pageIndex>。
+    /// 协议字符串0x101266700：qireader-pdf-page；路径为页号，file查询项携带文件名。
     static func makeURL(bookId: String, fileName: String = "", pageIndex: Int) -> URL? {
-        URL(string: "pdf://\(bookId)/\(fileName)/\(pageIndex)")
+        guard !bookId.isEmpty, !fileName.isEmpty, pageIndex >= 0 else { return nil }
+        var components = URLComponents()
+        components.scheme = "qireader-pdf-page"
+        components.host = bookId
+        components.path = "/\(pageIndex)"
+        components.queryItems = [URLQueryItem(name: "file", value: fileName)]
+        return components.url
     }
 
-    /// 伪代码 0x100363ed8（L30-42）：pdf:// URL 解析。
-    /// makeURL(bookId:fileName:pageIndex:) 的逆向（host=bookId，尾段=pageIndex）。
+    /// 实际0x10036381c（PGO标签交错）：scheme/host/path/file查询项解析。
     static func parse(_ urlString: String) -> PDFPageImageRequest? {
-        guard urlString.hasPrefix("pdf://") else { return nil }
-        let body = String(urlString.dropFirst("pdf://".count))
-        let parts = body.split(separator: "/")
-        guard parts.count >= 2,
-              let pageIndex = Int(parts.last ?? "") else { return nil }
-        let bookId = String(parts[0])
-        return PDFPageImageRequest(bookId: bookId, pageIndex: pageIndex)
+        guard let components = URLComponents(string: urlString), components.scheme == "qireader-pdf-page",
+              let bookId = components.host, !bookId.isEmpty,
+              let pageIndex = Int(components.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))), pageIndex >= 0,
+              let fileName = components.queryItems?.first(where: { $0.name == "file" })?.value, !fileName.isEmpty
+        else { return nil }
+        return PDFPageImageRequest(bookId: bookId, fileName: fileName, pageIndex: pageIndex)
+    }
+
+    static func documentURL(for request: PDFPageImageRequest) -> URL? {
+        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        guard !request.fileName.contains("/"), !request.fileName.contains("\\"), request.fileName != ".." else { return nil }
+        for directory in ["local_books", "Books"] {
+            let candidate = documents.appendingPathComponent(directory).appendingPathComponent(request.fileName)
+            if FileManager.default.fileExists(atPath: candidate.path) { return candidate }
+        }
+        return nil
     }
 
     // MARK: 文档检查
@@ -66,7 +80,7 @@ enum PDFPageImageSource {
         return PDFDocumentMetadata(pageCount: pageCount, chapters: chapters,
             title: Book.normalizedIdentifier(document.documentAttributes?[PDFDocumentAttribute.titleAttribute] as? String),
             author: Book.normalizedIdentifier(document.documentAttributes?[PDFDocumentAttribute.authorAttribute] as? String),
-            coverData: renderPage(document: document, pageIndex: 0, maxPixelSize: 600)?.pngData())
+            coverData: renderPage(document: document, pageIndex: 0, maxPixelSize: 720)?.pngData())
     }
 
     /// 伪代码 0x1003644bc（L62-106）+ visit #1（0x1003648f4，L71-87）：

@@ -30,9 +30,10 @@ import PDFKit
 import UIKit
 import JavaScriptCore
 
-/// PDF 页图片请求（url 形态：pdf://<bookId>/<pageIndex>）。
+/// PDF 页图片请求（qireader-pdf-page协议，file查询项定位安装文件）。
 struct PDFPageImageRequest: Equatable {
     let bookId: String
+    let fileName: String
     let pageIndex: Int
 }
 
@@ -114,8 +115,10 @@ final class MangaImageCacheService {
     private var pdfDocuments: [String: PDFDocument] = [:]
     private var activeTasks: [String: Task<ImageLoadResult, Never>] = [:]
     private let fileManager = FileManager.default
+    private let pdfDocumentURLProvider: ((PDFPageImageRequest) -> URL?)?
 
-    init() {
+    init(pdfDocumentURLProvider: ((PDFPageImageRequest) -> URL?)? = nil) {
+        self.pdfDocumentURLProvider = pdfDocumentURLProvider
         memoryCache.countLimit = 128
         let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
         diskCacheDirectory = caches.appendingPathComponent("manga_images", isDirectory: true)
@@ -177,12 +180,8 @@ final class MangaImageCacheService {
         headers: [String: String],
         requestContext: MangaImageRequestContext?
     ) async -> ImageLoadResult {
-        // PDF 页通道（pdf:// 前缀推断）。
-        if url.hasPrefix("pdf://") {
-            guard let request = PDFPageImageSource.parse(url),
-                  let bookURL = PDFPageImageSource.makeURL(
-                    bookId: request.bookId,
-                    pageIndex: request.pageIndex) else {
+        if url.hasPrefix("qireader-pdf-page:") {
+            guard let request = PDFPageImageSource.parse(url) else {
                 return .failure("PDF 源无效")
             }
             if let image = renderPDFPage(request) {
@@ -236,14 +235,13 @@ final class MangaImageCacheService {
     ///（pdfDocuments ivar + PDFPageImageSource.renderPage(2048.0)/parse 确证）。
     private func renderPDFPage(_ request: PDFPageImageRequest) -> UIImage? {
         let document: PDFDocument
-        if let cached = pdfDocuments[request.bookId] {
+        let key = request.bookId + "@" + request.fileName
+        if let cached = pdfDocuments[key] {
             document = cached
         } else {
-            guard let bookURL = PDFPageImageSource.makeURL(
-                    bookId: request.bookId,
-                    pageIndex: request.pageIndex),
+            guard let bookURL = pdfDocumentURLProvider?(request) ?? PDFPageImageSource.documentURL(for: request),
                   let loaded = PDFDocument(url: bookURL) else { return nil }
-            pdfDocuments[request.bookId] = loaded
+            pdfDocuments[key] = loaded
             document = loaded
         }
         return PDFPageImageSource.renderPage(

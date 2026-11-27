@@ -34,6 +34,15 @@ enum PDFSampleSelfTest {
             try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
             let url = root.appendingPathComponent("scan.pdf")
             try writeFixture(to: url)
+            let pageURL = PDFPageImageSource.makeURL(bookId: "fixed-book", fileName: "中文 #封面.pdf", pageIndex: 2)
+            let request = pageURL.flatMap { PDFPageImageSource.parse($0.absoluteString) }
+            emit("pdf_page_url_roundtrip", ["fixed-book", "中文 #封面.pdf", "2"],
+                [request?.bookId ?? "", request?.fileName ?? "", String(request?.pageIndex ?? -1)])
+            emit("pdf_page_url_validation", ["true", "true", "true", "true"],
+                [String(PDFPageImageSource.parse("pdf://book/2") == nil),
+                 String(PDFPageImageSource.parse("qireader-pdf-page://book/-1?file=a.pdf") == nil),
+                 String(PDFPageImageSource.parse("qireader-pdf-page://book/2") == nil),
+                 String(PDFPageImageSource.makeURL(bookId: "book", fileName: "a.pdf", pageIndex: -1) == nil)])
             guard let document = PDFDocument(url: url), let metadata = PDFPageImageSource.inspectDocument(at: url) else {
                 throw AppError.emptyContent
             }
@@ -52,7 +61,15 @@ enum PDFSampleSelfTest {
             page.setBounds(CGRect(x: 20, y: 30, width: 120, height: 160), for: .cropBox)
             let cropped = PDFPageImageSource.renderPage(document: document, pageIndex: 0, maxPixelSize: 320)
             emit("pdf_render_crop_box", ["240", "320"], [String(cropped?.cgImage?.width ?? -1), String(cropped?.cgImage?.height ?? -1)])
-            document.documentAttributes = [.titleAttribute: " 扫描书籍 ", .authorAttribute: " 样本作者 "]
+            let cache = MangaImageCacheService(pdfDocumentURLProvider: { _ in url })
+            let cacheURL = PDFPageImageSource.makeURL(bookId: root.lastPathComponent, fileName: "scan.pdf", pageIndex: 0)!
+            let result = await cache.getImage(url: cacheURL.absoluteString, headers: [:], requestContext: nil)
+            if case .image(let rendered) = result {
+                emit("pdf_image_cache_channel", ["1365", "2048"],
+                    [String(rendered.cgImage?.width ?? -1), String(rendered.cgImage?.height ?? -1)])
+            } else { emit("pdf_image_cache_channel", ["图像"], ["失败"]) }
+            document.documentAttributes = [PDFDocumentAttribute.titleAttribute: " 扫描书籍 ",
+                PDFDocumentAttribute.authorAttribute: " 样本作者 "]
             let outlineRoot = PDFOutline()
             let later = PDFOutline()
             later.label = " 尾章 "
