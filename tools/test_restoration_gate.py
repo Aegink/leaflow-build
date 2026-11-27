@@ -102,7 +102,7 @@ class GateTests(unittest.TestCase):
 
     def test_ui_smoke_failure_cannot_pass_build_gate(self):
         build, samples = self.evidence()
-        build.update(ui_smoke_required=True, ui_smoke_pass=False)
+        build.update(ui_smoke_required=True, ui_smoke_pass=False, ui_pixel_pass=True, ui_pixel_count=17)
         self.assertTrue(C["build_failures"](build, samples, "hash"))
         build["ui_smoke_pass"] = True
         self.assertEqual(C["build_failures"](build, samples, "hash"), [])
@@ -174,6 +174,15 @@ class GateTests(unittest.TestCase):
     def test_old_build_cannot_cover_new_code(self):
         build, samples = self.evidence()
         self.assertTrue(C["build_failures"](build, samples, "new_hash"))
+
+    def test_ui_success_requires_complete_pixel_evidence(self):
+        build, samples = self.evidence()
+        build.update(ui_smoke_required=True, ui_smoke_pass=True)
+        self.assertTrue(C["build_failures"](build, samples, "hash"))
+        build.update(ui_pixel_pass=True, ui_pixel_count=17)
+        self.assertEqual(C["build_failures"](build, samples, "hash"), [])
+        build["ui_pixel_count"] = 16
+        self.assertTrue(C["build_failures"](build, samples, "hash"))
 
     def test_missing_build_counters_fail(self):
         build, samples = self.evidence()

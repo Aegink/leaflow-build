@@ -27,6 +27,7 @@ struct LocalReaderView: View {
     @State private var adapter = ReaderViewModel()
     @Binding var settings: ReadingSettings
     @State private var chapterSliderValue: Double = 0
+    @State private var isChapterSliderEditing = false
     @State private var showSearch = false
     @State private var showChapterList = false
     @State private var showSettings = false
@@ -216,6 +217,7 @@ struct LocalReaderView: View {
             value: $chapterSliderValue,
             in: 0...Double(max(1, (viewModel?.chapterContents.count ?? 1) - 1)),
             step: 1) { editing in
+            isChapterSliderEditing = editing
             if !editing {
                 let target = Int(chapterSliderValue)
                 Task {
@@ -224,6 +226,13 @@ struct LocalReaderView: View {
             }
         }
         .padding(.horizontal)
+        .disabled((viewModel?.chapterContents.count ?? 0) < 2)
+        .accessibilityIdentifier("local-reader-chapter-slider")
+        .accessibilityValue("第\(Int(chapterSliderValue) + 1)章")
+        .onChange(of: viewModel?.currentChapterIndex, initial: true) { _, index in
+            guard !isChapterSliderEditing, let index else { return }
+            chapterSliderValue = Double(index)
+        }
     }
 
     /// 伪代码 0x100727b48（L660-667）：本章内页序。
