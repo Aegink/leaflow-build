@@ -43,6 +43,7 @@ enum AppTab: String, Hashable, CaseIterable {
 /// 主 Tab 视图（body 0x100cf9184 L41-50 域确证：SidebarAdaptable
 /// 风格 + 滚动收起条件域）。
 struct MainTabView: View {
+    @EnvironmentObject private var bookService: BookService
 
     /// 默认 Tab（冒烟域：CI 传 -smokeSettings 直启设置页；
     /// -smokeSources 也需先选设置 Tab，由 SettingsView.onAppear 追加
@@ -156,7 +157,7 @@ struct MainTabView: View {
         // 五 Tab 根视图域（closure #1/#3/#5/#7/#9 确证）。
         switch tab {
         case .bookshelf:
-            BookshelfView()
+            BookshelfView(bookService: bookService)
         case .explore:
             ExploreView()
         case .statistics:

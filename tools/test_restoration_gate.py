@@ -27,6 +27,11 @@ class GateTests(unittest.TestCase):
 
     def test_source_import_splits_preserve_ownership_and_missing_part_fails(self):
         owners = {
+            "ReadMain/Views/Explore/ExploreBookDetailView.swift": [
+                "ReadMain/Views/Explore/ExploreBookDetailView+Components.swift",
+                "ReadMain/Views/Explore/ExploreBookDetailView+Actions.swift",
+                "ReadMain/Views/Explore/ExploreBookDetailView+Loading.swift",
+                "ReadMain/Views/Explore/ExploreBookDetailView+State.swift"],
             "ReadMain/Views/Explore/ExploreView.swift": [
                 "ReadMain/Views/Explore/ExploreView+Models.swift",
                 "ReadMain/Views/Explore/ExploreView+Components.swift",

@@ -64,6 +64,10 @@ struct ExploreView: View {
     }
 
     var body: some View {
+        NavigationStack { navigationContent }
+    }
+
+    private var navigationContent: some View {
         // 伪代码 0x1005c2234（L440-511）：列表/网格双布局主链。
         Group {
             if gridLayout {

@@ -175,7 +175,8 @@ struct ExploreSourceDetailPresentationsModifier: ViewModifier {
             .sheet(item: $selectedBook) { selection in
                 NavigationStack {
                     BookDetailView(book: selection.book, availableSources: [], onRead: onReadBookFromDetail,
-                        initialChapters: preparedTextReader?.chapters)
+                        initialChapters: preparedTextReader?.chapters,
+                        sourceService: preparedTextReader?.sourceService ?? .shared)
                     .toolbar {
                         ToolbarItem(placement: .topBarLeading) {
                             Button("关闭") { selectedBook = nil }

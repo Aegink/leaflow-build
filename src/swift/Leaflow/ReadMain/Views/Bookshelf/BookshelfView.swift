@@ -67,11 +67,15 @@ extension BookshelfItem {
 /// 书架主视图。
 struct BookshelfView: View {
 
-    @StateObject private var vm = BookshelfViewModel(
-        bookService: BookService(),
-        localBookService: LocalBookService.shared)
-    @StateObject private var bookService = BookService()
+    @StateObject private var vm: BookshelfViewModel
+    @ObservedObject private var bookService: BookService
     @ObservedObject private var localBookService = LocalBookService.shared
+
+    init(bookService: BookService) {
+        _bookService = ObservedObject(wrappedValue: bookService)
+        _vm = StateObject(wrappedValue: BookshelfViewModel(
+            bookService: bookService, localBookService: .shared))
+    }
 
     @State private var searchText: String = ""
     @State private var isGrid = false
@@ -130,6 +134,10 @@ struct BookshelfView: View {
     }
 
     var body: some View {
+        NavigationStack { navigationContent }
+    }
+
+    private var navigationContent: some View {
         Group {
             bookshelfContent
         }
