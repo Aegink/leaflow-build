@@ -2,6 +2,11 @@ import XCTest
 
 // 本地文件导入与重开检查仍由同一测试类执行。
 extension LeaflowSmokeTests {
+    private func assertReadingDurationSaved() {
+        let seconds = app.staticTexts["local-import-reading-seconds"]
+        XCTAssertTrue(seconds.waitForExistence(timeout: 10))
+        XCTAssertGreaterThan(Int(seconds.label) ?? 0, 0, "关闭阅读器后必须有实际统计记录")
+    }
     private func waitForCenteredPDFPage(_ index: Int) {
         let page = app.images["pdf-page-\(index)"]
         XCTAssertTrue(page.waitForExistence(timeout: 30))
@@ -33,6 +38,7 @@ extension LeaflowSmokeTests {
         waitForCenteredPDFPage(1)
         assertVisibleText("PDF PAGE 2")
         app.buttons["local-import-reader-close"].tap()
+        assertReadingDurationSaved()
         launch(["-smokePDFImport"])
         XCTAssertTrue(read.waitForExistence(timeout: 30))
         read.tap()
@@ -64,6 +70,7 @@ extension LeaflowSmokeTests {
         XCTAssertEqual(app.sliders["local-reader-chapter-slider"].value as? String, "第2章")
         assertVisibleText("固定本地正文乙")
         app.buttons["local-import-reader-close"].tap()
+        assertReadingDurationSaved()
         launch(["-smokeLocalBookImport"])
         XCTAssertTrue(read.waitForExistence(timeout: 30))
         XCTAssertEqual(app.staticTexts["local-import-chapter-count"].label, "章节数：3")
@@ -94,6 +101,7 @@ extension LeaflowSmokeTests {
         app.swipeLeft()
         assertVisibleText("正文甲")
         app.buttons["local-import-reader-close"].tap()
+        assertReadingDurationSaved()
         launch(["-smokeEpubImport"])
         XCTAssertTrue(read.waitForExistence(timeout: 30))
         read.tap()

@@ -25,6 +25,10 @@ struct LocalBookImportSmokeView: View {
                         .accessibilityIdentifier("local-import-read")
                     Text("章节数：\(book.totalChapters)")
                         .accessibilityIdentifier("local-import-chapter-count")
+                    Text(String(ReadingStatisticsService.shared.bookStats().first {
+                        $0.bookFingerprint == book.id.uuidString
+                    }?.totalSeconds ?? 0))
+                        .accessibilityIdentifier("local-import-reading-seconds")
                     Button("删除固定书籍") { service.deleteBook(book) }
                         .accessibilityIdentifier("local-import-delete")
                 }

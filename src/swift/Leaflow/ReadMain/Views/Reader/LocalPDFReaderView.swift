@@ -27,6 +27,10 @@ struct LocalPDFReaderView: View {
         .task { await loadBook() }
         .task(id: vm.currentPage) { await preloadPages(around: vm.currentPage) }
         .onDisappear { vm.saveProgress() }
+        .modifier(ReadingStatisticsLifecycleModifier(
+            bookFingerprint: book.id.uuidString, bookName: book.name,
+            pageIndex: vm.currentPage, chapterIndex: vm.currentDirectoryIndex,
+            charCount: 0, isReady: !vm.isLoading && vm.loadError == nil && vm.images[vm.currentPage] != nil))
         .sheet(isPresented: $showChapterList) {
             NavigationStack {
                 List(vm.directoryChapters) { chapter in

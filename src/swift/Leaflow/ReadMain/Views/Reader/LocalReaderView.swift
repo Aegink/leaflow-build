@@ -167,6 +167,11 @@ struct LocalReaderView: View {
         }
         .animation(.easeInOut(duration: 0.2), value: menuVisible)
         .onDisappear { viewModel?.saveProgress() }
+        .modifier(ReadingStatisticsLifecycleModifier(
+            bookFingerprint: book.id.uuidString, bookName: book.name,
+            pageIndex: viewModel?.currentPageIndex ?? 0, chapterIndex: viewModel?.currentChapterIndex ?? 0,
+            charCount: viewModel?.currentPage?.charCount ?? 0,
+            isReady: viewModel?.currentPage.map { !$0.isLoadingPlaceholder && !$0.isErrorPlaceholder } ?? false))
     }
 
     /// 伪代码 0x10072798c（L247-266）：阅读场景（PageContent 承载）。

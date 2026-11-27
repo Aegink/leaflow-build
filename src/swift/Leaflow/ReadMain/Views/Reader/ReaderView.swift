@@ -234,6 +234,11 @@ struct ReaderView: View {
                 showChapterList: $pendingTtsChapterList, showSettings: $pendingTtsSettings, sleepTimer: ttsSleepTimer)
         }
         .onDisappear { viewModel.saveProgress() }
+        .modifier(ReadingStatisticsLifecycleModifier(
+            bookFingerprint: viewModel.currentBook?.contentFingerprint, bookName: viewModel.bookName,
+            pageIndex: viewModel.currentPageIndex, chapterIndex: viewModel.currentChapterIndex,
+            charCount: viewModel.currentPage?.charCount ?? 0,
+            isReady: viewModel.currentPage.map { !$0.isLoadingPlaceholder && !$0.isErrorPlaceholder } ?? false))
         .modifier(ReaderSelectionPresentationModifier(vm: viewModel))
         .modifier(ReaderReviewPresentationModifier(vm: viewModel, showReview: $showReview, request: reviewRequest))
     }
