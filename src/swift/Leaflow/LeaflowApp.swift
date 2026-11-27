@@ -109,7 +109,8 @@ struct LeaflowApp: App {
                 } else if ProcessInfo.processInfo.arguments.contains("-smokeExploreReading") {
                     ExploreReadingSmokeView()
                 } else if ProcessInfo.processInfo.arguments.contains("-smokeLocalBookImport")
-                    || ProcessInfo.processInfo.arguments.contains("-smokeEpubImport") {
+                    || ProcessInfo.processInfo.arguments.contains("-smokeEpubImport")
+                    || ProcessInfo.processInfo.arguments.contains("-smokePDFImport") {
                     LocalBookImportSmokeView()
                 } else if ProcessInfo.processInfo.arguments.contains("-smokeTtsPlayer")
                     || ProcessInfo.processInfo.arguments.contains("-smokeTtsQuick") {

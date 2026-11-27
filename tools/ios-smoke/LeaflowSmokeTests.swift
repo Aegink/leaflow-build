@@ -2,7 +2,7 @@
 import XCTest
 
 final class LeaflowSmokeTests: XCTestCase {
-    private var app: XCUIApplication!
+    var app: XCUIApplication!
     private var pixelSequence = 0
 
     override func setUpWithError() throws { continueAfterFailure = false }
@@ -104,7 +104,7 @@ final class LeaflowSmokeTests: XCTestCase {
         passed("tts_large_text_scroll")
     }
 
-    private func launch(_ arguments: [String]) {
+    func launch(_ arguments: [String]) {
         app?.terminate()
         app = XCUIApplication()
         app.launchArguments = arguments
@@ -299,70 +299,6 @@ final class LeaflowSmokeTests: XCTestCase {
         XCTAssertTrue(app.buttons["书籍变量"].waitForExistence(timeout: 10))
     }
 
-    func testLocalBookFileImport() {
-        launch(["-smokeLocalBookImport"])
-        let input = app.buttons["local-import-fixture"]
-        XCTAssertTrue(input.waitForExistence(timeout: 30))
-        input.tap()
-        let save = app.buttons["local-book-import-save"]
-        XCTAssertTrue(save.waitForExistence(timeout: 10))
-        XCTAssertEqual(app.textFields["书名"].value as? String, "固定导入书籍")
-        capture("local-book-import-preview")
-        save.tap()
-        let read = app.buttons["local-import-read"]
-        XCTAssertTrue(read.waitForExistence(timeout: 20))
-        XCTAssertEqual(app.staticTexts["local-import-chapter-count"].label, "章节数：3")
-        read.tap()
-        XCTAssertTrue(app.textViews.firstMatch.waitForExistence(timeout: 30))
-        assertVisibleText("固定本地正文")
-        capture("local-book-import-reader")
-        app.swipeLeft()
-        XCTAssertEqual(app.sliders["local-reader-chapter-slider"].value as? String, "第2章")
-        assertVisibleText("固定本地正文乙")
-        app.buttons["local-import-reader-close"].tap()
-        launch(["-smokeLocalBookImport"])
-        XCTAssertTrue(read.waitForExistence(timeout: 30))
-        XCTAssertEqual(app.staticTexts["local-import-chapter-count"].label, "章节数：3")
-        read.tap()
-        XCTAssertTrue(app.textViews.firstMatch.waitForExistence(timeout: 30))
-        XCTAssertEqual(app.sliders["local-reader-chapter-slider"].value as? String, "第2章")
-        assertVisibleText("固定本地正文乙")
-        capture("local-book-import-cold-reader")
-        passed("local_book_import_reader")
-    }
-
-    func testEpubFileImport() {
-        launch(["-smokeEpubImport"])
-        let input = app.buttons["local-import-fixture"]
-        XCTAssertTrue(input.waitForExistence(timeout: 30))
-        input.tap()
-        let title = app.textFields["书名"]
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "value == %@", "固定EPUB书籍"), object: title)], timeout: 20), .completed)
-        capture("epub-import-metadata")
-        app.buttons["local-book-import-save"].tap()
-        let read = app.buttons["local-import-read"]
-        XCTAssertTrue(read.waitForExistence(timeout: 20))
-        XCTAssertEqual(app.staticTexts["local-import-chapter-count"].label, "章节数：2")
-        read.tap()
-        XCTAssertTrue(app.textViews.firstMatch.waitForExistence(timeout: 30))
-        assertVisibleText("正文乙")
-        app.swipeLeft()
-        assertVisibleText("正文甲")
-        app.buttons["local-import-reader-close"].tap()
-        launch(["-smokeEpubImport"])
-        XCTAssertTrue(read.waitForExistence(timeout: 30))
-        read.tap()
-        XCTAssertTrue(app.textViews.firstMatch.waitForExistence(timeout: 30))
-        assertVisibleText("正文甲")
-        capture("epub-cold-reader")
-        app.buttons["local-import-reader-close"].tap()
-        app.buttons["local-import-delete"].tap()
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "exists == false"), object: read)], timeout: 10), .completed)
-        passed("epub_import_reader")
-    }
-
     func testExploreDetailBookState() {
         launch(["-smokeExploreReading"])
         let entry = app.buttons["explore-reading-book"]
@@ -464,7 +400,7 @@ final class LeaflowSmokeTests: XCTestCase {
             predicate: NSPredicate(format: "label == %@", expected), object: element)], timeout: 10), .completed)
     }
 
-    private func assertVisibleText(_ expected: String) {
+    func assertVisibleText(_ expected: String) {
         // 模拟器只采集屏幕像素，macOS主机逐张识别；缺图、缺文字均阻断CI。
         let attachment = XCTAttachment(screenshot: app.screenshot())
         pixelSequence += 1
@@ -472,11 +408,11 @@ final class LeaflowSmokeTests: XCTestCase {
         attachment.lifetime = .keepAlways
         add(attachment)
     }
-    private func capture(_ name: String) {
+    func capture(_ name: String) {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
     }
-    private func passed(_ name: String) { print("SMOKE_UI \(name) pass=true") }
+    func passed(_ name: String) { print("SMOKE_UI \(name) pass=true") }
 }

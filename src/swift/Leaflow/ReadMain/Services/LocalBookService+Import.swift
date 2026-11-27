@@ -34,10 +34,12 @@ extension LocalBookService {
         }
         book.filePath = installed.path
         // 解析域（parsePdfBook/parseEpubBook/parseTxtBook 交叉）。
-        book = format == "EPUB" ? await parseEpubBook(book, preferExisting: preferExistingMetadata)
-            : await ensureChaptersParsed(book)
+        if format == "EPUB" { book = await parseEpubBook(book, preferExisting: preferExistingMetadata) }
+        else if format == "PDF" { book = await parsePdfBook(book, preferExisting: preferExistingMetadata) }
+        else { book = await ensureChaptersParsed(book) }
         guard book.totalChapters > 0,
-              loadChapters(for: book.id.uuidString)?.count == book.totalChapters else {
+              let chapters = loadChapters(for: book.id.uuidString), !chapters.isEmpty,
+              format == "PDF" || chapters.count == book.totalChapters else {
             cleanupBookFiles(book)
             return nil
         }
@@ -56,7 +58,8 @@ extension LocalBookService {
     func ensureChaptersParsed(_ book: LocalBook) async -> LocalBook {
         if let chapters = loadChapters(for: book.id.uuidString), !chapters.isEmpty {
             var restored = book
-            restored.totalChapters = chapters.count
+            restored.totalChapters = book.format.uppercased() == "PDF"
+                ? (PDFDocument(url: book.fileURL)?.pageCount ?? book.totalChapters) : chapters.count
             return restored
         }
         return await reparseChapters(book)
@@ -94,23 +97,17 @@ extension LocalBookService {
         _ book: LocalBook, preferExisting: Bool
     ) async -> LocalBook {
         var updated = book
-        // PDF 分页域（PDFKit 交叉）。
-        guard let pdfDocument = PDFKit.PDFDocument(url: fullTextURL(for: book))
+        guard let metadata = PDFPageImageSource.inspectDocument(at: book.fileURL)
         else { return updated }
-        var chapters: [LocalChapter] = []
-        for pageIndex in 0..<pdfDocument.pageCount {
-            guard
-                let page = pdfDocument.page(at: pageIndex),
-                let text = page.string
-            else { continue }
-            let title = String(text.prefix(30))
-            chapters.append(
-                LocalChapter(
-                    id: pageIndex, title: title,
-                    startPosition: pageIndex, endPosition: pageIndex + 1))
+        if !preferExisting {
+            if let title = metadata.title { updated.name = title }
+            if let author = metadata.author { updated.author = author }
         }
-        updated.totalChapters = chapters.count
-        saveChapters(chapters, for: updated.id.uuidString)
+        updated.totalChapters = metadata.pageCount
+        saveChapters(metadata.chapters, for: updated.id.uuidString)
+        if let cover = metadata.coverData, !preferExisting || !coverCache.coverExists(for: book.id.uuidString) {
+            coverCache.saveCover(data: cover, for: book.id.uuidString)
+        }
         return updated
     }
 

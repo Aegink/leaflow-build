@@ -53,7 +53,7 @@ enum PDFPageImageSource {
     /// PDFDocumentMetadata.chapters 为 [LocalChapter]（T-601-01 域）——
     /// LocalPDFChapter 经 order/pageIndex 映射换算（还原推断）。
     static func inspectDocument(at url: URL) -> PDFDocumentMetadata? {
-        guard let document = PDFDocument(url: url) else { return nil }
+        guard let document = PDFDocument(url: url), document.pageCount > 0 else { return nil }
         let pageCount = document.pageCount
         let chapters = directoryChapters(at: url, pageCount: pageCount).map {
             chapter in
@@ -61,10 +61,12 @@ enum PDFPageImageSource {
                 id: chapter.order,
                 title: chapter.title,
                 startPosition: chapter.pageIndex,
-                endPosition: chapter.pageIndex
-                    + max(chapter.pageCount - 1, 0))
+                endPosition: min(chapter.pageIndex + 1, pageCount))
         }
-        return PDFDocumentMetadata(pageCount: pageCount, chapters: chapters)
+        return PDFDocumentMetadata(pageCount: pageCount, chapters: chapters,
+            title: Book.normalizedIdentifier(document.documentAttributes?[PDFDocumentAttribute.titleAttribute] as? String),
+            author: Book.normalizedIdentifier(document.documentAttributes?[PDFDocumentAttribute.authorAttribute] as? String),
+            coverData: renderPage(document: document, pageIndex: 0, maxPixelSize: 600)?.pngData())
     }
 
     /// 伪代码 0x1003644bc（L62-106）+ visit #1（0x1003648f4，L71-87）：
@@ -73,11 +75,16 @@ enum PDFPageImageSource {
     static func directoryChapters(
         at url: URL, pageCount: Int
     ) -> [LocalPDFChapter] {
-        guard let document = PDFDocument(url: url),
-              let outlineRoot = document.outlineRoot else { return [] }
+        guard pageCount > 0, let document = PDFDocument(url: url) else { return [] }
         var collected: [(title: String, pageIndex: Int, order: Int)] = []
         var order = 0
-        visit(outlineRoot, depth: 0, document: document, order: &order, collected: &collected)
+        if let outlineRoot = document.outlineRoot {
+            visit(outlineRoot, depth: -1, document: document, order: &order, collected: &collected)
+        }
+        if collected.isEmpty {
+            return (0..<pageCount).map { LocalPDFChapter(id: UUID(), title: "第\($0 + 1)页",
+                pageIndex: $0, order: $0, pageCount: 1) }
+        }
         collected.sort { lhs, rhs in
             lhs.pageIndex == rhs.pageIndex
                 ? lhs.order < rhs.order
@@ -89,7 +96,7 @@ enum PDFPageImageSource {
                 title: item.title,
                 pageIndex: item.pageIndex,
                 order: index,
-                pageCount: pageCount)
+                pageCount: 1)
         }
     }
 
@@ -101,13 +108,14 @@ enum PDFPageImageSource {
         order: inout Int,
         collected: inout [(title: String, pageIndex: Int, order: Int)]
     ) {
-        guard depth < 8 else { return }
-        if let title = outline.label,
-           let page = outline.destination?.page {
+        if depth >= 0, let page = outline.destination?.page {
             // PDFDocument.index(for:) 非可选（Int 返回域确证）。
             let index = document.index(for: page)
-            collected.append((title: title, pageIndex: index, order: order))
-            order += 1
+            if index >= 0, index < document.pageCount {
+                let title = Book.normalizedIdentifier(outline.label) ?? "第\(index + 1)页"
+                collected.append((title: String(repeating: "  ", count: depth) + title, pageIndex: index, order: order))
+                order += 1
+            }
         }
         // PDFOutline 无 children 数组——numberOfChildren + child(at:) 逐个取。
         for childIndex in 0..<outline.numberOfChildren {
@@ -127,20 +135,26 @@ enum PDFPageImageSource {
         maxPixelSize: CGFloat
     ) -> UIImage? {
         guard pageIndex >= 0, pageIndex < document.pageCount,
+              maxPixelSize.isFinite, maxPixelSize > 0,
               let page = document.page(at: pageIndex) else { return nil }
-        let pageBounds = page.bounds(for: .mediaBox)
+        let pageBounds = page.bounds(for: .cropBox)
+        guard pageBounds.width.isFinite, pageBounds.height.isFinite,
+              pageBounds.width > 0, pageBounds.height > 0 else { return nil }
         let scale = maxPixelSize / max(pageBounds.width, pageBounds.height)
         let renderSize = CGSize(
-            width: pageBounds.width * scale,
-            height: pageBounds.height * scale)
-        let renderer = UIGraphicsImageRenderer(size: renderSize)
+            width: max(1, floor(pageBounds.width * scale)),
+            height: max(1, floor(pageBounds.height * scale)))
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: renderSize, format: format)
         return renderer.image { context in
             UIColor.white.setFill()
             context.fill(CGRect(origin: .zero, size: renderSize))
             context.cgContext.translateBy(x: 0, y: renderSize.height)
             context.cgContext.scaleBy(x: scale, y: -scale)
             context.cgContext.translateBy(x: -pageBounds.origin.x, y: -pageBounds.origin.y)
-            page.draw(with: .mediaBox, to: context.cgContext)
+            page.draw(with: .cropBox, to: context.cgContext)
         }
     }
 }

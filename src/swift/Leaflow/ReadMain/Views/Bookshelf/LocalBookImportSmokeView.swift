@@ -10,7 +10,8 @@ struct LocalBookImportSmokeView: View {
     @State private var settings = ReadingSettings.load()
     @State private var error: String?
     private var isEpub: Bool { ProcessInfo.processInfo.arguments.contains("-smokeEpubImport") }
-    private var title: String { isEpub ? "固定EPUB书籍" : "固定导入书籍" }
+    private var isPDF: Bool { ProcessInfo.processInfo.arguments.contains("-smokePDFImport") }
+    private var title: String { isEpub ? "固定EPUB书籍" : isPDF ? "固定PDF书籍" : "固定导入书籍" }
 
     var body: some View {
         NavigationStack {
@@ -35,7 +36,10 @@ struct LocalBookImportSmokeView: View {
             }
             .fullScreenCover(item: $reading) { book in
                 NavigationStack {
-                    LocalReaderView(book: book, settings: $settings)
+                    Group {
+                        if isPDF { LocalPDFReaderView(book: book) }
+                        else { LocalReaderView(book: book, settings: $settings) }
+                    }
                         .toolbar {
                             ToolbarItem(placement: .topBarLeading) {
                                 Button("关闭") { reading = nil }
@@ -47,8 +51,9 @@ struct LocalBookImportSmokeView: View {
         }
         .task {
             do {
-                let url = FileManager.default.temporaryDirectory.appendingPathComponent(isEpub ? "sample.epub" : title + ".txt")
+                let url = FileManager.default.temporaryDirectory.appendingPathComponent(isEpub ? "sample.epub" : title + (isPDF ? ".pdf" : ".txt"))
                 if isEpub { try EpubSampleSelfTest.writeFixture(to: url) }
+                else if isPDF { try PDFSampleSelfTest.writeFixture(to: url) }
                 else {
                     try "第一章 初见\n固定本地正文已经到达阅读器。\n第二章 重逢\n固定本地正文乙。\n第三章 终章\n固定本地正文丙。"
                         .write(to: url, atomically: true, encoding: .utf8)

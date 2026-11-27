@@ -102,7 +102,7 @@ class GateTests(unittest.TestCase):
 
     def test_ui_smoke_failure_cannot_pass_build_gate(self):
         build, samples = self.evidence()
-        build.update(ui_smoke_required=True, ui_smoke_pass=False, ui_pixel_pass=True, ui_pixel_count=20)
+        build.update(ui_smoke_required=True, ui_smoke_pass=False, ui_pixel_pass=True, ui_pixel_count=23)
         self.assertTrue(C["build_failures"](build, samples, "hash"))
         build["ui_smoke_pass"] = True
         self.assertEqual(C["build_failures"](build, samples, "hash"), [])
@@ -179,7 +179,7 @@ class GateTests(unittest.TestCase):
         build, samples = self.evidence()
         build.update(ui_smoke_required=True, ui_smoke_pass=True)
         self.assertTrue(C["build_failures"](build, samples, "hash"))
-        build.update(ui_pixel_pass=True, ui_pixel_count=20)
+        build.update(ui_pixel_pass=True, ui_pixel_count=23)
         self.assertEqual(C["build_failures"](build, samples, "hash"), [])
         build["ui_pixel_count"] = 16
         self.assertTrue(C["build_failures"](build, samples, "hash"))
@@ -290,7 +290,7 @@ class GateTests(unittest.TestCase):
                 f"SMOKE_UI {name} pass=true" for name in R["UI_SMOKE_NAMES"]), encoding="utf-8")
             self.assertEqual(R["record"](root, source, "1", "abc", True), 1)
             (root / "ui-pixels.json").write_text(json.dumps(dict(all_pass=True,
-                checks=[dict(passed=True)] * 20, errors=[])), encoding="utf-8")
+                checks=[dict(passed=True)] * 23, errors=[])), encoding="utf-8")
             self.assertEqual(R["record"](root, source, "1", "abc", True), 0)
             (root / "ui-smoke-result.txt").write_text("ui_test_exit=0\ncrash_reports=1\n", encoding="utf-8")
             self.assertEqual(R["record"](root, source, "1", "abc", True), 1)

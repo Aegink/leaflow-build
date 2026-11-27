@@ -40,6 +40,9 @@ struct PDFPageImageRequest: Equatable {
 struct PDFDocumentMetadata {
     var pageCount: Int
     var chapters: [LocalChapter]
+    var title: String? = nil
+    var author: String? = nil
+    var coverData: Data? = nil
 }
 
 // MARK: - JS 解码器

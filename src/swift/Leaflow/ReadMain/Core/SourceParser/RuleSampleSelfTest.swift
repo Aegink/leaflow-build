@@ -119,6 +119,7 @@ enum RuleSampleSelfTest {
             await LocalBookSampleSelfTest.run(emit: emit)
             await LocalReaderSampleSelfTest.run(emit: emit)
             await EpubSampleSelfTest.run(emit: emit)
+            await PDFSampleSelfTest.run(emit: emit)
             emitRaw("SELFTEST_END")
             exit(0)
         }
