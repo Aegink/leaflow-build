@@ -64,6 +64,8 @@ extension BookDetailView {
             }
         } label: {
             Image(systemName: "ellipsis")
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
         }
         .accessibilityIdentifier("book-detail-menu")
         .disabled(!ready)

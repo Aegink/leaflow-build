@@ -290,6 +290,15 @@ final class LeaflowSmokeTests: XCTestCase {
         capture("reader-turn-returned")
     }
 
+    private func openBookDetailMenu() {
+        let menu = app.buttons["book-detail-menu"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 10))
+        XCTAssertFalse(menu.frame.isEmpty)
+        XCTAssertTrue(app.frame.contains(CGPoint(x: menu.frame.midX, y: menu.frame.midY)))
+        menu.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertTrue(app.buttons["书籍变量"].waitForExistence(timeout: 10))
+    }
+
     func testExploreDetailBookState() {
         launch(["-smokeExploreReading"])
         let entry = app.buttons["explore-reading-book"]
@@ -301,12 +310,12 @@ final class LeaflowSmokeTests: XCTestCase {
         shelf.tap()
         XCTAssertTrue(app.buttons.matching(identifier: "book-detail-shelf").matching(
             NSPredicate(format: "label == %@", "在书架")).firstMatch.waitForExistence(timeout: 10))
-        app.buttons["book-detail-menu"].tap()
+        openBookDetailMenu()
         app.buttons["书籍类型"].tap()
         app.buttons["音频"].tap()
-        app.buttons["book-detail-menu"].tap()
+        openBookDetailMenu()
         app.buttons["自动更新"].tap()
-        app.buttons["book-detail-menu"].tap()
+        openBookDetailMenu()
         app.buttons["书籍变量"].tap()
         let custom = app.textViews["book-detail-book-variable"]
         XCTAssertTrue(custom.waitForExistence(timeout: 10))
@@ -314,7 +323,7 @@ final class LeaflowSmokeTests: XCTestCase {
         custom.typeText("fixed-detail-value")
         app.buttons["book-detail-save-book-variable"].tap()
         XCTAssertTrue(app.buttons["book-detail-menu"].waitForExistence(timeout: 10))
-        app.buttons["book-detail-menu"].tap()
+        openBookDetailMenu()
         app.buttons["源变量"].tap()
         let source = app.textViews["book-detail-source-variable"]
         XCTAssertTrue(source.waitForExistence(timeout: 10))
@@ -331,17 +340,17 @@ final class LeaflowSmokeTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["音频"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["已跳过更新"].exists)
         XCTAssertEqual(shelf.label, "在书架")
-        app.buttons["book-detail-menu"].tap()
+        openBookDetailMenu()
         app.buttons["书籍变量"].tap()
         XCTAssertTrue(custom.waitForExistence(timeout: 10))
         XCTAssertEqual(custom.value as? String, "fixed-detail-value")
         app.buttons["book-detail-save-book-variable"].tap()
-        app.buttons["book-detail-menu"].tap()
+        openBookDetailMenu()
         app.buttons["源变量"].tap()
         XCTAssertTrue(source.waitForExistence(timeout: 10))
         XCTAssertEqual(source.value as? String, "fixed-source-value")
         app.buttons["book-detail-save-source-variable"].tap()
-        app.buttons["book-detail-menu"].tap()
+        openBookDetailMenu()
         app.buttons["清除源变量"].tap()
         shelf.tap()
         app.buttons["取消"].tap()
@@ -395,6 +404,8 @@ final class LeaflowSmokeTests: XCTestCase {
         // OCR直接读取屏幕像素，防止AX正文存在但被导航栏遮住仍通过。
         guard let cgImage = app.screenshot().image.cgImage else { XCTFail("缺少截图像素"); return }
         let request = VNRecognizeTextRequest()
+        // 模拟器Metal图像转换曾令测试运行器崩溃，CPU路径保留相同像素断言。
+        request.usesCPUOnly = true
         request.recognitionLevel = .accurate
         request.recognitionLanguages = ["zh-Hans", "en-US"]
         do {
