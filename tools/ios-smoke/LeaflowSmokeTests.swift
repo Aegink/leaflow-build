@@ -105,7 +105,7 @@ final class LeaflowSmokeTests: XCTestCase {
     }
 
     func launch(_ arguments: [String]) {
-        app?.terminate()
+        if let app, app.state != .notRunning { app.terminate() }
         app = XCUIApplication()
         app.launchArguments = arguments
         app.launch()
@@ -307,7 +307,7 @@ final class LeaflowSmokeTests: XCTestCase {
     }
 
     func testExploreDetailBookState() {
-        launch(["-smokeExploreReading"])
+        launch(["-smokeExploreReading", "-smokeExploreBookState"])
         let entry = app.buttons["explore-reading-book"]
         XCTAssertTrue(entry.waitForExistence(timeout: 30))
         entry.tap()
@@ -341,7 +341,7 @@ final class LeaflowSmokeTests: XCTestCase {
         launch([])
         XCTAssertTrue(app.staticTexts["固定发现书籍"].firstMatch.waitForExistence(timeout: 30))
         capture("explore-book-on-shelf")
-        launch(["-smokeExploreReading"])
+        launch(["-smokeExploreReading", "-smokeExploreBookState"])
         XCTAssertTrue(entry.waitForExistence(timeout: 30))
         entry.tap()
         XCTAssertTrue(app.staticTexts["音频"].waitForExistence(timeout: 10))
