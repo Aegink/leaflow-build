@@ -112,6 +112,7 @@ enum ReaderPageTurnSampleSelfTest {
         let second = issuer.command(direction: .previous, currentIndex: 1, pageCount: 3)
         emit("turn_command_sequence", ["true", "1", "2"],
             [String(edge == nil), String(first?.id ?? -1), String(second?.id ?? -1)])
+        checkVisuals(emit: emit)
         await checkController(emit: emit)
     }
 
@@ -121,6 +122,57 @@ enum ReaderPageTurnSampleSelfTest {
             ReadAloudSampleSelfTest.page(chapter: $0.offset == 2 ? 1 : 0,
                 index: $0.offset == 2 ? 0 : $0.offset, text: $0.element)
         }
+    }
+
+    @MainActor
+    private static func checkVisuals(emit: (String, [String], [String]) -> Void) {
+        let slide = PageTransitionStyle.slide
+        let immediate = PageTransitionStyle.none
+        emit("turn_visual_style_values", ["0", "1", "2", "2", "true", "false", "true"],
+            [String(slide.layerOrder(for: .next).rawValue), String(slide.layerOrder(for: .previous).rawValue),
+             String(immediate.layerOrder(for: .next).rawValue), String(immediate.layerOrder(for: .previous).rawValue),
+             String(slide.usesTransparentPageBackground), String(immediate.usesTransparentPageBackground),
+             String(immediate.visualState(direction: .next, progress: 0.5) == .identity)])
+        emit("turn_visual_progress_edges", Array(repeating: "true", count: 4),
+            [String(slide.visualState(direction: .next, progress: -1) == slide.visualState(direction: .next, progress: 0)),
+             String(slide.visualState(direction: .previous, progress: 2) == slide.visualState(direction: .previous, progress: 1)),
+             String(slide.visualState(direction: .next, progress: .nan) == slide.visualState(direction: .next, progress: 0)),
+             String(slide.visualState(direction: .next, progress: .infinity) == slide.visualState(direction: .next, progress: 1))])
+        let host = UIViewController()
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 400, height: 600))
+        window.layer.cornerRadius = 24
+        window.rootViewController = host
+        window.isHidden = false
+        defer { window.isHidden = true; window.rootViewController = nil }
+        host.view.frame = window.bounds
+        let renderer = ReaderTwoPageRenderer()
+        renderer.install(in: host)
+        let current = UIViewController()
+        let incoming = UIViewController()
+        renderer.setCurrentViewController(current)
+        let next = PageTurnTransition(sourceID: .init(chapterIndex: 0, pageIndex: 0),
+            targetID: .init(chapterIndex: 0, pageIndex: 1), direction: .next, sourceIndex: 0, targetIndex: 1)
+        renderer.prepare(transition: next, incoming: incoming)
+        renderer.render(progress: 0.5)
+        let forward = [current.view.superview?.transform.tx ?? 999, incoming.view.superview?.transform.tx ?? 999,
+            host.view.subviews.dropLast().last?.alpha ?? 999, current.view.superview?.layer.cornerRadius ?? 999]
+        _ = renderer.finishSettlement(committed: false)
+        let previous = PageTurnTransition(sourceID: next.targetID, targetID: next.sourceID,
+            direction: .previous, sourceIndex: 1, targetIndex: 0)
+        renderer.prepare(transition: previous, incoming: incoming)
+        renderer.render(progress: 0.5)
+        let reverse = [current.view.superview?.transform.tx ?? 999, incoming.view.superview?.transform.tx ?? 999,
+            host.view.subviews.dropLast().last?.alpha ?? 999, incoming.view.superview?.layer.cornerRadius ?? 999]
+        emit("turn_renderer_visual_fields", ["-200.00", "-30.00", "0.15", "24.00", "30.00", "-200.00", "0.15", "24.00"],
+            (forward + reverse).map { String(format: "%.2f", Double($0)) })
+        _ = renderer.finishSettlement(committed: true)
+        let durations = [
+            ReaderTwoPageRenderer.settlementDuration(progress: 0.5, completes: true, direction: .next, velocity: -4000, width: 400),
+            ReaderTwoPageRenderer.settlementDuration(progress: 0.5, completes: true, direction: .next, velocity: 4000, width: 400),
+            ReaderTwoPageRenderer.settlementDuration(progress: 0.5, completes: false, direction: .previous, velocity: -4000, width: 400),
+            ReaderTwoPageRenderer.settlementDuration(progress: 0.5, completes: false, direction: .previous, velocity: 4000, width: 400)]
+        emit("turn_animation_signed_velocity", ["0.05", "0.14", "0.05", "0.14"],
+            durations.map { String(format: "%.2f", $0) })
     }
 
     @MainActor
@@ -135,7 +187,7 @@ enum ReaderPageTurnSampleSelfTest {
         controller.loadViewIfNeeded()
         controller.view.frame = CGRect(x: 0, y: 0, width: 400, height: 600)
         controller.additionalSafeAreaInsets = UIEdgeInsets(top: 100, left: 0, bottom: 20, right: 0)
-        controller.transitionStyle = 1
+        controller.transitionStyle = .none
         controller.apply(pages: pages, committedIndex: 1, settings: settings, bookName: "翻页样本",
             totalChapters: 2, speechHighlight: .none, isDoublePageActive: false)
         var commits: [ReaderPageCommit] = []
@@ -157,7 +209,7 @@ enum ReaderPageTurnSampleSelfTest {
         controller.handleHorizontalPan(state: .cancelled, translation: 200, velocity: 1000, width: 400)
         emit("turn_controller_cancel_boundary", ["false", "false", "2", "1"],
             [String(edge), String(menu), String(controller.currentIndex), String(commits.count)])
-        controller.transitionStyle = 0
+        controller.transitionStyle = .slide
         controller.handleHorizontalPan(state: .began, translation: 0, velocity: 0, width: 400)
         controller.handleHorizontalPan(state: .changed, translation: 100, velocity: 0, width: 400)
         controller.handleHorizontalPan(state: .cancelled, translation: 100, velocity: 0, width: 400)
@@ -173,5 +225,25 @@ enum ReaderPageTurnSampleSelfTest {
         vm.currentPageIndex = 1
         vm.handlePageCommitted(ReaderPageCommit(index: 2, pages: pages, isDoublePage: false))
         emit("turn_viewmodel_global_commit", ["2", "1"], [String(vm.currentPageIndex), String(vm.currentChapterIndex)])
+        controller.apply(pages: [], committedIndex: 0, settings: settings, bookName: "翻页样本",
+            totalChapters: 2, speechHighlight: .none, isDoublePageActive: false)
+        controller.transitionStyle = .none
+        controller.submitPageTurnCommand(.init(id: 1, direction: .next))
+        controller.applyPendingPageTurnCommandIfPossible()
+        controller.apply(pages: pages, committedIndex: 0, settings: settings, bookName: "翻页样本",
+            totalChapters: 2, speechHighlight: .none, isDoublePageActive: false)
+        controller.applyPendingPageTurnCommandIfPossible()
+        emit("turn_command_waits_for_pages", ["1", "2"],
+            [String(controller.currentIndex), String(commits.count)])
+        controller.menuVisible = true
+        controller.submitPageTurnCommand(.init(id: 2, direction: .next))
+        controller.applyPendingPageTurnCommandIfPossible()
+        let heldIndex = controller.currentIndex
+        controller.menuVisible = false
+        controller.applyPendingPageTurnCommandIfPossible()
+        controller.submitPageTurnCommand(.init(id: 2, direction: .next))
+        controller.applyPendingPageTurnCommandIfPossible()
+        emit("turn_command_menu_deferred_once", ["1", "2", "3"],
+            [String(heldIndex), String(controller.currentIndex), String(commits.count)])
     }
 }

@@ -20,6 +20,7 @@ final class ReaderTwoPageRenderer {
     private var transition: PageTurnTransition?
     private var progress: Double = 0
     private var animationGeneration = 0
+    var transitionStyle = PageTransitionStyle.slide
 
     init() {
         currentSlot = firstSlot
@@ -59,13 +60,18 @@ final class ReaderTwoPageRenderer {
         self.transition = transition
         replaceViewController(in: incomingSlot, with: incoming)
         incomingSlot.container.isHidden = false
-        if transition.direction == .next {
+        switch transitionStyle.layerOrder(for: transition.direction) {
+        case .currentAboveDimming:
             hostViewController?.view.bringSubviewToFront(incomingSlot.container)
             hostViewController?.view.bringSubviewToFront(dimmingOverlay)
             hostViewController?.view.bringSubviewToFront(currentSlot.container)
-        } else {
+        case .incomingAboveDimming:
             hostViewController?.view.bringSubviewToFront(currentSlot.container)
             hostViewController?.view.bringSubviewToFront(dimmingOverlay)
+            hostViewController?.view.bringSubviewToFront(incomingSlot.container)
+        case .incomingAboveCurrent:
+            hostViewController?.view.bringSubviewToFront(dimmingOverlay)
+            hostViewController?.view.bringSubviewToFront(currentSlot.container)
             hostViewController?.view.bringSubviewToFront(incomingSlot.container)
         }
         render(progress: 0)
@@ -80,24 +86,43 @@ final class ReaderTwoPageRenderer {
         guard let transition else { return }
         self.progress = progress.isFinite ? min(max(progress, 0), 1) : 0
         let width = hostViewController?.view.bounds.width ?? 0
-        let amount = CGFloat(self.progress)
-        if transition.direction == .next {
-            currentSlot.container.transform = CGAffineTransform(translationX: -width * amount, y: 0)
-            incomingSlot.container.transform = .identity
-        } else {
-            currentSlot.container.transform = .identity
-            incomingSlot.container.transform = CGAffineTransform(translationX: -width * (1 - amount), y: 0)
-        }
+        let state = transitionStyle.visualState(direction: transition.direction, progress: self.progress)
+        currentSlot.container.transform = CGAffineTransform(translationX: width * CGFloat(state.currentTranslation), y: 0)
+        incomingSlot.container.transform = CGAffineTransform(translationX: width * CGFloat(state.incomingTranslation), y: 0)
+        dimmingOverlay.alpha = CGFloat(state.dimmingAlpha)
+        currentSlot.container.layer.cornerRadius = state.roundsCurrent ? deviceCornerRadius : 0
+        incomingSlot.container.layer.cornerRadius = state.roundsIncoming ? deviceCornerRadius : 0
+    }
+
+    // 0x100844c6c：窗口圆角优先，否则按顶部安全区及设备种类夹定。
+    private var deviceCornerRadius: CGFloat {
+        guard let view = hostViewController?.view else { return 0 }
+        if let radius = view.window?.layer.cornerRadius, radius > 0 { return radius }
+        let top = max(view.window?.safeAreaInsets.top ?? 0, view.safeAreaInsets.top)
+        guard top > 20 else { return 0 }
+        return view.traitCollection.userInterfaceIdiom == .pad
+            ? min(max(top - 3, 18), 28) : min(max(top - 3, 38), 56)
+    }
+
+    // 0x100843c40：速度须朝向落定终点，反向速度不能加速完成或取消。
+    static func settlementDuration(progress: Double, completes: Bool, direction: ReaderPageTurnDirection,
+                                   velocity: CGFloat, width: CGFloat) -> Double {
+        let current = progress.isFinite ? min(max(progress, 0), 1) : 0
+        let target: Double = completes ? 1 : 0
+        let signedSpeed = width > 0 && velocity.isFinite
+            ? Double(velocity / width) * (direction == .next ? -1 : 1) : 0
+        let towardsTarget = target >= current ? signedSpeed : -signedSpeed
+        return abs(target - current) / max(1 / 0.28, towardsTarget)
     }
 
     func animateSettlement(completes: Bool, velocity: CGFloat, completion: @escaping (Bool) -> Void) {
-        guard transition != nil else { completion(false); return }
+        guard let transition else { completion(false); return }
         animationGeneration += 1
         let generation = animationGeneration
         let target: Double = completes ? 1 : 0
         let width = hostViewController?.view.bounds.width ?? 0
-        let speed = width > 0 && velocity.isFinite ? abs(Double(velocity / width)) : 0
-        let duration = abs(target - progress) / max(1 / 0.28, speed)
+        let duration = Self.settlementDuration(progress: progress, completes: completes,
+            direction: transition.direction, velocity: velocity, width: width)
         UIView.animate(withDuration: duration, delay: 0, options: [.beginFromCurrentState, .curveEaseOut]) {
             self.render(progress: target)
         } completion: { [weak self] finished in

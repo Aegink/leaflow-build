@@ -8,9 +8,9 @@ extension PageContentViewController {
     /// - view 尺寸 <= 1.0 → false；
     /// - settings.applyLayoutTemplate；
     /// - chapterTitleView frame/hidden（L2421-2423）；
-    /// - contentTextView/fullLineUnderlineView frame = bounds；
+    /// - fullLineUnderlineView覆盖容器，contentTextView消费正文布局矩形；
     /// - textContainerInset ≠ (0,8,0,8) → 重设（L2436-2442 精确比较）；
-    /// - chapterTitleView.frame = (contentMinX-8, minY, width+16, height)（L2444-2461）；
+    /// - contentTextView.frame = (contentMinX-8, minY, width+16, height)（L2444-2461）；
     /// - textContainer.size = (contentWidth, boundsHeight + max(lineHeight*3, 100))（L2463-2483）；
     /// - applyEggChapterContentInsetsIfNeeded + updateHighlightGradientOverlays(attributedText:)；
     /// - lastLoggedContentFrame 跟踪 + trace。

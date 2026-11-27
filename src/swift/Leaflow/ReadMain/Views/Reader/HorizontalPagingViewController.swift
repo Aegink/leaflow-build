@@ -24,7 +24,7 @@ final class HorizontalPagingViewController: UIViewController, UIGestureRecognize
     private var bookName = ""
     private var totalChapters = 0
     private(set) var pageTurnState = PageTurnState(sequence: PageTurnSequence(pages: [], isDoublePage: false))
-    var transitionStyle = 0
+    var transitionStyle = PageTransitionStyle.slide
     private var isPendingCommandConsumptionScheduled = false
     private var needsPostSettlementRefresh = false
     private var verticalSwipeDidReachUp = false
@@ -81,7 +81,7 @@ final class HorizontalPagingViewController: UIViewController, UIGestureRecognize
         if pagePool == nil {
             pagePool = ReaderPageControllerPool(settings: newSettings, bookName: bookName,
                 totalChapters: totalChapters, speechHighlight: speechHighlight,
-                usesTransparentPageBackground: false)
+                usesTransparentPageBackground: transitionStyle.usesTransparentPageBackground)
         }
         if isViewLoaded {
             updateBackground(color: newSettings.readerBackgroundUIColor, image: newSettings.backgroundUIImage)
@@ -156,6 +156,7 @@ final class HorizontalPagingViewController: UIViewController, UIGestureRecognize
         guard let incoming = pagePool?.viewController(for: transition.targetIndex, isDoublePage: isDoublePageActive)
         else { _ = pageTurnState.finishTurn(committed: false); return false }
         isTransitioning = true
+        renderer.transitionStyle = transitionStyle
         renderer.prepare(transition: transition, incoming: incoming)
         return true
     }
@@ -163,7 +164,7 @@ final class HorizontalPagingViewController: UIViewController, UIGestureRecognize
     @discardableResult
     func requestTurn(_ direction: ReaderPageTurnDirection) -> Bool {
         guard prepareTurn(direction) else { return false }
-        if transitionStyle == 1 { finishSettlement(committed: true) }
+        if transitionStyle.settlesImmediately { finishSettlement(committed: true) }
         else { settle(completes: true, velocity: direction == .next ? -800 : 800) }
         return true
     }
@@ -205,7 +206,7 @@ final class HorizontalPagingViewController: UIViewController, UIGestureRecognize
     }
 
     func applyPendingPageTurnCommandIfPossible() {
-        guard !menuVisible, !isTransitioning, isViewLoaded,
+        guard !menuVisible, !isTransitioning, isViewLoaded, !pages.isEmpty,
               let command = commandBuffer.take() else { return }
         requestTurn(command.direction)
     }
@@ -225,7 +226,7 @@ final class HorizontalPagingViewController: UIViewController, UIGestureRecognize
             return
         }
         guard !menuVisible else { return }
-        if transitionStyle == 1 {
+        if transitionStyle.settlesImmediately {
             switch state {
             case .began: if !isTransitioning { immediateDriver.begin() }
             case .ended:
