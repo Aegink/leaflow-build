@@ -118,12 +118,15 @@ enum ReaderPageCurlSampleSelfTest {
         back.configure(backgroundColor: .white, backgroundImage: image,
             contentViewController: first, associatedPageId: "甲")
         back.view.bounds = CGRect(x: 0, y: 0, width: 320, height: 480)
-        back.viewDidLayoutSubviews()
-        emit("curl_back_layout_keeps_content", Array(repeating: "true", count: 5),
+        // 触发整棵视图树布局，正文在子控制器的布局回调中安装。
+        back.view.setNeedsLayout()
+        back.view.layoutIfNeeded()
+        first.view.layoutIfNeeded()
+        emit("curl_back_layout_keeps_content", ["true", "true", "true", "true", "固定翻页正文甲"],
             [String(first.parent === back), String(first.view.superview === back.view),
              String(back.embeddedContentViewController === first),
              String(first.view.frame == back.view.bounds),
-             String(first.contentTextView.text == "固定翻页正文甲")])
+             first.contentTextView.text ?? ""])
         back.configure(backgroundColor: .white, backgroundImage: image,
             contentViewController: first, associatedPageId: "甲更新")
         emit("curl_back_reconfigure_same_child", Array(repeating: "true", count: 4),
@@ -141,7 +144,8 @@ enum ReaderPageCurlSampleSelfTest {
         back.configure(backgroundColor: .white, backgroundImage: image,
             contentImage: image, associatedPageId: "快照")
         back.view.bounds = CGRect(x: 0, y: 0, width: 280, height: 440)
-        back.viewDidLayoutSubviews()
+        back.view.setNeedsLayout()
+        back.view.layoutIfNeeded()
         let images = back.view.subviews.compactMap { $0 as? UIImageView }
         emit("curl_back_snapshot_detaches_child", Array(repeating: "true", count: 5),
             [String(second.parent == nil && second.view.superview == nil),
