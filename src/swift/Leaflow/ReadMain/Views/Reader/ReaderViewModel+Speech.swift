@@ -21,7 +21,8 @@ extension ReaderViewModel {
     var readAloudMetadata: ReadAloudMetadata {
         .init(bookName: currentBook?.name ?? bookName,
             chapterName: chapters.indices.contains(currentChapterIndex) ? chapters[currentChapterIndex].name : "",
-            author: currentBook?.author ?? "")
+            author: currentBook?.author ?? "", bookFingerprint: currentBook?.contentFingerprint ?? "",
+            coverURL: currentBook?.coverUrl)
     }
 
     func readAloudShow(location: ReadAloudLocation) {

@@ -148,29 +148,41 @@ final class ReadAloudAudioSessionController:
 final class DefaultReadAloudActivityTracker {
 
     private var isStarted = false
+    private let listening: ListeningDurationTracker
+    private let setIdleTimerDisabled: (Bool) -> Void
 
-    init() {}
+    init(listening: ListeningDurationTracker = .shared,
+         setIdleTimerDisabled: ((Bool) -> Void)? = nil) {
+        self.listening = listening
+        self.setIdleTimerDisabled = setIdleTimerDisabled ?? { UIApplication.shared.isIdleTimerDisabled = $0 }
+    }
 
     /// start(metadata:)（签名域确证）。
     func start(metadata: ReadAloudMetadata) {
         isStarted = true
-        UIApplication.shared.isIdleTimerDisabled = true
+        listening.startSession(bookFingerprint: metadata.bookFingerprint, bookName: metadata.bookName)
+        setIdleTimerDisabled(true)
     }
 
     /// pause（签名域确证）。
     func pause() {
-        UIApplication.shared.isIdleTimerDisabled = false
+        guard isStarted else { return }
+        listening.pauseSession()
+        setIdleTimerDisabled(false)
     }
 
     /// resume（签名域确证）。
     func resume() {
-        UIApplication.shared.isIdleTimerDisabled = true
+        guard isStarted else { return }
+        listening.resumeSession()
+        setIdleTimerDisabled(true)
     }
 
     /// end（签名域确证）。
     func end() {
         isStarted = false
-        UIApplication.shared.isIdleTimerDisabled = false
+        listening.endSession()
+        setIdleTimerDisabled(false)
     }
 }
 

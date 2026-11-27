@@ -32,7 +32,7 @@ enum ReadingDurationSampleSelfTest {
             emit("duration_incremental_no_double_count", ["1", "1", "1", "300"],
                 [String(try record("first")?.readingSeconds ?? -1), String(try record("first")?.pageCount ?? -1),
                  String(try record("first")?.chapterCount ?? -1), String(try record("first")?.estimatedCharCount ?? -1)])
-            uptime = 102.2
+            uptime = 102.5
             tracker.saveIncremental()
             emit("duration_fraction_carried_forward", ["2"], [String(try record("first")?.readingSeconds ?? -1)])
             tracker.pauseSession()
@@ -42,16 +42,50 @@ enum ReadingDurationSampleSelfTest {
             emit("duration_background_time_excluded", ["2", "1", "false"],
                 [String(try record("first")?.readingSeconds ?? -1), String(tracker.pageTurnCount), String(tracker.isActivelyTracking)])
             tracker.resumeSession()
-            uptime = 503.8
+            uptime = 503.5
             tracker.endSession()
+            let listening = ListeningDurationTracker(statistics: statistics, uptime: { uptime }, periodicSaveEnabled: false)
+            var idleTimerStates: [Bool] = []
+            let activity = DefaultReadAloudActivityTracker(listening: listening, setIdleTimerDisabled: { idleTimerStates.append($0) })
+            activity.resume()
+            listening.saveIncremental()
+            emit("listening_no_owner_no_session", ["false", "0"], [String(listening.isActivelyTracking), String(idleTimerStates.count)])
+            uptime = 600
+            activity.start(metadata: .init(bookName: "听书甲", bookFingerprint: "audio-first"))
+            uptime = 602.5
+            listening.saveIncremental()
+            listening.saveIncremental()
+            emit("listening_incremental_no_double_count", ["2", "0"],
+                [String(try record("audio-first")?.listeningSeconds ?? -1), String(try record("audio-first")?.readingSeconds ?? -1)])
+            activity.pause()
+            uptime = 800
+            listening.saveIncremental()
+            emit("listening_pause_excludes_silence", ["2", "false"],
+                [String(try record("audio-first")?.listeningSeconds ?? -1), String(listening.isActivelyTracking)])
+            activity.resume()
+            uptime = 803.5
+            activity.end()
+            emit("listening_activity_end_flush", ["6", "true,false,true,false"],
+                [String(try record("audio-first")?.listeningSeconds ?? -1), idleTimerStates.map(String.init).joined(separator: ",")])
+            activity.start(metadata: .init(bookName: "听书乙", bookFingerprint: "audio-second"))
+            uptime = 806.5
+            activity.start(metadata: .init(bookName: "听书丙", bookFingerprint: "audio-third"))
+            emit("listening_switch_saves_previous_book", ["3", "6"],
+                [String(try record("audio-second")?.listeningSeconds ?? -1), String(try record("audio-first")?.listeningSeconds ?? -1)])
+            uptime = 808.5
+            activity.end()
+            activity.end()
+            emit("listening_repeated_end_idempotent", ["2", "false"],
+                [String(try record("audio-third")?.listeningSeconds ?? -1), String(listening.isActivelyTracking)])
             emit("duration_end_flushes_once", ["6", "false"],
                 [String(try record("first")?.readingSeconds ?? -1), String(tracker.isActivelyTracking)])
             tracker.endSession()
             emit("duration_repeated_end_idempotent", ["6"], [String(try record("first")?.readingSeconds ?? -1)])
+            uptime = 503.5
             tracker.startSession(bookFingerprint: "second", bookName: "第二本")
-            uptime = 505.8
+            uptime = 505.5
             tracker.startSession(bookFingerprint: "second", bookName: "第二本")
-            uptime = 507.8
+            uptime = 507.5
             tracker.startSession(bookFingerprint: "third", bookName: "第三本")
             emit("duration_book_switch_separates_totals", ["6", "4", "0.0"],
                 [String(try record("first")?.readingSeconds ?? -1), String(try record("second")?.readingSeconds ?? -1), String(tracker.totalDuration)])

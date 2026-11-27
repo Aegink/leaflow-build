@@ -420,7 +420,8 @@ final class LocalReaderViewModel {
     var readAloudPages: [PageData] { pages }
     var readAloudCurrentPageIndex: Int { currentPageIndex }
     var readAloudMetadata: ReadAloudMetadata {
-        .init(bookName: book.name, chapterName: currentPage?.chapterTitle ?? "", author: book.author ?? "")
+        .init(bookName: book.name, chapterName: currentPage?.chapterTitle ?? "", author: book.author ?? "",
+              bookFingerprint: book.id.uuidString)
     }
     func readAloudSaveProgress() { saveProgress() }
     func readAloudSessionDidFinish() {

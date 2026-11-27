@@ -185,41 +185,74 @@ struct ReadingStatisticsLifecycleModifier: ViewModifier {
 /// 听书时长跟踪（0x1001f8e48/0x1001f9018/0x1001f9080/0x1001ef300 域；
 /// 与 ReadingDurationTracker 同构，音频会话域）。
 final class ListeningDurationTracker {
-
     static let shared = ListeningDurationTracker()
-    private(set) var totalDuration: TimeInterval = 0
+    private var accumulatedDuration: TimeInterval = 0
     private var sessionStart: TimeInterval?
-    private var paused: Bool = false
+    private var bookFingerprint: String?
+    private var bookName: String?
+    private var lastSavedSeconds = 0
+    private var periodicSaveTimer: Timer?
+    private let statistics: ReadingStatisticsService
+    private let uptime: () -> TimeInterval
+    private let periodicSaveEnabled: Bool
 
-    /// 伪代码 0x1001ef300（isActivelyTracking getter 域）。
-    var isActivelyTracking: Bool { sessionStart != nil && !paused }
-
-    /// 伪代码 0x1001f8e48（startSession 域）。
-    func startSession() {
-        sessionStart = ProcessInfo.processInfo.systemUptime
-        paused = false
+    init(statistics: ReadingStatisticsService = .shared,
+         uptime: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
+         periodicSaveEnabled: Bool = true) {
+        self.statistics = statistics
+        self.uptime = uptime
+        self.periodicSaveEnabled = periodicSaveEnabled
     }
 
-    /// 伪代码 0x1001f9018（pauseSession 域）：会话中 → 累入总时长。
+    deinit { periodicSaveTimer?.invalidate() }
+    var isActivelyTracking: Bool { bookFingerprint != nil && sessionStart != nil }
+    var totalDuration: TimeInterval { accumulatedDuration + (sessionStart.map { max(0, uptime() - $0) } ?? 0) }
+
+    /// 0x1001f8e48：同书继续，换书先结算原会话。
+    func startSession(bookFingerprint: String, bookName: String) {
+        guard !bookFingerprint.isEmpty else { return }
+        if self.bookFingerprint == bookFingerprint { self.bookName = bookName; resumeSession(); return }
+        endSession()
+        self.bookFingerprint = bookFingerprint
+        self.bookName = bookName
+        accumulatedDuration = 0
+        lastSavedSeconds = 0
+        resumeSession()
+    }
+
     func pauseSession() {
-        guard let start = sessionStart, !paused else { return }
-        totalDuration += max(ProcessInfo.processInfo.systemUptime - start, 0)
-        paused = true
+        guard let start = sessionStart else { return }
+        accumulatedDuration += max(uptime() - start, 0)
+        sessionStart = nil
+        saveIncremental()
+        periodicSaveTimer?.invalidate()
+        periodicSaveTimer = nil
     }
 
-    /// 伪代码 0x1001f9080（resumeSession 域）：暂停中 → 重置会话起点。
     func resumeSession() {
-        guard sessionStart != nil, paused else { return }
-        sessionStart = ProcessInfo.processInfo.systemUptime
-        paused = false
+        guard bookFingerprint != nil, sessionStart == nil else { return }
+        sessionStart = uptime()
+        if periodicSaveEnabled {
+            periodicSaveTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+                self?.saveIncremental()
+            }
+        }
     }
 
-    /// saveIncremental 桥（saveProgress 调用域确证；checkpoint 域
-    /// 推断对齐 ReadingDurationTracker.saveIncremental——真机核清项）。
+    func endSession() {
+        pauseSession()
+        saveIncremental()
+        bookFingerprint = nil
+        bookName = nil
+    }
+
+    /// 0x1001f90c4：整数累计秒数减去上次保存值，传给recordListeningSession。
     func saveIncremental() {
-        guard let start = sessionStart, !paused else { return }
-        totalDuration += max(
-            ProcessInfo.processInfo.systemUptime - start, 0)
-        sessionStart = ProcessInfo.processInfo.systemUptime
+        guard let bookFingerprint, let bookName else { return }
+        let seconds = Int(totalDuration)
+        guard seconds > lastSavedSeconds else { return }
+        statistics.recordListeningSession(bookFingerprint: bookFingerprint, bookName: bookName,
+            listeningSeconds: seconds - lastSavedSeconds)
+        lastSavedSeconds = seconds
     }
 }

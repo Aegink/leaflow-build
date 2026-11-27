@@ -44,6 +44,7 @@ final class ReadAloudCoordinator: ObservableObject {
         preferences: ReadAloudPreferences,
         audioPlayback: AppAudioPlaybackCoordinating? = nil,
         errorPresenter: ReadAloudErrorPresenting? = nil,
+        activityTracker: DefaultReadAloudActivityTracker? = nil,
         buildQueue: @escaping ([PageData]) async -> [ReadAloudSegment] = {
             await ReadAloudQueueBuilder.buildOffMain(from: $0, includeChapterTitle: true)
         }
@@ -53,7 +54,7 @@ final class ReadAloudCoordinator: ObservableObject {
         self.audioPlayback = audioPlayback ?? AppAudioPlaybackCoordinator(
             audioSession: ReadAloudAudioSessionController(),
             nowPlaying: ReadAloudNowPlayingController())
-        self.activityTracker = DefaultReadAloudActivityTracker()
+        self.activityTracker = activityTracker ?? DefaultReadAloudActivityTracker()
         self.errorPresenter = errorPresenter ?? DefaultReadAloudErrorPresenter {
             message, _ in AppErrorPresenter.shared.warning(message)
         }
@@ -303,6 +304,7 @@ final class ReadAloudCoordinator: ObservableObject {
     }
 
     private func discardDriver(keeping state: ReadAloudPlaybackState) {
+        activityTracker.pause()
         driver?.onEvent = nil
         driver?.stop()
         driver = nil

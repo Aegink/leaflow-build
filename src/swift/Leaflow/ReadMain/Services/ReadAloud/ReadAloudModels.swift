@@ -196,6 +196,9 @@ struct ReadAloudMetadata {
     var bookName: String = ""
     var chapterName: String = ""
     var author: String = ""
+    // 类型表5253：原版朗读元数据包含稳定书籍指纹与封面。
+    var bookFingerprint: String = ""
+    var coverURL: String?
 }
 
 /// 音频中断（handle(_:)/onInterruption 域确证：三档）。
