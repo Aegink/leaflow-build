@@ -12,7 +12,11 @@ extension BackupService {
         case .config: return [documentsDir.appendingPathComponent("BookSources.json")]
         case .chapterRules: return [documentsDir.appendingPathComponent("chapter_rules.json")]
         case .replaceRules: return [appSupportDir.appendingPathComponent("replace_rules.json")]
-        case .readingStats: return [appSupportDir.appendingPathComponent("reading_stats")]
+        case .readingStats:
+            let canonical = appSupportDir.appendingPathComponent("ReadingStatistics/records.json")
+            if fileManager.fileExists(atPath: canonical.path) { return [canonical] }
+            return ((try? fileManager.contentsOfDirectory(at: documentsDir, includingPropertiesForKeys: nil)) ?? [])
+                .filter { $0.lastPathComponent.hasPrefix("reading_stats_") && $0.pathExtension == "json" }
         case .highlightRules: return [appSupportDir.appendingPathComponent("highlight_rules.json")]
         case .appearance: return ["Themes", "Fonts", "backgrounds", "ChapterTitleAssets"].map { appSupportDir.appendingPathComponent($0) }
         case .localBooks: return ["Books", "local_books", "local_book_covers", "local_books_metadata.json"].map { documentsDir.appendingPathComponent($0) }

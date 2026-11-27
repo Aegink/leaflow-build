@@ -132,11 +132,11 @@ extension BackupService {
     func exportReadingStatistics(
         to directory: URL, incremental: Bool
     ) throws {
-        let stats = appSupportDir.appendingPathComponent("reading_stats")
-        guard fileManager.fileExists(atPath: stats.path) else { return }
-        try mirrorDirectory(
-            from: stats, to: directory.appendingPathComponent("reading_stats"),
-            incremental: incremental)
+        let statistics = ReadingStatisticsService(
+            storageDirectory: appSupportDir.appendingPathComponent("ReadingStatistics"),
+            legacyDirectory: documentsDir, defaults: defaults)
+        let data = try statistics.encodedRecordsForBackup()
+        try data.write(to: directory.appendingPathComponent("reading_stats.json"), options: .atomic)
     }
 
     /// exportTtsSources(to:counts:)（签名域确证）。

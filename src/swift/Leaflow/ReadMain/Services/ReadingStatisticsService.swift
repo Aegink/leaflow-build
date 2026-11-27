@@ -14,7 +14,7 @@
 //     "写入阅读统计" @ptr L209（写盘日志）/"en_US_POSIX"（L5631，
 //     DateFormatter locale 确证）/"%04d-%02d-"（L6489，月键格式确证）/
 //     bookStats 大串 0x1012669B0（count 16）/0x101266990（count 22）
-//   - 事实：fileURL(for: String)（per 键落盘，appendingPathComponent 确证）+
+//   - 事实：fileURL(for: String)（文件名拼接，appendingPathComponent 确证）+
 //     loadRecords（async，JSONDecoder iso8601 DateDecodingStrategy 确证）+
 //     saveRecords（NSFileManager defaultManager + URL.path + 
 //     Data.init(contentsOf:) 读回确证）；dailyStats(lastDays:) JSON 解码；
@@ -30,6 +30,7 @@
 // 还原: 2026-11-20
 
 import Foundation
+import Observation
 
 // MARK: - 统计模型
 
@@ -62,27 +63,22 @@ struct TotalStat: Equatable {
     var currentStreak: Int
 }
 
-/// 单日会话记录（recordSession 域确证）。
-struct ReadingSessionRecord: Codable {
-    let bookFingerprint: String
-    let bookName: String
-    let dayKey: String
-    var readingSeconds: Int
-    var listeningSeconds: Int
-    var updatedAt: Date
-}
-
 // MARK: - ReadingStatisticsService
 
-/// 阅读统计服务（per 键落盘 + 日聚合）。
+/// 阅读统计服务（原版记录数组落盘 + 日聚合）。
+@Observable
 final class ReadingStatisticsService {
 
     static let shared = ReadingStatisticsService()
 
-    private let lock = NSLock()
-    private var records: [ReadingSessionRecord] = []
+    private let lock = NSRecursiveLock()
+    private var records: [ReadingRecord] = []
     private var loaded = false
-    private var loadContinuations: [CheckedContinuation<Void, Never>] = []
+    private let storageDirectory: URL
+    private let legacyDirectory: URL
+    private let defaults: UserDefaults
+    private let now: () -> Date
+    private(set) var lastStorageError: String?
 
     private let decoder: JSONDecoder = {
         // iso8601 DateDecodingStrategy 确证。
@@ -97,83 +93,90 @@ final class ReadingStatisticsService {
         return encoder
     }()
 
-    private init() {}
+    init(storageDirectory: URL? = nil, legacyDirectory: URL? = nil,
+         defaults: UserDefaults = .standard, now: @escaping () -> Date = Date.init) {
+        self.storageDirectory = storageDirectory ?? FileManager.default.urls(
+            for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("ReadingStatistics")
+        self.legacyDirectory = legacyDirectory ?? FileManager.default.urls(
+            for: .documentDirectory, in: .userDomainMask)[0]
+        self.defaults = defaults
+        self.now = now
+        do { try reloadRecords() } catch { lastStorageError = error.localizedDescription }
+    }
 
     // MARK: 存储（fileURL/loadRecords/saveRecords 域确证）
 
     /// fileURL(for:)（签名确证；appendingPathComponent 确证）。
-    private static func fileURL(for key: String) -> URL {
-        let safeKey = key.replacingOccurrences(of: "/", with: "_")
-        return FileManager.default.urls(
-            for: .documentDirectory, in: .userDomainMask
-        )[0].appendingPathComponent("reading_stats_\(safeKey).json")
+    private func fileURL(for key: String) -> URL {
+        storageDirectory.appendingPathComponent(key + ".json")
     }
 
     /// loadRecords（async 签名确证；"[ReadingStats] 加载 " @ptr L203）。
     private func loadRecords() async {
-        guard !loaded else { return }
-        loaded = true
-        let files = (try? FileManager.default.contentsOfDirectory(
-            at: FileManager.default.urls(
-                for: .documentDirectory, in: .userDomainMask)[0],
-            includingPropertiesForKeys: nil)) ?? []
-        var loadedRecords: [ReadingSessionRecord] = []
-        for file in files where file.lastPathComponent.hasPrefix("reading_stats_") {
-            if let data = try? Data(contentsOf: file),
-               let record = try? decoder.decode(
-                    ReadingSessionRecord.self, from: data) {
-                loadedRecords.append(record)
-            }
-        }
+        do { try reloadRecords() } catch { lastStorageError = error.localizedDescription }
+    }
+
+    /// 0x100368be8解码记录数组；备份0x1002b9f34使用ReadingStatistics/records.json。
+    func reloadRecords() throws {
         lock.lock()
-        records = loadedRecords
-        lock.unlock()
-        Logger.log(
-            "[ReadingStats] 加载 \(loadedRecords.count) 条", level: .info)
-        for continuation in loadContinuations {
-            continuation.resume()
+        defer { lock.unlock() }
+        let file = fileURL(for: "records")
+        let snapshot: [ReadingRecord]
+        if FileManager.default.fileExists(atPath: file.path) {
+            snapshot = try decoder.decode([ReadingRecord].self, from: Data(contentsOf: file))
+        } else if FileManager.default.fileExists(atPath: legacyDirectory.path) {
+            let files = try FileManager.default.contentsOfDirectory(at: legacyDirectory, includingPropertiesForKeys: nil)
+                .filter { $0.lastPathComponent.hasPrefix("reading_stats_") && $0.pathExtension == "json" }
+                .sorted { $0.lastPathComponent < $1.lastPathComponent }
+            snapshot = try files.map { try decoder.decode(ReadingRecord.self, from: Data(contentsOf: $0)) }
+        } else {
+            snapshot = []
         }
-        loadContinuations.removeAll()
+        // 解码完整成功后才替换内存；损坏文件不能被下一次会话悄悄覆盖。
+        records = snapshot
+        loaded = true
+        lastStorageError = nil
     }
 
     /// saveRecords（"写入阅读统计" @ptr L209 确证）。
     private func saveRecords() {
         lock.lock()
-        let snapshot = records
-        lock.unlock()
-        for record in snapshot {
-            let url = Self.fileURL(for: record.bookFingerprint)
-            if let data = try? encoder.encode(record) {
-                try? data.write(to: url, options: .atomic)
-            }
+        defer { lock.unlock() }
+        guard loaded else { return }
+        do {
+            let data = try encoder.encode(records)
+            try FileManager.default.createDirectory(at: storageDirectory, withIntermediateDirectories: true)
+            try data.write(to: fileURL(for: "records"), options: .atomic)
+            lastStorageError = nil
+        } catch {
+            lastStorageError = error.localizedDescription
         }
-        Logger.log("写入阅读统计", level: .info)
+    }
+
+    func encodedRecordsForBackup() throws -> Data {
+        lock.lock()
+        defer { lock.unlock() }
+        guard loaded else { throw AppError.parsing(lastStorageError ?? "阅读统计尚未加载") }
+        return try encoder.encode(records)
     }
 
     /// waitUntilReady（签名确证）。
     func waitUntilReady() async {
         if loaded { return }
-        await withCheckedContinuation { continuation in
-            lock.lock()
-            if loaded {
-                lock.unlock()
-                continuation.resume()
-                return
-            }
-            loadContinuations.append(continuation)
-            lock.unlock()
-        }
+        await loadRecords()
     }
 
     // MARK: 记录（recordSession 0x1003696e0 L100-128 域确证）
 
     /// recordSession(bookFingerprint:bookName:durationSeconds:)（签名确证）。
     func recordSession(
-        bookFingerprint: String, bookName: String, durationSeconds: Int
+        bookFingerprint: String, bookName: String, durationSeconds: Int,
+        pageCount: Int = 0, chapterCount: Int = 0, estimatedCharCount: Int = 0
     ) {
         appendSession(
             bookFingerprint: bookFingerprint, bookName: bookName,
-            readingSeconds: durationSeconds, listeningSeconds: 0)
+            readingSeconds: durationSeconds, listeningSeconds: 0,
+            pageCount: pageCount, chapterCount: chapterCount, estimatedCharCount: estimatedCharCount)
     }
 
     /// recordListeningSession（0x100369e6c L135-157 签名确证）。
@@ -187,25 +190,32 @@ final class ReadingStatisticsService {
 
     private func appendSession(
         bookFingerprint: String, bookName: String, readingSeconds: Int,
-        listeningSeconds: Int
+        listeningSeconds: Int, pageCount: Int = 0, chapterCount: Int = 0, estimatedCharCount: Int = 0
     ) {
-        let dayKey = Self.todayKey()
+        guard readingSeconds > 0 || listeningSeconds > 0 else { return }
+        let timestamp = now()
+        let dayKey = Self.dateKey(for: timestamp)
         lock.lock()
+        defer { lock.unlock() }
+        guard loaded else { return }
         if let index = records.firstIndex(where: {
             $0.bookFingerprint == bookFingerprint
                 && $0.dayKey == dayKey
         }) {
-            records[index].readingSeconds += readingSeconds
-            records[index].listeningSeconds += listeningSeconds
-            records[index].updatedAt = Date()
+            records[index].readingSeconds += max(0, readingSeconds)
+            records[index].listeningSeconds += max(0, listeningSeconds)
+            records[index].pageCount += max(0, pageCount)
+            records[index].chapterCount += max(0, chapterCount)
+            records[index].estimatedCharCount += max(0, estimatedCharCount)
+            records[index].updatedAt = timestamp
         } else {
             records.append(
-                ReadingSessionRecord(
+                ReadingRecord(
                     bookFingerprint: bookFingerprint, bookName: bookName,
-                    dayKey: dayKey, readingSeconds: readingSeconds,
-                    listeningSeconds: listeningSeconds, updatedAt: Date()))
+                    date: dayKey, durationSeconds: max(0, readingSeconds),
+                    pageCount: max(0, pageCount), chapterCount: max(0, chapterCount), estimatedCharCount: max(0, estimatedCharCount),
+                    listeningSeconds: max(0, listeningSeconds), updatedAt: timestamp))
         }
-        lock.unlock()
         saveRecords()
     }
 
@@ -236,19 +246,19 @@ final class ReadingStatisticsService {
 
     var dailyGoalMinutes: Int {
         get {
-            UserDefaults.standard.integer(forKey: "dailyGoalMinutes")
+            defaults.integer(forKey: "dailyGoalMinutes")
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: "dailyGoalMinutes")
+            defaults.set(newValue, forKey: "dailyGoalMinutes")
         }
     }
 
     var yearlyGoalBooks: Int {
         get {
-            UserDefaults.standard.integer(forKey: "yearlyGoalBooks")
+            defaults.integer(forKey: "yearlyGoalBooks")
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: "yearlyGoalBooks")
+            defaults.set(newValue, forKey: "yearlyGoalBooks")
         }
     }
 
@@ -326,7 +336,7 @@ final class ReadingStatisticsService {
         }
     }
 
-    private func inYear(_ year: Int) -> [ReadingSessionRecord] {
+    private func inYear(_ year: Int) -> [ReadingRecord] {
         let prefix = String(format: "%04d", year)
         lock.lock()
         let snapshot = records
@@ -420,15 +430,9 @@ final class ReadingStatisticsService {
     /// clearAllRecords（×3 ICF 副本签名确证）。
     func clearAllRecords() {
         lock.lock()
+        defer { lock.unlock() }
         records.removeAll()
-        lock.unlock()
-        let files = (try? FileManager.default.contentsOfDirectory(
-            at: FileManager.default.urls(
-                for: .documentDirectory, in: .userDomainMask)[0],
-            includingPropertiesForKeys: nil)) ?? []
-        for file in files
-        where file.lastPathComponent.hasPrefix("reading_stats_") {
-            try? FileManager.default.removeItem(at: file)
-        }
+        loaded = true
+        saveRecords()
     }
 }

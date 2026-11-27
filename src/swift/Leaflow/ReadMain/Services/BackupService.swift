@@ -274,9 +274,14 @@ final class BackupService {
         }
         if categories.contains(.localBooks) { try importLocalBookFiles(from: directory) }
         if categories.contains(.readingStats) {
-            let stats = directory.appendingPathComponent("reading_stats")
-            if fileManager.fileExists(atPath: stats.path) {
-                try mirrorDirectory(from: stats, to: appSupportDir.appendingPathComponent("reading_stats"), incremental: false)
+            if let data = try readJSONPayload("reading_stats.json", from: directory) {
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .iso8601
+                _ = try decoder.decode([ReadingRecord].self, from: data)
+                let target = appSupportDir.appendingPathComponent("ReadingStatistics/records.json")
+                try fileManager.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try data.write(to: target, options: .atomic)
+                if supportOverride == nil { try ReadingStatisticsService.shared.reloadRecords() }
             }
         }
         if categories.contains(.readingSettings) {
