@@ -168,19 +168,21 @@ enum ReaderPageCurlSampleSelfTest {
             try? await Task.sleep(nanoseconds: 100_000_000)
         }
         driver.applyPendingTurnCommand(.init(id: 1, direction: .next))
-        emit("curl_controller_command_commit", ["true", "[2]", "固定翻页正文丙", "true"],
+        emit("curl_controller_command_commit", ["true", "[2]", "固定翻页正文丙", "true", "true"],
             [String(deferred), String(describing: commits),
              (controller.viewControllers?.first as? PageContentViewController)?.contentTextView.text ?? "",
-             String(coordinator.parent.currentPageIndex == 2)])
+             String(coordinator.parent.currentPageIndex == 2),
+             String((controller.viewControllers?.last as? PageBackViewController)?.associatedPageId == pages[1].layoutId)])
         let boundary = driver.goToPage(direction: .next)
         let previous = driver.goToPage(direction: .previous)
         for _ in 0..<50 {
             if commits.count == 2 { break }
             try? await Task.sleep(nanoseconds: 100_000_000)
         }
-        emit("curl_controller_reverse_boundary", ["false", "true", "[2, 1]", "固定翻页正文乙"],
+        emit("curl_controller_reverse_boundary", ["false", "true", "[2, 1]", "固定翻页正文乙", "true"],
             [String(boundary), String(previous), String(describing: commits),
-             (controller.viewControllers?.first as? PageContentViewController)?.contentTextView.text ?? ""])
+             (controller.viewControllers?.first as? PageContentViewController)?.contentTextView.text ?? "",
+             String((controller.viewControllers?.last as? PageBackViewController)?.associatedPageId == pages[1].layoutId)])
         let pending = coordinator.createPageVC(for: 2, speechHighlight: .none)
         driver.pageViewController(controller, willTransitionTo: [pending])
         driver.pageViewController(controller, didFinishAnimating: true,

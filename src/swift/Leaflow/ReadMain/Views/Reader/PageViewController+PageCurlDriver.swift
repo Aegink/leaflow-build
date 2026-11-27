@@ -167,10 +167,20 @@ extension PageViewController.Coordinator {
                 turnState.reset()
                 return false
             }
+            let content = coordinator.createDisplayVC(for: index, speechHighlight: coordinator.parent.speechHighlight)
+            var controllers: [UIViewController] = [content]
+            if isCurl {
+                // 0x100772d9c L1109-1163：前翻配当前纸背，回翻配目标纸背。
+                let backIndex = direction == .next ? resolver.index(for: start) : index
+                guard let backIndex, let back = coordinator.createBackVC(for: pageVC, index: backIndex) else {
+                    turnState.reset()
+                    return false
+                }
+                controllers.append(back)
+            }
             programmaticTurnInFlight = true
             coordinator.cancelPageCurlPrewarming(reason: "翻页命令")
-            let content = coordinator.createDisplayVC(for: index, speechHighlight: coordinator.parent.speechHighlight)
-            pageVC.setViewControllers([content], direction: direction == .next ? .forward : .reverse,
+            pageVC.setViewControllers(controllers, direction: direction == .next ? .forward : .reverse,
                                      animated: true) { [weak self, weak pageVC] finished in
                 guard let self, let pageVC else { return }
                 self.finish(pageVC, completed: finished)
