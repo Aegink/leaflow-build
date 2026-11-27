@@ -37,7 +37,7 @@ extension LeaflowSmokeTests {
             XCTAssertTrue(control.isHittable)
             if (control.value as? String == "1") != enabled {
                 // SwiftUI的Switch无障碍框覆盖整行，默认中点命中标签；点右侧实际开关。
-                control.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
+                control.coordinate(withNormalizedOffset: CGVector(dx: 0.88, dy: 0.5)).tap()
             }
             XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
                 predicate: NSPredicate(format: "value == %@", enabled ? "1" : "0"), object: control)], timeout: 5), .completed)
