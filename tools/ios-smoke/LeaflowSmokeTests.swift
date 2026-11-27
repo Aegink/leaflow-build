@@ -6,7 +6,7 @@ final class LeaflowSmokeTests: XCTestCase {
     private var pixelSequence = 0
 
     override func setUpWithError() throws { continueAfterFailure = false }
-    override func tearDownWithError() throws { app?.terminate() }
+    override func tearDownWithError() throws { terminateApplication() }
 
     func testBookCardReadDismissal() {
         launch(["-smokeBookActions"])
@@ -105,11 +105,22 @@ final class LeaflowSmokeTests: XCTestCase {
     }
 
     func launch(_ arguments: [String]) {
-        if let app, app.state != .notRunning { app.terminate() }
+        terminateApplication()
         app = XCUIApplication()
         app.launchArguments = arguments
         app.launch()
-        app.activate()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 15))
+    }
+
+    private func terminateApplication() {
+        guard let app, app.state != .notRunning else { return }
+        if app.state == .runningForeground {
+            XCUIDevice.shared.press(.home)
+            let leftForeground = NSPredicate { _, _ in app.state != .runningForeground }
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: leftForeground, object: app)], timeout: 10), .completed)
+        }
+        if app.state != .notRunning { app.terminate() }
+        XCTAssertTrue(app.wait(for: .notRunning, timeout: 10))
     }
     func testSourceImportValidation() {
         launch(["-smokeSources", "-sourceManageViewingRemote", "NO"])
