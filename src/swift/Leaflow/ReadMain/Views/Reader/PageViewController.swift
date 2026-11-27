@@ -187,27 +187,41 @@ struct PageViewController: UIViewControllerRepresentable {
     /// dataSource/delegate = coordinator → 手势 enabled → setBackgroundColor →
     /// setViewControllers(direction:animated:completion:) → addGestureRecognizer(边缘手势)。
     private func makeUIPageViewController(context: Context) -> UIPageViewController {
+        makeUIPageViewController(coordinator: context.coordinator)
+    }
+
+    // 与固定样本共用生产装配入口。
+    func makeUIPageViewController(coordinator: Coordinator) -> UIPageViewController {
+        let isCurl = readerPageControllerRoute(for: pageMode) == .pageCurl
         let pageVC = ReaderPageViewController(
-            transitionStyle: .pageCurl,
-            navigationOrientation: .horizontal)
-        pageVC.isDoubleSided = true
-        pageVC.dataSource = context.coordinator
-        pageVC.delegate = context.coordinator
+            transitionStyle: isCurl ? .pageCurl : .scroll,
+            navigationOrientation: .horizontal,
+            options: [.spineLocation: UIPageViewController.SpineLocation.min.rawValue])
+        coordinator.parentContainer = pageVC
+        pageVC.isDoubleSided = isCurl
+        pageVC.dataSource = coordinator.pageCurlDriver
+        pageVC.delegate = coordinator.pageCurlDriver
         for gesture in pageVC.gestureRecognizers {
-            gesture.isEnabled = readerPageControllerRoute(for: pageMode) == .pageCurl
+            if gesture is UITapGestureRecognizer { gesture.isEnabled = false }
         }
-        pageVC.view.backgroundColor = useTransparentPageBackground ? .clear : nil
-        let startVC = context.coordinator.createPageVC(for: currentPageIndex, speechHighlight: speechHighlight)
+        pageVC.view.backgroundColor = .white
+        let tap = UITapGestureRecognizer(target: coordinator, action: #selector(Coordinator.handleTap(_:)))
+        tap.delegate = coordinator
+        pageVC.view.addGestureRecognizer(tap)
+        let pan = UIPanGestureRecognizer(target: coordinator, action: #selector(Coordinator.handleVerticalPan(_:)))
+        pan.delegate = coordinator
+        pageVC.view.addGestureRecognizer(pan)
+        let resolver = PageCurlPageResolver(pages: pages, isDoublePage: isDoublePageActive)
+        let index = resolver.index(for: resolver.key(at: currentPageIndex)) ?? 0
+        let startVC = pages.isEmpty ? UIViewController()
+            : coordinator.createDisplayVC(for: index, speechHighlight: speechHighlight)
         pageVC.setViewControllers(
             [startVC], direction: .forward, animated: false, completion: nil)
         return pageVC
     }
 
-    private var useTransparentPageBackground: Bool {
-        pageMode == .curl && settings.textUIColor.cgColor.alpha == 0
-    }
-
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
+        context.coordinator.parent = self
         // 伪代码 0x10076b808（L267-277）：按路由分发更新。
         switch readerPageControllerRoute(for: pageMode) {
         case .horizontalPaging:
@@ -255,9 +269,6 @@ struct PageViewController: UIViewControllerRepresentable {
         _ pageVC: UIPageViewController, context: Context
     ) {
         let coordinator = context.coordinator
-        for gesture in pageVC.gestureRecognizers {
-            gesture.isEnabled = readerPageControllerRoute(for: pageMode) == .pageCurl
-        }
         let pagesChanged = coordinator.syncPageStructureSignature(
             pages: pages, currentPageIndex: currentPageIndex)
         if isRebuildPending {
@@ -269,6 +280,7 @@ struct PageViewController: UIViewControllerRepresentable {
             pagesChanged: pagesChanged,
             pageStructureChanged: pagesChanged)
         coordinator.schedulePageCurlPrewarming()
+        coordinator.applyPageTurnCommandIfNeeded()
     }
 
     func makeCoordinator() -> Coordinator {

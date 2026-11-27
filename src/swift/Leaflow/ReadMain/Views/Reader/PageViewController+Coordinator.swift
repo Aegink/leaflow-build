@@ -8,8 +8,7 @@ extension PageViewController {
     /// 协调器：缓存三池（前页 7 / 双页 5 / 背衬 12，0x10076d354 块确证）+
     /// 预热计划 + 卷页驱动。
     @MainActor
-    final class Coordinator: NSObject, UIPageViewControllerDataSource, UIPageViewControllerDelegate,
-        UIGestureRecognizerDelegate {
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
 
         var parent: PageViewController
 
@@ -34,7 +33,6 @@ extension PageViewController {
         private var prewarmGeneration: UInt = 0
         private var isFirstLoad = true
         private var verticalSwipeDidReachUp = false
-        var lastAppliedPageTurnCommandID: String?
         private var lastColorVersion = 0
         private var lastContentStyleVersion = 0
         private var turnPerformanceTraceStart = 0.0
@@ -44,7 +42,7 @@ extension PageViewController {
         init(_ parent: PageViewController) {
             self.parent = parent
             super.init()
-            lastKnownPageCount = parent.pages.count
+            syncPageStructureSignature(pages: parent.pages, currentPageIndex: parent.currentPageIndex)
         }
 
         // MARK: 容器状态
@@ -57,7 +55,7 @@ extension PageViewController {
         weak var parentContainer: UIViewController?
 
         /// 伪代码 0x10076d014（L401-410）：拖拽或减速即视为忙。
-        private var isPageViewControllerBusy: Bool {
+        var isPageViewControllerBusy: Bool {
             guard let scrollView = pageScrollView else { return false }
             return scrollView.isDragging || scrollView.isDecelerating
         }
@@ -134,16 +132,16 @@ extension PageViewController {
         /// 伪代码 0x100774134（L1183-1190）：结构签名比对。
         @discardableResult
         func syncPageStructureSignature(pages: [PageData], currentPageIndex: Int) -> Bool {
+            let snapshotChanged = indexCache.update(with: pages)
             let signature = Self.pageStructureSignature(pages: pages)
             let changed = signature != lastKnownPageStructureSignature
                 || pages.count != lastKnownPageCount
             if changed {
                 lastKnownPageStructureSignature = signature
                 lastKnownPageCount = pages.count
-                indexCache.update(with: pages)
             }
             _ = currentPageIndex
-            return changed
+            return changed || snapshotChanged
         }
 
         /// 伪代码 0x10076d848（L1192-1199）：结构签名（页数 + 逐页渲染域）。
@@ -151,6 +149,8 @@ extension PageViewController {
             var hasher = Hasher()
             hasher.combine(pages.count)
             for page in pages {
+                hasher.combine(page.chapterIndex)
+                hasher.combine(page.pageIndex)
                 hasher.combine(PageData.commentRenderSignature(page.comments))
                 hasher.combine(page.charCount)
             }
@@ -201,6 +201,12 @@ extension PageViewController {
 
         /// 伪代码 0x100775260（L1361-1369）/0x100775338（L1371-1379）。
         func primaryIndex(for viewController: UIViewController) -> Int? {
+            if let back = viewController as? PageBackViewController {
+                return indexCache.index(forLayoutId: back.associatedPageId)
+            }
+            if let spread = viewController as? ReaderSpreadContentViewController {
+                return spread.visiblePageIndices.first
+            }
             guard let content = viewController as? PageContentViewController,
                   let page = content.pageData else { return nil }
             return indexCache.index(forLayoutId: page.layoutId)
@@ -242,12 +248,15 @@ extension PageViewController {
         /// ReaderTurnPerformanceTrace.start + ReaderPerformanceTrace.log/pageLabel 确证；
         /// ReaderPageDebug.visibleTextLength 参与。
         func createPageVC(for index: Int, speechHighlight: ReaderSpeechHighlight) -> PageContentViewController {
-            if let cached = pageVCCache[index] {
-                touchFrontCache(index)
-                return cached
-            }
             guard indexCache.pages.indices.contains(index) else {
                 return PageContentViewController(isInteractive: false)
+            }
+            if let cached = pageVCCache[index] {
+                refreshDisplayVC(cached, for: index)
+                ReaderSpeechHighlightRenderer.apply(
+                    speechHighlight.pageIndex == index ? speechHighlight : .none, to: cached, pageIndex: index)
+                touchFrontCache(index)
+                return cached
             }
             let page = indexCache.pages[index]
             let controller = PageContentViewController(isInteractive: true)
@@ -263,18 +272,30 @@ extension PageViewController {
             pageVCCache[index] = controller
             cacheOrder.append(index)
             trimFrontCacheIfNeeded()
-            _ = speechHighlight
+            ReaderSpeechHighlightRenderer.apply(
+                speechHighlight.pageIndex == index ? speechHighlight : .none, to: controller, pageIndex: index)
             return controller
         }
 
         /// 伪代码 0x100776b88（L1610-1680）：构建背衬 VC（PageBackViewController）。
         func createBackVC(for pageVC: UIPageViewController, index: Int) -> PageBackViewController? {
-            if let reusable = takeReusableBack() {
-                return reusable
-            }
-            let back = PageBackViewController()
+            guard indexCache.pages.indices.contains(index) else { return nil }
+            let page = indexCache.pages[index]
+            let back = backVCCache[index] ?? PageBackViewController()
             back.loadViewIfNeeded()
             back.view.frame = pageVC.view.bounds
+            // 背衬使用独立子控制器，不能把正在显示的正面控制器移出父级。
+            let content = PageContentViewController(isInteractive: false)
+            content.configure(pageData: page, settings: parent.settings,
+                bookName: parent.bookName, totalChapters: parent.totalChapters)
+            back.configure(backgroundColor: .white, backgroundImage: nil,
+                contentViewController: content, associatedPageId: page.layoutId)
+            backVCCache[index] = back
+            backCacheOrder.removeAll { $0 == index }
+            backCacheOrder.append(index)
+            while backCacheOrder.count > maxBackCacheSize {
+                backVCCache.removeValue(forKey: backCacheOrder.removeFirst())
+            }
             return back
         }
 
@@ -318,16 +339,13 @@ extension PageViewController {
         /// 伪代码 0x10077897c（L1766-1783）：应用待处理翻页命令。
         /// 命令编号与水平控制器使用同一单调序列。
         func applyPageTurnCommandIfNeeded() {
-            guard let command = parent.pageTurnCommand,
-                  String(command.id) != lastAppliedPageTurnCommandID else { return }
-            lastAppliedPageTurnCommandID = String(command.id)
-            pageCurlDriver.applyPendingTurnCommand(command)
+            pageCurlDriver.applyPendingTurnCommand(parent.pageTurnCommand)
         }
 
         /// 伪代码 0x100778a88（L1785-1813）：
         /// ReaderTextSelectionGestureSupport.consumeTapIfNeeded 先行；
         /// 点位命中评论 → onCommentTap；否则 onTap。
-        func handleTap(_ gesture: UITapGestureRecognizer) {
+        @objc func handleTap(_ gesture: UITapGestureRecognizer) {
             guard let container = parentContainer else { return }
             if ReaderTextSelectionGestureSupport.consumeTapIfNeeded(gesture, in: container.view, activeSelectionHandler: nil) {
                 return
@@ -337,7 +355,7 @@ extension PageViewController {
 
         /// 伪代码 0x100778d14（L1815-1851）：垂直上滑手势。
         /// translation/velocity/state 确证；达到阈值后 onSwipeUp 系列。
-        func handleVerticalPan(_ gesture: UIPanGestureRecognizer) {
+        @objc func handleVerticalPan(_ gesture: UIPanGestureRecognizer) {
             let translation = gesture.translation(in: gesture.view)
             let velocity = gesture.velocity(in: gesture.view)
             switch gesture.state {
@@ -378,52 +396,6 @@ extension PageViewController {
             shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
         ) -> Bool {
             false
-        }
-
-        // MARK: DataSource / Delegate
-
-        func pageViewController(
-            _ pageViewController: UIPageViewController, viewControllerBefore viewController: UIViewController
-        ) -> UIViewController? {
-            guard let index = primaryIndex(for: viewController), index > 0 else { return nil }
-            return createPageVC(for: index - 1, speechHighlight: parent.speechHighlight)
-        }
-
-        func pageViewController(
-            _ pageViewController: UIPageViewController, viewControllerAfter viewController: UIViewController
-        ) -> UIViewController? {
-            guard let index = primaryIndex(for: viewController),
-                  index + 1 < indexCache.pages.count else { return nil }
-            return createPageVC(for: index + 1, speechHighlight: parent.speechHighlight)
-        }
-
-        func pageViewController(
-            _ pageViewController: UIPageViewController, willTransitionTo pendingViewControllers: [UIViewController]
-        ) {
-            // 伪代码 L942-973：即将过渡页预热校验（screen/window 参与）。
-            for vc in pendingViewControllers {
-                clearHighlight(in: vc)
-            }
-        }
-
-        func pageViewController(
-            _ pageViewController: UIPageViewController,
-            didFinishAnimating finished: Bool,
-            previousViewControllers: [UIViewController],
-            transitionCompleted completed: Bool
-        ) {
-            // 伪代码 L975-1062：didFinish 主链。
-            // 完成 → 提交当前页（onPageCommitted）；未完成 → 回滚预取。
-            guard finished, let current = pageViewController.viewControllers?.first,
-                  let index = primaryIndex(for: current) else { return }
-            if completed {
-                let id = PageTurnPageID(
-                    chapterIndex: indexCache.pages[index].chapterIndex,
-                    pageIndex: indexCache.pages[index].pageIndex)
-                parent.onPageCommitted?(ReaderPageCommit(
-                    index: index, pages: parent.pages, isDoublePage: parent.isDoublePageActive))
-                _ = id
-            }
         }
 
     }

@@ -231,7 +231,17 @@ final class LeaflowSmokeTests: XCTestCase {
     }
 
     func testReaderHorizontalPageTurns() {
-        launch(["-smokeReaderPageTurn"])
+        checkReaderPageTurns(curl: false)
+        passed("reader_horizontal_page_turns")
+    }
+
+    func testReaderCurlPageTurns() {
+        checkReaderPageTurns(curl: true)
+        passed("reader_curl_page_turns")
+    }
+
+    private func checkReaderPageTurns(curl: Bool) {
+        launch(curl ? ["-smokeReaderPageTurn", "-smokePageCurl"] : ["-smokeReaderPageTurn"])
         let position = app.staticTexts["reader-turn-position"]
         XCTAssertTrue(position.waitForExistence(timeout: 30))
         waitForPosition("全局页0，章节0", position)
@@ -253,7 +263,6 @@ final class LeaflowSmokeTests: XCTestCase {
         waitForPosition("全局页0，章节0", position)
         assertVisibleText("固定翻页正文甲")
         capture("reader-turn-returned")
-        passed("reader_horizontal_page_turns")
     }
 
     private func waitForPosition(_ expected: String, _ element: XCUIElement) {

@@ -1,108 +1,199 @@
 // 原始归属: ReadMain/Views/Reader/PageViewController.swift；拆分不改变336文件统计。
+// 0x100770b24/0x10077108c前后页、0x100771784开始、0x10077205c结束、0x100772d9c命令。
 import UIKit
 
 extension PageViewController.Coordinator {
-    // MARK: PageCurlDriver
-
-    /// 卷页驱动（伪代码 L651-L1168）。
     @MainActor
-    final class PageCurlDriver {
+    final class PageCurlDriver: NSObject, UIPageViewControllerDataSource, UIPageViewControllerDelegate {
         private unowned let coordinator: PageViewController.Coordinator
-        private var turnState = PageCurlTurnState()
-        private var resolver: PageCurlPageResolver?
+        private(set) var turnState = PageCurlTurnState()
+        private var commandBuffer = ReaderPageTurnCommandBuffer()
+        private var programmaticTurnInFlight = false
 
         init(coordinator: PageViewController.Coordinator) {
             self.coordinator = coordinator
+            super.init()
         }
 
-        /// 伪代码 0x100770114（L651-660）：VC -> 显示 key。
+        private var resolver: PageCurlPageResolver {
+            PageCurlPageResolver(pages: coordinator.parent.pages,
+                isDoublePage: coordinator.parent.isDoublePageActive)
+        }
+
+        private var isCurl: Bool {
+            readerPageControllerRoute(for: coordinator.parent.pageMode) == .pageCurl
+        }
+
         func displayKey(for viewController: UIViewController?) -> PageCurlPageKey? {
-            guard let content = viewController as? PageContentViewController,
-                  let page = content.pageData else { return nil }
-            return PageCurlPageKey(page)
-        }
-
-        /// 伪代码 0x10077028c（L662-669）：VC -> 序列 key。
-        func sequenceKey(for viewController: UIViewController?) -> PageCurlPageKey? {
-            displayKey(for: viewController)
-        }
-
-        /// 伪代码 0x1007706c8（L680-686）：同步 TTS 高亮
-        /// （ReaderSpeechHighlightRenderer.apply 确证）。
-        func syncHighlight(in viewController: UIViewController) {
-            // 高亮渲染体属 T-301-09 分册。
-        }
-
-        /// 伪代码 0x100770924（L706-728）：接受待定目标。
-        /// accept 返回 Bool 透传（签名域确证，wave-16）。
-        func acceptPendingTarget(
-            _ target: PageCurlPageKey, start: PageCurlPageKey, event: String
-        ) -> Bool {
-            _ = event
-            return turnState.accept(target: target, start: start) { start, target in
-                // 方向解析（resolver.direction 语义；closure 0x100767f2c
-                // 的 "-" 拼接为调试布局键）。
-                _ = "\(start.description)-\(target.description)"
-                if target.pageIndex > start.pageIndex { return .next }
-                if target.pageIndex < start.pageIndex { return .previous }
-                if target.chapterIndex > start.chapterIndex { return .next }
-                if target.chapterIndex < start.chapterIndex { return .previous }
-                return nil
+            if let content = viewController as? PageContentViewController {
+                return resolver.key(for: content.pageData)
             }
+            if let spread = viewController as? ReaderSpreadContentViewController,
+               let index = spread.visiblePageIndices.first {
+                return resolver.key(at: index)
+            }
+            return nil
         }
 
-        /// 伪代码 0x100770a10（L730-737）：正面目标回归判定。
+        func sequenceKey(for viewController: UIViewController?) -> PageCurlPageKey? {
+            if let back = viewController as? PageBackViewController,
+               let index = coordinator.indexCache.index(forLayoutId: back.associatedPageId) {
+                return resolver.key(at: index)
+            }
+            return displayKey(for: viewController)
+        }
+
+        func syncHighlight(in viewController: UIViewController) {
+            let index = resolver.index(for: displayKey(for: viewController))
+            let highlight = coordinator.parent.speechHighlight
+            ReaderSpeechHighlightRenderer.apply(
+                highlight.pageIndex == index ? highlight : .none, to: viewController, pageIndex: index)
+        }
+
+        func acceptPendingTarget(_ target: PageCurlPageKey, start: PageCurlPageKey, event: String) -> Bool {
+            let accepted = turnState.accept(target: target, start: start, directionFrom: resolver.direction)
+            if !accepted { logPageCurlPerf("拒绝目标 \(target)，事件 \(event)") }
+            return accepted
+        }
+
+        // 0x100770a10：空闲或回到起点可返回；否则必须通过状态机的方向/目标检查。
         func shouldReturnFrontTarget(_ target: PageCurlPageKey, from start: PageCurlPageKey) -> Bool {
-            target == start
+            if turnState.phase == .idle || target == turnState.startKey { return true }
+            return acceptPendingTarget(target, start: turnState.startKey ?? start, event: "正面请求")
         }
 
-        /// 伪代码 0x10076bfb8（L743-883）：驱动更新主链。
-        /// CATransaction begin/commit + setDisableActions + setBackgroundColor +
-        /// ReaderSpeechHighlightRenderer.apply + Logger.log 确证。
         func update(pageViewController: UIPageViewController, pagesChanged: Bool, pageStructureChanged: Bool) {
-            if pagesChanged || pageStructureChanged {
+            if (pagesChanged || pageStructureChanged), turnState.phase != .idle {
                 turnState.notePagesChanged()
             }
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            defer { CATransaction.commit() }
-            // 目标页装配（前后 VC 预取 + 正面目标回归）细节待真机对照。
+            guard !programmaticTurnInFlight, !turnState.isActive,
+                  !coordinator.isPageViewControllerBusy else { return }
+            let parent = coordinator.parent
+            guard let target = resolver.key(at: parent.currentPageIndex),
+                  let index = resolver.index(for: target) else { return }
+            let current = pageViewController.viewControllers?.first
+            if displayKey(for: current) != target {
+                turnState.reset()
+                let content = coordinator.createDisplayVC(for: index, speechHighlight: parent.speechHighlight)
+                pageViewController.setViewControllers([content], direction: .forward, animated: false)
+            } else if let current {
+                coordinator.refreshDisplayVC(current, for: index)
+                syncHighlight(in: current)
+            }
+            consumePendingCommand()
         }
 
-        /// 伪代码 0x100772d9c（L1109-1163）：程序化翻页
-        ///（goToPreviousPage/goToNextPage 与本函数共体；completion closure 确证）。
+        func pageViewController(_ pageViewController: UIPageViewController,
+                                viewControllerBefore viewController: UIViewController) -> UIViewController? {
+            adjacentController(pageViewController, from: viewController, direction: .previous)
+        }
+
+        func pageViewController(_ pageViewController: UIPageViewController,
+                                viewControllerAfter viewController: UIViewController) -> UIViewController? {
+            adjacentController(pageViewController, from: viewController, direction: .next)
+        }
+
+        private func adjacentController(_ pageVC: UIPageViewController, from controller: UIViewController,
+                                        direction: ReaderPageTurnDirection) -> UIViewController? {
+            guard !coordinator.parent.menuVisible, let source = sequenceKey(for: controller) else { return nil }
+            if isCurl {
+                if controller is PageBackViewController {
+                    let target = direction == .previous ? source : resolver.adjacentKey(from: source, direction: .next)
+                    guard let target, shouldReturnFrontTarget(target, from: source),
+                          let index = resolver.index(for: target) else { return nil }
+                    return coordinator.createDisplayVC(for: index, speechHighlight: coordinator.parent.speechHighlight)
+                }
+                let target = resolver.adjacentKey(from: source, direction: direction)
+                guard let target else { return nil }
+                // 下一页经过当前纸张背面；上一页经过上一张纸的背面。
+                let backKey = direction == .next ? source : target
+                guard let index = resolver.index(for: backKey) else { return nil }
+                return coordinator.createBackVC(for: pageVC, index: index)
+            }
+            guard let target = resolver.adjacentKey(from: source, direction: direction),
+                  let index = resolver.index(for: target) else { return nil }
+            return coordinator.createDisplayVC(for: index, speechHighlight: coordinator.parent.speechHighlight)
+        }
+
+        func pageViewController(_ pageViewController: UIPageViewController,
+                                willTransitionTo pendingViewControllers: [UIViewController]) {
+            guard let start = displayKey(for: pageViewController.viewControllers?.first) else { return }
+            turnState.begin(start: start)
+            coordinator.cancelPageCurlPrewarming(reason: "开始翻页")
+            for controller in pendingViewControllers {
+                if let target = displayKey(for: controller) {
+                    _ = acceptPendingTarget(target, start: start, event: "开始手势")
+                }
+            }
+        }
+
+        func pageViewController(_ pageViewController: UIPageViewController, didFinishAnimating finished: Bool,
+                                previousViewControllers: [UIViewController], transitionCompleted completed: Bool) {
+            finish(pageViewController, completed: completed)
+        }
+
+        private func finish(_ pageVC: UIPageViewController, completed: Bool) {
+            let current = pageVC.viewControllers?.first
+            let result = turnState.complete(displayed: displayKey(for: current), completed: completed)
+            if case .committed(let key, _, _) = result, let index = resolver.index(for: key) {
+                coordinator.parent.currentPageIndex = index
+                if let current {
+                    coordinator.refreshDisplayVC(current, for: index)
+                    syncHighlight(in: current)
+                }
+                coordinator.parent.onPageCommitted?(ReaderPageCommit(
+                    index: index, pages: coordinator.parent.pages,
+                    isDoublePage: coordinator.parent.isDoublePageActive))
+            } else if let current, let index = resolver.index(for: displayKey(for: current)) {
+                coordinator.refreshDisplayVC(current, for: index)
+                syncHighlight(in: current)
+            }
+            programmaticTurnInFlight = false
+            coordinator.schedulePageCurlPrewarming()
+            // 等UIKit完成本轮回调再发起下一条命令，避免嵌套转场。
+            DispatchQueue.main.async { [weak self] in self?.consumePendingCommand() }
+        }
+
         @discardableResult
         func goToPage(direction: ReaderPageTurnDirection) -> Bool {
-            guard let pageVC = coordinator.parentContainer as? UIPageViewController,
-                  let current = pageVC.viewControllers?.first,
-                  let index = coordinator.primaryIndex(for: current) else { return false }
-            let targetIndex = direction == .next ? index + 1 : index - 1
-            guard coordinator.indexCache.pages.indices.contains(targetIndex) else { return false }
-            let target = coordinator.createPageVC(
-                for: targetIndex, speechHighlight: coordinator.parent.speechHighlight)
-            pageVC.setViewControllers(
-                [target],
-                direction: direction == .next ? .forward : .reverse,
-                animated: true) { finished in
-                _ = finished
+            guard !programmaticTurnInFlight, !turnState.isActive, !coordinator.parent.menuVisible,
+                  !coordinator.isPageViewControllerBusy,
+                  let pageVC = coordinator.parentContainer as? UIPageViewController,
+                  let start = displayKey(for: pageVC.viewControllers?.first),
+                  let target = resolver.adjacentKey(from: start, direction: direction),
+                  let index = resolver.index(for: target) else { return false }
+            turnState.begin(start: start)
+            guard acceptPendingTarget(target, start: start, event: "翻页命令") else {
+                turnState.reset()
+                return false
+            }
+            programmaticTurnInFlight = true
+            coordinator.cancelPageCurlPrewarming(reason: "翻页命令")
+            let content = coordinator.createDisplayVC(for: index, speechHighlight: coordinator.parent.speechHighlight)
+            pageVC.setViewControllers([content], direction: direction == .next ? .forward : .reverse,
+                                     animated: true) { [weak self, weak pageVC] finished in
+                guard let self, let pageVC else { return }
+                self.finish(pageVC, completed: finished)
             }
             return true
         }
 
-        /// 应用翻页命令（applyPageTurnCommandIfNeeded 链）。
-        /// 命令字段（id/direction）的具体形态待命令分册落地。
-        func applyPendingTurnCommand(_ command: ReaderPageTurnCommand) {
-            _ = command
-            logPageCurlPerf("applyCommand")
+        func applyPendingTurnCommand(_ command: ReaderPageTurnCommand?) {
+            commandBuffer.submit(command)
+            consumePendingCommand()
         }
 
-        /// 性能计时（0x100773eec perfNow / 0x100774028 logPageCurlPerf / logState 共体）。
-        private func perfNow() -> Double {
-            CACurrentMediaTime()
+        private func consumePendingCommand() {
+            guard !coordinator.parent.pages.isEmpty, !coordinator.parent.menuVisible,
+                  !programmaticTurnInFlight, !turnState.isActive, !coordinator.isPageViewControllerBusy,
+                  let pageVC = coordinator.parentContainer as? UIPageViewController,
+                  displayKey(for: pageVC.viewControllers?.first) != nil,
+                  let command = commandBuffer.take() else { return }
+            _ = goToPage(direction: command.direction)
         }
 
         private func logPageCurlPerf(_ event: String) {
-            Logger.log("curl \(event) \(perfNow())", level: .verbose)
+            Logger.log("卷页 \(event) \(CACurrentMediaTime())", level: .verbose)
         }
     }
 }

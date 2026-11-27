@@ -15,7 +15,8 @@ struct ReaderPageTurnSmokeView: View {
                 PageViewController(pages: vm.pages, currentPageIndex: vm.currentPageIndex,
                     settings: settings, bookName: "固定翻页书籍", totalChapters: 2,
                     speechHighlight: .none, colorVersion: 0, isRebuildPending: false,
-                    pageMode: .horizontal, isDoublePageActive: false, menuVisible: false,
+                    pageMode: ProcessInfo.processInfo.arguments.contains("-smokePageCurl") ? .curl : .horizontal,
+                    isDoublePageActive: false, menuVisible: false,
                     pageTurnCommand: nil, onTap: {}, onPageCommitted: { vm.handlePageCommitted($0) })
             }
         }
