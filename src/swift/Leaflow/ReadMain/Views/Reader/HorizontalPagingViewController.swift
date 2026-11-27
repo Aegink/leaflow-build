@@ -1,76 +1,45 @@
-// 原路径: ReadMain/Views/Reader/HorizontalPagingViewController.swift
-// 证据:
-//   - PGO: preferredScreenEdgesDeferringSystemGestures (0x1007091f0 L5) / viewDidLoad (0x100709260 L61-68) /
-//     apply(pages:committedIndex:settings:...) (0x1007097f0 L87-180) / updateBackground (0x100709dcc L234-254) /
-//     displayCurrentPage (0x1007094d4 L256-278) / updateCurrentDisplay (0x10070a3a4 L280-296) /
-//     applyDeferredPageUpdates (0x10070a17c L310-324) / settleSlideGesture (0x10070b540 L359-383) /
-//     requestTurn (0x10070baac L440-458) / applyPendingPageTurnCommandIfPossible (0x10070bd4c L460-465) /
-//     handleImmediatePan (0x10070be54 L478-497) / handleSlidePan (0x10070c148 L499-506) /
-//     handleImmediatePan(_:) (0x10070c194 L508-556) / handleSlidePan(_:) (0x10070c564 L558-584) /
-//     handleVerticalPan (0x10070c7b0 L586-625) / gestureRecognizerShouldBegin (0x10070cf10 L643-660) 共 19 函数
-//   - CovMap: 上述 L 区段
-//   - IDA: 上述地址的 Hex-Rays 伪代码（1763 行）
-//   - 选择子：viewDidLoad/setClipsToBounds:/isViewLoaded/setBackgroundColor:/setImage:/setHidden:/
-//     bounds/initWithFrame:/setAutoresizingMask:/setContentMode:/insertSubview:atIndex:/
-//     locationInView:/translationInView:/velocityInView:/initWithNibName:bundle:
-//   - 关键方法：apply(pages:committedIndex:...) 是页面更新主链；
-//     handleImmediatePan/handleSlidePan 双路径按 transitionStyle 分发；
-//     requestTurn 检查 menuVisible/isTransitioning + PageTurnCommandBuffer.submit
-// 状态: 语义级还原（不是原始源码；变量名/注释为还原者所加）
-// 置信度:
-//   - viewDidLoad/apply/updateBackground/displayCurrentPage/requestTurn: high
-//   - handleImmediatePan/handleSlidePan/handleVerticalPan: medium-high
-//   - applyDeferredPageUpdates: medium-high（needsPostSettlementRebuild/Refresh 双标志确证）
-// 还原: 2026-11-19
-
+// 原路径: ReadMain/Views/Reader/HorizontalPagingViewController.swift。
+// 类型表9551；0x1007097f0应用、0x10070baac请求、0x10070b540落定、
+// 0x10070c194滑动、0x10070c564即时、0x10070cf10手势准入。
+// 原版视觉、左侧点击偏好和垂直退出设置仍见docs/11/待验清单.md T1602-D01。
 import UIKit
 
-/// 水平翻页视图控制器（伪代码 0x1007091f0，19 函数）。
-final class HorizontalPagingViewController: UIViewController, UIScrollViewDelegate, UIGestureRecognizerDelegate {
-
-    // MARK: - ivar（伪代码 init L17-19 初始化的 30+ 字段）
-
+final class HorizontalPagingViewController: UIViewController, UIGestureRecognizerDelegate {
     var onTap: (() -> Void)?
     var onSwipeUp: (() -> Void)?
     var onSwipeUpDown: (() -> Void)?
     var onSwipeUpProgress: ((CGFloat) -> Void)?
     var onSwipeUpCancel: (() -> Void)?
-    var onPageCommitted: ((PageTurnPageID) -> Void)?
+    var onPageCommitted: ((ReaderPageCommit) -> Void)?
     var onCommentTap: (() -> Void)?
 
-    var menuVisible = false
-    var isTransitioning = false
-    var settings: ReadingSettings?
-    var pages: [PageData] = []
-    var currentIndex = 0
-    var isDoublePageActive = false
-    var bookName: String = ""
-    var totalChapters = 0
-    var pageTurnState: PageTurnState = PageTurnState(
-        sequence: PageTurnSequence(pages: [], committedIndex: 0))
-    var transitionStyle: Int = 0
-    var isPendingCommandConsumptionScheduled = false
-    var needsPostSettlementRefresh = false
-    var needsPostSettlementRebuild = false
-    var verticalSwipeDidReachUp = false
-
+    var menuVisible = false {
+        didSet { if !menuVisible { schedulePendingCommandConsumption() } }
+    }
+    private(set) var isTransitioning = false
+    private(set) var settings: ReadingSettings?
+    private(set) var pages: [PageData] = []
+    private(set) var currentIndex = 0
+    private(set) var isDoublePageActive = false
+    private var bookName = ""
+    private var totalChapters = 0
+    private(set) var pageTurnState = PageTurnState(sequence: PageTurnSequence(pages: [], isDoublePage: false))
+    var transitionStyle = 0
+    private var isPendingCommandConsumptionScheduled = false
+    private var needsPostSettlementRefresh = false
+    private var verticalSwipeDidReachUp = false
     private var backgroundImageView: UIImageView?
     private var horizontalPanGesture: UIPanGestureRecognizer?
-    private var tapGesture: UITapGestureRecognizer?
     private var verticalPanGesture: UIPanGestureRecognizer?
-    private var immediateDriver = ImmediatePageTurnGestureDriver(configuration: .init())
+    private var immediateDriver = ImmediatePageTurnGestureDriver()
+    private var slideDriver = SlidePageTurnGestureDriver()
+    private var commandBuffer = ReaderPageTurnCommandBuffer()
     private var pagePool: ReaderPageControllerPool?
     private let renderer = ReaderTwoPageRenderer()
     private var speechHighlight = ReaderSpeechHighlight.none
 
-    /// 伪代码 0x1007091f0（L5）：屏幕边缘手势延迟。
-    override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge {
-        .all
-    }
+    override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge { .all }
 
-    // MARK: - 生命周期
-
-    /// 伪代码 0x100709260（L61-68）：`view.clipsToBounds = true`。
     override func viewDidLoad() {
         super.viewDidLoad()
         view.clipsToBounds = true
@@ -79,38 +48,32 @@ final class HorizontalPagingViewController: UIViewController, UIScrollViewDelega
         displayCurrentPage()
     }
 
-    /// 手势注册（伪代码 init 中 horizontalPanGesture/tapGesture/verticalPanGesture ivar）。
     private func setupGestures() {
         let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
+        pan.delegate = self
         view.addGestureRecognizer(pan)
         horizontalPanGesture = pan
-
         let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
+        tap.delegate = self
+        tap.cancelsTouchesInView = false
         view.addGestureRecognizer(tap)
-        tapGesture = tap
-
         let vertical = UIPanGestureRecognizer(target: self, action: #selector(handleVerticalPan(_:)))
+        vertical.delegate = self
         view.addGestureRecognizer(vertical)
         verticalPanGesture = vertical
     }
 
-    // MARK: - 页面应用
-
-    /// 伪代码 0x1007097f0（L87-180）：页面更新主链。
-    /// 逻辑：pagePool 检查 → isTransitioning 检查 → PageData 更新 →
-    ///       页面渲染器更新 → applyDeferredPageUpdates。
-    func apply(
-        pages newPages: [PageData],
-        committedIndex: Int,
-        settings newSettings: ReadingSettings,
-        bookName: String,
-        totalChapters: Int,
-        speechHighlight: ReaderSpeechHighlight,
-        isDoublePageActive: Bool
-    ) {
-        self.pages = newPages
-        self.currentIndex = committedIndex
-        self.settings = newSettings
+    func apply(pages newPages: [PageData], committedIndex: Int, settings newSettings: ReadingSettings,
+               bookName: String, totalChapters: Int, speechHighlight: ReaderSpeechHighlight,
+               isDoublePageActive: Bool) {
+        let sequence = PageTurnSequence(pages: newPages.map {
+            .init(id: PageTurnPageID(chapterIndex: $0.chapterIndex, pageIndex: $0.pageIndex),
+                isLoadingPlaceholder: $0.isLoadingPlaceholder, isErrorPlaceholder: $0.isErrorPlaceholder)
+        }, isDoublePage: isDoublePageActive)
+        let rebase = pageTurnState.replaceSequence(sequence, committedIndex: committedIndex)
+        pages = newPages
+        currentIndex = pageTurnState.currentIndex
+        settings = newSettings
         self.bookName = bookName
         self.totalChapters = totalChapters
         self.isDoublePageActive = isDoublePageActive
@@ -120,26 +83,34 @@ final class HorizontalPagingViewController: UIViewController, UIScrollViewDelega
                 totalChapters: totalChapters, speechHighlight: speechHighlight,
                 usesTransparentPageBackground: false)
         }
-        pagePool?.update(pages: newPages, settings: newSettings, bookName: bookName,
-            totalChapters: totalChapters, speechHighlight: speechHighlight,
-            onCommentTap: { [weak self] _, _ in self?.onCommentTap?() })
         if isViewLoaded {
             updateBackground(color: newSettings.readerBackgroundUIColor, image: newSettings.backgroundUIImage)
         }
-
-        // 伪代码：isTransitioning == false 时直接刷新。
-        if !isTransitioning {
-            displayCurrentPage()
-        } else {
-            needsPostSettlementRebuild = true
+        switch rebase {
+        case .preserved(let transition):
+            // 动画中的控制器不能被池更新按新索引换成别页，落定后才刷新内容。
+            renderer.updateTransition(transition)
             needsPostSettlementRefresh = true
+        case .cancelled, .updated:
+            if isTransitioning {
+                _ = renderer.finishSettlement(committed: false)
+                isTransitioning = false
+                _ = slideDriver.cancel()
+                immediateDriver.cancel()
+            }
+            updatePool()
+            displayCurrentPage()
         }
+        schedulePendingCommandConsumption()
     }
 
-    // MARK: - 背景与显示
+    private func updatePool() {
+        guard let settings else { return }
+        pagePool?.update(pages: pages, settings: settings, bookName: bookName,
+            totalChapters: totalChapters, speechHighlight: speechHighlight,
+            onCommentTap: { [weak self] _, _ in self?.onCommentTap?() })
+    }
 
-    /// 伪代码 0x100709dcc（L234-254）：更新背景。
-    /// 逻辑：isViewLoaded → view → setBackgroundColor → backgroundImageView.setImage/setHidden。
     func updateBackground(color: UIColor?, image: UIImage?) {
         guard isViewLoaded else { return }
         view.backgroundColor = color
@@ -154,128 +125,157 @@ final class HorizontalPagingViewController: UIViewController, UIScrollViewDelega
             }
             backgroundImageView?.image = image
             backgroundImageView?.isHidden = false
-        } else {
-            backgroundImageView?.isHidden = true
-        }
+        } else { backgroundImageView?.isHidden = true }
     }
 
-    /// 伪代码 0x1007094d4（L256-278）：显示当前页。
-    /// 逻辑：isViewLoaded → PageTurnResolver.targetIndex(from:direction:)。
     func displayCurrentPage() {
         guard isViewLoaded else { return }
         updateCurrentDisplay()
     }
 
-    /// 伪代码 0x10070a3a4（L280-296）：更新当前显示。
     func updateCurrentDisplay() {
-        guard pages.indices.contains(currentIndex),
-              let controller = pagePool?.viewController(for: currentIndex, isDoublePage: isDoublePageActive)
+        guard let controller = pagePool?.viewController(for: currentIndex, isDoublePage: isDoublePageActive)
         else { renderer.clear(); return }
         renderer.setCurrentViewController(controller)
         controller.view.setNeedsLayout()
         controller.view.layoutIfNeeded()
     }
 
-    /// 伪代码 0x10070a17c（L310-324）：延迟页面更新。
-    /// 逻辑：needsPostSettlementRebuild == 1 → pagePool update；
-    ///       needsPostSettlementRefresh == 1 → refresh。
     func applyDeferredPageUpdates() {
-        if needsPostSettlementRebuild {
-            if let settings {
-                pagePool?.update(pages: pages, settings: settings, bookName: bookName,
-                    totalChapters: totalChapters, speechHighlight: speechHighlight,
-                    onCommentTap: { [weak self] _, _ in self?.onCommentTap?() })
-            }
-            needsPostSettlementRebuild = false
-        }
         if needsPostSettlementRefresh {
-            updateCurrentDisplay()
+            updatePool()
             needsPostSettlementRefresh = false
         }
+        displayCurrentPage()
     }
 
-    // MARK: - 翻页请求
-
-    /// 伪代码 0x10070baac（L440-458）：请求翻页。
-    /// 逻辑：menuVisible || PageTurnCommandBuffer.submit → 检查 transitionStyle。
     @discardableResult
-    func requestTurn(_ direction: ReaderPageTurnDirection) -> Bool {
-        guard !menuVisible else { return false }
-        // 伪代码：transitionStyle == 1 → slide 路径。
-        if transitionStyle == 1 {
-            // slide 模式处理。
-        }
+    private func prepareTurn(_ direction: ReaderPageTurnDirection) -> Bool {
+        guard !menuVisible, !isTransitioning, isViewLoaded,
+              let transition = pageTurnState.beginTurn(direction) else { return false }
+        guard let incoming = pagePool?.viewController(for: transition.targetIndex, isDoublePage: isDoublePageActive)
+        else { _ = pageTurnState.finishTurn(committed: false); return false }
+        isTransitioning = true
+        renderer.prepare(transition: transition, incoming: incoming)
         return true
     }
 
-    /// 伪代码 0x10070bd4c（L460-465）：应用待处理的翻页命令。
+    @discardableResult
+    func requestTurn(_ direction: ReaderPageTurnDirection) -> Bool {
+        guard prepareTurn(direction) else { return false }
+        if transitionStyle == 1 { finishSettlement(committed: true) }
+        else { settle(completes: true, velocity: direction == .next ? -800 : 800) }
+        return true
+    }
+
+    private func settle(completes: Bool, velocity: CGFloat) {
+        renderer.animateSettlement(completes: completes, velocity: velocity) { [weak self] committed in
+            self?.finishSettlement(committed: committed)
+        }
+    }
+
+    func finishSettlement(committed: Bool) {
+        guard let result = pageTurnState.finishTurn(committed: committed) else { return }
+        let didCommit: Bool
+        if case .committed = result { didCommit = true } else { didCommit = false }
+        _ = renderer.finishSettlement(committed: didCommit)
+        isTransitioning = false
+        currentIndex = result.index
+        applyDeferredPageUpdates()
+        if didCommit {
+            onPageCommitted?(ReaderPageCommit(index: currentIndex, pages: pages, isDoublePage: isDoublePageActive))
+        }
+        schedulePendingCommandConsumption()
+    }
+
+    func submitPageTurnCommand(_ command: ReaderPageTurnCommand?) {
+        commandBuffer.submit(command)
+        schedulePendingCommandConsumption()
+    }
+
+    private func schedulePendingCommandConsumption() {
+        guard !isPendingCommandConsumptionScheduled, commandBuffer.pendingCommand != nil else { return }
+        isPendingCommandConsumptionScheduled = true
+        Task { @MainActor [weak self] in
+            await Task.yield()
+            guard let self else { return }
+            self.isPendingCommandConsumptionScheduled = false
+            self.applyPendingPageTurnCommandIfPossible()
+        }
+    }
+
     func applyPendingPageTurnCommandIfPossible() {
-        // 伪代码：Task.yield()。
+        guard !menuVisible, !isTransitioning, isViewLoaded,
+              let command = commandBuffer.take() else { return }
+        requestTurn(command.direction)
     }
 
-    // MARK: - 手势处理
-
-    /// 伪代码 0x10070c148（L499-506）：按 transitionStyle 分发。
     @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
-        if transitionStyle == 1 {
-            handleSlidePan(gesture)
-        } else {
-            handleImmediatePan(gesture)
-        }
+        let translation = Double(gesture.translation(in: view).x)
+        let velocity = Double(gesture.velocity(in: view).x)
+        handleHorizontalPan(state: gesture.state, translation: translation, velocity: velocity,
+            width: Double(view.bounds.width))
     }
 
-    /// 伪代码 0x10070be54（L478-497）：点击处理。
-    @objc private func handleTap(_ gesture: UITapGestureRecognizer) {
+    // 与识别器共用入口，固定样本可以验证取消而不伪造UIKit手势状态。
+    func handleHorizontalPan(state: UIGestureRecognizer.State, translation: Double, velocity: Double, width: Double) {
+        if state == .cancelled || state == .failed {
+            immediateDriver.cancel()
+            settleSlideGesture(slideDriver.cancel(), velocity: 0)
+            return
+        }
         guard !menuVisible else { return }
-        let location = gesture.location(in: view)
-        // 伪代码：分区判定（左侧/中间/右侧）→ onTap。
-        onTap?()
-    }
-
-    /// 伪代码 0x10070c194（L508-556）：即时翻页 pan 处理。
-    /// 逻辑：translationInView/velocityInView → bounds 宽度计算 →
-    ///       immediateDriver.end(translation:velocity:width:)。
-    private func handleImmediatePan(_ gesture: UIPanGestureRecognizer) {
-        guard !menuVisible, let containerView = view else { return }
-        let translation = gesture.translation(in: containerView)
-        let velocity = gesture.velocity(in: containerView)
-        let width = containerView.bounds.width
-
-        switch gesture.state {
-        case .began:
-            immediateDriver.begin()
-        case .changed:
-            break
-        case .ended, .cancelled:
-            if let direction = immediateDriver.end(
-                translation: Double(translation.x),
-                velocity: Double(velocity.x),
-                width: Double(width)
-            ) {
-                requestTurn(direction)
+        if transitionStyle == 1 {
+            switch state {
+            case .began: if !isTransitioning { immediateDriver.begin() }
+            case .ended:
+                if let direction = immediateDriver.end(translation: translation, velocity: velocity, width: width) {
+                    requestTurn(direction)
+                }
+            default: break
             }
-        default:
-            break
+        } else {
+            switch state {
+            case .began: if !isTransitioning { slideDriver.begin() }
+            case .changed:
+                switch slideDriver.update(translation: translation, width: width) {
+                case .begin(let direction, let progress):
+                    if prepareTurn(direction) { renderer.render(progress: progress) }
+                    else { _ = slideDriver.cancel() }
+                case .progress(_, let progress): renderer.render(progress: progress)
+                case .none: break
+                }
+            case .ended:
+                settleSlideGesture(slideDriver.end(translation: translation, velocity: velocity, width: width),
+                    velocity: CGFloat(velocity))
+            default: break
+            }
         }
     }
 
-    /// 伪代码 0x10070c564（L558-584）：滑动翻页 pan 处理。
-    private func handleSlidePan(_ gesture: UIPanGestureRecognizer) {
-        guard !menuVisible, let containerView = view else { return }
-        let translation = gesture.translation(in: containerView)
-        let velocity = gesture.velocity(in: containerView)
-        _ = containerView.bounds
-        // slide 模式处理（伪代码 settleSlideGesture 调用）。
+    private func settleSlideGesture(_ result: SlidePageTurnGestureSettlement, velocity: CGFloat) {
+        switch result {
+        case .none: break
+        case .cancel(let direction):
+            if pageTurnState.transition?.direction == direction { settle(completes: false, velocity: velocity) }
+        case .commit(let direction):
+            if pageTurnState.transition != nil || prepareTurn(direction) { settle(completes: true, velocity: velocity) }
+        }
     }
 
-    /// 伪代码 0x10070c7b0（L586-625）：垂直 pan 处理。
-    /// 逻辑：menuVisible 检查 → translationInView/velocityInView →
-    ///       state == .began/.changed → verticalSwipeDidReachUp 判定。
-    @objc private func handleVerticalPan(_ gesture: UIPanGestureRecognizer) {
-        guard !menuVisible, let containerView = view else { return }
-        let translation = gesture.translation(in: containerView)
-        let velocity = gesture.velocity(in: containerView)
+    @objc private func handleTap(_ gesture: UITapGestureRecognizer) {
+        guard !menuVisible, !isTransitioning else { return }
+        let handler = pagePool?.activeSelectionHandler(in: renderer.currentViewController)
+        if ReaderTextSelectionGestureSupport.consumeTapIfNeeded(gesture, in: view, activeSelectionHandler: handler) { return }
+        let x = gesture.location(in: view).x
+        if x < view.bounds.width * 0.3 { requestTurn(.previous) }
+        else if x > view.bounds.width * 0.7 { requestTurn(.next) }
+        else { onTap?() }
+    }
 
+    @objc private func handleVerticalPan(_ gesture: UIPanGestureRecognizer) {
+        guard !menuVisible else { return }
+        let translation = gesture.translation(in: view)
         switch gesture.state {
         case .began, .changed:
             if translation.y < -50, !verticalSwipeDidReachUp {
@@ -284,26 +284,24 @@ final class HorizontalPagingViewController: UIViewController, UIScrollViewDelega
             }
             onSwipeUpProgress?(translation.y)
         case .ended:
-            if verticalSwipeDidReachUp {
-                onSwipeUpDown?()
-            } else {
-                onSwipeUpCancel?()
-            }
+            if verticalSwipeDidReachUp { onSwipeUpDown?() } else { onSwipeUpCancel?() }
             verticalSwipeDidReachUp = false
-        default:
-            break
+        case .cancelled, .failed:
+            onSwipeUpCancel?()
+            verticalSwipeDidReachUp = false
+        default: break
         }
     }
 
-    /// 伪代码 0x10070cf10（L643-660）：手势是否应该开始。
-    /// 逻辑：menuVisible → false；velocityInView → 方向判定。
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        if menuVisible { return false }
-        if let pan = gestureRecognizer as? UIPanGestureRecognizer {
-            let velocity = pan.velocity(in: view)
-            return abs(velocity.x) > abs(velocity.y)
+        guard !menuVisible, !isTransitioning else { return false }
+        guard let pan = gestureRecognizer as? UIPanGestureRecognizer else { return true }
+        let velocity = pan.velocity(in: view)
+        if pan === horizontalPanGesture { return abs(velocity.x) > 1.5 * abs(velocity.y) }
+        if pan === verticalPanGesture {
+            return velocity.y < 0 && abs(velocity.y) > 0.9 * abs(velocity.x)
+                && pan.location(in: view).y >= view.bounds.height * 0.75
         }
         return true
     }
 }
-

@@ -1,5 +1,6 @@
 // T-1602：模拟器真实手势与页面就绪断言，不替代 iPhone 真机或原版对照。
 import XCTest
+import Vision
 
 final class LeaflowSmokeTests: XCTestCase {
     private var app: XCUIApplication!
@@ -193,6 +194,7 @@ final class LeaflowSmokeTests: XCTestCase {
             if mode != "-smokeReviewNoChapters" {
                 XCTAssertTrue(app.textViews.matching(NSPredicate(format: "value CONTAINS %@",
                     "固定正文，请从更多操作打开评论。")).firstMatch.waitForExistence(timeout: 20))
+                assertVisibleText("固定正文")
             }
             capture("book-review-before-more")
             print("阅读更多操作按钮：\(more.debugDescription)")
@@ -226,6 +228,51 @@ final class LeaflowSmokeTests: XCTestCase {
         XCTAssertTrue(app.buttons["开始阅读"].waitForExistence(timeout: 10))
         // 展开真实操作表，避免 medium 档把下面的入口留在屏幕外。
         app.swipeUp()
+    }
+
+    func testReaderHorizontalPageTurns() {
+        launch(["-smokeReaderPageTurn"])
+        let position = app.staticTexts["reader-turn-position"]
+        XCTAssertTrue(position.waitForExistence(timeout: 30))
+        waitForPosition("全局页0，章节0", position)
+        assertVisibleText("固定翻页正文甲")
+        app.swipeLeft()
+        waitForPosition("全局页1，章节0", position)
+        assertVisibleText("固定翻页正文乙")
+        capture("reader-turn-second")
+        app.swipeLeft()
+        waitForPosition("全局页2，章节1", position)
+        assertVisibleText("固定翻页正文丙")
+        capture("reader-turn-cross-chapter")
+        app.swipeLeft()
+        waitForPosition("全局页2，章节1", position)
+        app.swipeRight()
+        waitForPosition("全局页1，章节0", position)
+        assertVisibleText("固定翻页正文乙")
+        app.swipeRight()
+        waitForPosition("全局页0，章节0", position)
+        assertVisibleText("固定翻页正文甲")
+        capture("reader-turn-returned")
+        passed("reader_horizontal_page_turns")
+    }
+
+    private func waitForPosition(_ expected: String, _ element: XCUIElement) {
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == %@", expected), object: element)], timeout: 10), .completed)
+    }
+
+    private func assertVisibleText(_ expected: String) {
+        // OCR直接读取屏幕像素，防止AX正文存在但被导航栏遮住仍通过。
+        guard let cgImage = app.screenshot().image.cgImage else { XCTFail("缺少截图像素"); return }
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        request.recognitionLanguages = ["zh-Hans", "en-US"]
+        do {
+            try VNImageRequestHandler(cgImage: cgImage).perform([request])
+            let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined()
+            print("屏幕文字识别：\(text)")
+            XCTAssertTrue(text.contains(expected), "屏幕像素未显示预期正文：\(expected)")
+        } catch { XCTFail("屏幕文字识别失败：\(error.localizedDescription)") }
     }
     private func capture(_ name: String) {
         let attachment = XCTAttachment(screenshot: app.screenshot())

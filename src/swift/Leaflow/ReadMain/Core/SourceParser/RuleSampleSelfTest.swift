@@ -111,6 +111,7 @@ enum RuleSampleSelfTest {
             await ReaderSelectionSampleSelfTest.run(emit: emit)
             await BookReviewSampleSelfTest.run(emit: emit)
             ReaderRenderingSampleSelfTest.run(emit: emit)
+            await ReaderPageTurnSampleSelfTest.run(emit: emit)
             emitRaw("SELFTEST_END")
             exit(0)
         }

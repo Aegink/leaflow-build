@@ -242,14 +242,9 @@ struct PageViewController: UIViewControllerRepresentable {
         // ReaderGestureDismissState -> HorizontalPaging 进度映射待分册对齐。
         controller.onSwipeUpProgress = { progress in _ = progress }
         controller.onSwipeUpCancel = { onSwipeUpCancel?() }
-        controller.onPageCommitted = { id in
-            onPageCommitted?(ReaderPageCommit(index: id.pageIndex, pages: pages, isDoublePage: isDoublePageActive))
-        }
+        controller.onPageCommitted = onPageCommitted
         controller.menuVisible = menuVisible
-        if let command = pageTurnCommand {
-            context.coordinator.lastAppliedPageTurnCommandID = String(describing: command.id)
-            context.coordinator.applyPageTurnCommandIfNeeded()
-        }
+        controller.submitPageTurnCommand(pageTurnCommand)
         _ = colorVersion
         _ = isRebuildPending
     }
@@ -593,12 +588,11 @@ struct PageViewController: UIViewControllerRepresentable {
         // MARK: 翻页命令与手势
 
         /// 伪代码 0x10077897c（L1766-1783）：应用待处理翻页命令。
-        /// 去重键按 uuidString 归一（成员为 String? 域——configure 侧同式，
-        /// wave-16）。
+        /// 命令编号与水平控制器使用同一单调序列。
         func applyPageTurnCommandIfNeeded() {
             guard let command = parent.pageTurnCommand,
-                  command.id.uuidString != lastAppliedPageTurnCommandID else { return }
-            lastAppliedPageTurnCommandID = command.id.uuidString
+                  String(command.id) != lastAppliedPageTurnCommandID else { return }
+            lastAppliedPageTurnCommandID = String(command.id)
             pageCurlDriver.applyPendingTurnCommand(command)
         }
 

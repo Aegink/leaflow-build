@@ -423,8 +423,8 @@ extension ReaderPaginator {
     }
 }
 
-/// 翻页方向（Int 档：previous=1/next=0；PageTurnState L82 `.next.rawValue` 域）。
+/// 翻页方向（类型表10726与0x10070d7e8：previous=0，next=1）。
 enum ReaderPageTurnDirection: Int {
-    case next = 0
-    case previous = 1
+    case previous = 0
+    case next = 1
 }

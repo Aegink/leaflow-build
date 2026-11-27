@@ -201,7 +201,7 @@ final class ReaderViewModel {
         guard commit.shouldApply(currentIndex: currentPageIndex, pageCount: pages.count) else {
             return
         }
-        currentPageIndex = commit.index
+        onPageIndexChanged(from: currentPageIndex, to: commit.index)
     }
 
     func handleCommentTap(_ comment: ParagraphComment, pageIndex: Int) {}

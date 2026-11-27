@@ -80,8 +80,9 @@ enum ReaderRenderingSampleSelfTest {
             let empty = controller.paragraphAlignedAttributedText(NSAttributedString(string: ""), alignment: .left)
             emit("reader_empty_body_alignment", ["0"], [String(empty.length)])
             let incoming = UIViewController()
-            let transition = PageTurnTransition(from: PageTurnPageID(chapterIndex: 0, pageIndex: 0),
-                to: PageTurnPageID(chapterIndex: 0, pageIndex: 1), direction: .next)
+            let transition = PageTurnTransition(sourceID: PageTurnPageID(chapterIndex: 0, pageIndex: 0),
+                targetID: PageTurnPageID(chapterIndex: 0, pageIndex: 1), direction: .next,
+                sourceIndex: 0, targetIndex: 1)
             renderer.prepare(transition: transition, incoming: incoming)
             renderer.render(progress: 0.5)
             _ = renderer.finishSettlement(committed: false)

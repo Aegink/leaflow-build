@@ -35,33 +35,21 @@ struct ReaderPageCommit {
             self.characterCount = 0
             return
         }
-        var count = pages[index].charCount
-        if isDoublePage {
-            let paired = min(index | 1, pages.count - 1)
-            if paired != index {
-                count += pages[paired].charCount
-            }
-        }
-        self.characterCount = count
+        let first = isDoublePage ? index & ~1 : index
+        let last = isDoublePage ? min(index | 1, pages.count - 1) : index
+        self.characterCount = pages[first...last].reduce(0) { $0 + $1.charCount }
     }
 
-    /// 伪代码 0x1007c15bc（L32）：提交是否仍适用（索引未越界且未漂移）。
+    /// 0x10074fdbc消费链按提交索引检查范围；允许从旧页提交到新页。
     func shouldApply(currentIndex: Int, pageCount: Int) -> Bool {
-        currentIndex >= 0 && currentIndex < pageCount && currentIndex == index
+        index >= 0 && index < pageCount
     }
 }
 
-/// 翻页命令（direction + 可选目标）。
+/// 类型表10745：单调编号与方向。
 struct ReaderPageTurnCommand {
-    let id: UUID
+    let id: Int
     let direction: ReaderPageTurnDirection
-    let targetIndex: Int?
-
-    init(direction: ReaderPageTurnDirection, targetIndex: Int? = nil) {
-        self.id = UUID()
-        self.direction = direction
-        self.targetIndex = targetIndex
-    }
 }
 
 /// 翻页目标定位（枚举命名空间）。
@@ -71,45 +59,48 @@ enum ReaderPageTurnTarget {
         currentIndex: Int, pageCount: Int, direction: ReaderPageTurnDirection
     ) -> Int? {
         let delta = direction == .next ? 1 : -1
-        let target = currentIndex + delta
-        guard target >= 0, target < pageCount else { return nil }
+        guard currentIndex >= 0, currentIndex < pageCount else { return nil }
+        let (target, overflow) = currentIndex.addingReportingOverflow(delta)
+        guard !overflow, target >= 0, target < pageCount else { return nil }
         return target
     }
 }
 
 /// 翻页命令缓冲（暂存单条待处理命令；submit 语义确证）。
-final class ReaderPageTurnCommandBuffer {
-    private(set) var pending: ReaderPageTurnCommand?
+struct ReaderPageTurnCommandBuffer {
+    private(set) var pendingCommand: ReaderPageTurnCommand?
+    private(set) var lastConsumedCommandID = 0
 
     /// 伪代码 0x10070a624（L45-52）+ closure（0x10076921c）：
-    /// nil 提交清空；否则覆盖暂存。
-    func submit(_ command: ReaderPageTurnCommand?) {
-        pending = command
+    /// nil不清空；已消费和比暂存更旧的命令不重复执行。
+    mutating func submit(_ command: ReaderPageTurnCommand?) {
+        guard let command, command.id > lastConsumedCommandID,
+              command.id > (pendingCommand?.id ?? 0) else { return }
+        pendingCommand = command
     }
 
     /// 取出暂存命令。
-    func take() -> ReaderPageTurnCommand? {
-        defer { pending = nil }
-        return pending
+    mutating func take() -> ReaderPageTurnCommand? {
+        guard let command = pendingCommand else { return nil }
+        pendingCommand = nil
+        lastConsumedCommandID = command.id
+        return command
     }
 }
 
 /// 翻页命令发起器（伪代码 0x100729780，L89-100）。
-final class ReaderPageTurnCommandIssuer {
-    private let buffer: ReaderPageTurnCommandBuffer
-
-    init(buffer: ReaderPageTurnCommandBuffer) {
-        self.buffer = buffer
-    }
+struct ReaderPageTurnCommandIssuer {
+    private var nextID = 1
 
     /// 发起方向翻页命令。
-    func command(
+    mutating func command(
         direction: ReaderPageTurnDirection,
         currentIndex: Int,
         pageCount: Int
-    ) {
-        let target = ReaderPageTurnTarget.index(
-            currentIndex: currentIndex, pageCount: pageCount, direction: direction)
-        buffer.submit(ReaderPageTurnCommand(direction: direction, targetIndex: target))
+    ) -> ReaderPageTurnCommand? {
+        guard ReaderPageTurnTarget.index(currentIndex: currentIndex,
+            pageCount: pageCount, direction: direction) != nil, nextID < Int.max else { return nil }
+        defer { nextID += 1 }
+        return ReaderPageTurnCommand(id: nextID, direction: direction)
     }
 }

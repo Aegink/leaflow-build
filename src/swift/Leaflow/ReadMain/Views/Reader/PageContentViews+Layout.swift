@@ -41,11 +41,18 @@ extension PageContentViewController {
         guard bounds.width > 1.0, bounds.height > 1.0 else { return false }
         settings?.applyLayoutTemplate(.single)
 
-        // 章节标题视图（伪代码 L2421-2423：setFrame + setHidden）。
-        chapterTitleView.frame = bounds
-        chapterTitleView.isHidden = !showsLayoutWidgets
-
-        contentTextView.frame = bounds
+        guard let settings, let page = pageData else { return false }
+        // 原版updateFrames消费布局结果；全屏bounds会把首行放到导航栏后方。
+        let safeFrame = view.safeAreaLayoutGuide.layoutFrame
+        let layout = ReaderLayoutCalculator.calculateLayout(isFirstPage: page.pageIndex == 0,
+            chapterTitleConfig: page.pageIndex == 0 && !page.chapterTitle.isEmpty ? settings.activeChapterTitleConfig : nil,
+            leftPageMargin: settings.leftPageMargin, rightPageMargin: settings.rightPageMargin,
+            topInsetExtra: settings.topInsetExtra, bottomInsetExtra: settings.bottomInsetExtra,
+            screenBounds: bounds, safeAreaFrame: safeFrame.width > 0 && safeFrame.height > 0
+                ? safeFrame : bounds.inset(by: view.safeAreaInsets))
+        chapterTitleView.frame = CGRect(x: layout.contentRect.minX, y: layout.topInset,
+            width: layout.contentRect.width, height: layout.titleHeight)
+        chapterTitleView.isHidden = layout.titleHeight <= 0
         fullLineUnderlineView.frame = bounds
 
         // textContainerInset 常量 (0, 8, 0, 8)（伪代码 L2436-2442 精确比较）。
@@ -55,16 +62,9 @@ extension PageContentViewController {
                 UIEdgeInsets(top: 0, left: 8, bottom: 0, right: 8)
         }
 
-        // 章节标题 frame = (contentMinX - 8, minY, width + 16, height)（L2444-2461）。
-        let contentFrame = contentTextView.frame
-        let titleFrame = CGRect(
-            x: contentFrame.minX - 8,
-            y: contentFrame.minY,
-            width: contentFrame.width + 16,
-            height: contentFrame.height)
-        if chapterTitleView.frame != titleFrame {
-            chapterTitleView.frame = titleFrame
-        }
+        // 0x10075d750返回正文视图；8pt内边距与外扩16pt相抵。
+        let contentFrame = layout.contentRect
+        contentTextView.frame = contentFrame.insetBy(dx: -8, dy: 0)
 
         // 正文容器高度 = 容器高 + max(lineHeight * 3, 100)（L2463-2483）。
         let lineHeight = contentTextView.font?.lineHeight ?? 0
