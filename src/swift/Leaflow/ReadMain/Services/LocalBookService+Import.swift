@@ -11,13 +11,14 @@ extension LocalBookService {
     func importBook(from url: URL) async -> LocalBook? {
         await importBook(
             from: url, title: url.deletingPathExtension().lastPathComponent,
-            author: nil, coverData: nil)
+            author: nil, coverData: nil, preferExistingMetadata: false)
     }
 
     /// importBook(from:title:author:coverData:)
     ///（0x10033be18 L360-414 域确证）。
     func importBook(
-        from url: URL, title: String, author: String?, coverData: Data?, chapterPattern: String? = nil
+        from url: URL, title: String, author: String?, coverData: Data?, chapterPattern: String? = nil,
+        preferExistingMetadata: Bool = true
     ) async -> LocalBook? {
         let ext = url.pathExtension
         let format = localBookType(forExtension: ext)
@@ -33,7 +34,8 @@ extension LocalBookService {
         }
         book.filePath = installed.path
         // 解析域（parsePdfBook/parseEpubBook/parseTxtBook 交叉）。
-        book = await ensureChaptersParsed(book)
+        book = format == "EPUB" ? await parseEpubBook(book, preferExisting: preferExistingMetadata)
+            : await ensureChaptersParsed(book)
         guard book.totalChapters > 0,
               loadChapters(for: book.id.uuidString)?.count == book.totalChapters else {
             cleanupBookFiles(book)
@@ -118,15 +120,25 @@ extension LocalBookService {
     ) async -> LocalBook {
         var updated = book
         // SimpleEpubParser 交叉确证（T-901-03 域）。
-        let parsed = try? SimpleEpubParser.parse(
-            epubURL: book.fileURL)
-        let payload = parsed.map { Self.makeEpubTextPayload(from: $0) }
-        if let payload {
+        do {
+            let parsed = try SimpleEpubParser.parse(epubURL: book.fileURL)
+            let payload = Self.makeEpubTextPayload(from: parsed)
+            if !preferExisting {
+                if let title = parsed.title, !title.isEmpty { updated.name = title }
+                if let author = parsed.author, !author.isEmpty { updated.author = author }
+            }
             let fullURL = fullTextURL(for: updated)
-            try? payload.content.write(
+            try payload.content.write(
                 to: fullURL, atomically: true, encoding: .utf8)
             saveChapters(payload.chapters, for: updated.id.uuidString)
             updated.totalChapters = payload.chapters.count
+            updated.detectedEncoding = "UTF-8"
+            updated.chapterPattern = nil
+            if let cover = parsed.coverData, !preferExisting || !coverCache.coverExists(for: updated.id.uuidString) {
+                coverCache.saveCover(data: cover, for: updated.id.uuidString)
+            }
+        } catch {
+            Logger.log("解析EPUB失败：\(error.localizedDescription)", level: .error)
         }
         return updated
     }

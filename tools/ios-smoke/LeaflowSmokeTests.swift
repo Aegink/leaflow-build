@@ -331,6 +331,38 @@ final class LeaflowSmokeTests: XCTestCase {
         passed("local_book_import_reader")
     }
 
+    func testEpubFileImport() {
+        launch(["-smokeEpubImport"])
+        let input = app.buttons["local-import-fixture"]
+        XCTAssertTrue(input.waitForExistence(timeout: 30))
+        input.tap()
+        let title = app.textFields["书名"]
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == %@", "固定EPUB书籍"), object: title)], timeout: 20), .completed)
+        capture("epub-import-metadata")
+        app.buttons["local-book-import-save"].tap()
+        let read = app.buttons["local-import-read"]
+        XCTAssertTrue(read.waitForExistence(timeout: 20))
+        XCTAssertEqual(app.staticTexts["local-import-chapter-count"].label, "章节数：2")
+        read.tap()
+        XCTAssertTrue(app.textViews.firstMatch.waitForExistence(timeout: 30))
+        assertVisibleText("正文乙")
+        app.swipeLeft()
+        assertVisibleText("正文甲")
+        app.buttons["local-import-reader-close"].tap()
+        launch(["-smokeEpubImport"])
+        XCTAssertTrue(read.waitForExistence(timeout: 30))
+        read.tap()
+        XCTAssertTrue(app.textViews.firstMatch.waitForExistence(timeout: 30))
+        assertVisibleText("正文甲")
+        capture("epub-cold-reader")
+        app.buttons["local-import-reader-close"].tap()
+        app.buttons["local-import-delete"].tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"), object: read)], timeout: 10), .completed)
+        passed("epub_import_reader")
+    }
+
     func testExploreDetailBookState() {
         launch(["-smokeExploreReading"])
         let entry = app.buttons["explore-reading-book"]

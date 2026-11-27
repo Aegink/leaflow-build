@@ -23,12 +23,13 @@ final class LocalBookCoverCache {
     static let shared = LocalBookCoverCache()
 
     /// 封面目录（init 0x10033449c L14-26 域确证）。
-    private let coversDirectory: URL = FileManager.default.urls(
-        for: .documentDirectory, in: .userDomainMask
-    )[0].appendingPathComponent("local_book_covers", isDirectory: true)
+    private let coversDirectory: URL
 
     /// init（0x10033449c L14-26 域确证）。
-    private init() {
+    init(storageDirectory: URL? = nil) {
+        coversDirectory = storageDirectory ?? FileManager.default.urls(
+            for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("local_book_covers", isDirectory: true)
         try? FileManager.default.createDirectory(
             at: coversDirectory, withIntermediateDirectories: true)
     }

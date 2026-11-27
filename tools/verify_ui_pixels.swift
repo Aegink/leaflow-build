@@ -24,6 +24,7 @@ let required = [
     "testReaderHorizontalPageTurns": 5,
     "testReaderCurlPageTurns": 5,
     "testLocalBookFileImport": 3,
+    "testEpubFileImport": 3,
     "testExploreDetailReadingHandoff": 1
 ]
 do {

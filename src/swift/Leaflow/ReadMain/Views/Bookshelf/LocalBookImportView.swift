@@ -269,6 +269,16 @@ struct LocalBookImportView: View {
                 chapterPattern = result.pattern ?? ""
                 updateChapterPreview(pattern: chapterPattern)
             }
+        } else if localBookType == .epub {
+            let url = fileURL
+            let metadata = await Task.detached(priority: .userInitiated) {
+                try? SimpleEpubParser.parse(epubURL: url)
+            }.value
+            await MainActor.run {
+                if title == suggestion.title, let value = metadata?.title { title = value }
+                if author == (suggestion.author ?? ""), let value = metadata?.author { author = value }
+                if selectedCover == nil, let data = metadata?.coverData { selectedCover = UIImage(data: data) }
+            }
         }
     }
 

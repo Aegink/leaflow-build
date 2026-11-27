@@ -60,7 +60,7 @@ final class LocalBookService: ObservableObject {
     let booksDirectory: URL
     let metadataFileURL: URL
 
-    let coverCache = LocalBookCoverCache.shared
+    let coverCache: LocalBookCoverCache
     private let lock = NSLock()
 
     /// init（0x10033601c L55-72 域确证）。
@@ -68,6 +68,7 @@ final class LocalBookService: ObservableObject {
         let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         booksDirectory = storageDirectory ?? documents.appendingPathComponent("local_books", isDirectory: true)
         metadataFileURL = (storageDirectory ?? documents).appendingPathComponent("local_books_metadata.json")
+        coverCache = storageDirectory.map { LocalBookCoverCache(storageDirectory: $0.appendingPathComponent("covers")) } ?? .shared
         try? FileManager.default.createDirectory(
             at: booksDirectory, withIntermediateDirectories: true)
         migrateIfNeeded()

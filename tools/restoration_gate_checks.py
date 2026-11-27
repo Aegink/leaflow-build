@@ -137,7 +137,7 @@ def build_failures(build: dict, samples: dict, digest: str) -> list[str]:
         failures.append("D7 三入口冒烟未通过或存在崩溃/结果未知")
     if build.get("ui_smoke_required") and build.get("ui_smoke_pass") is not True:
         failures.append("D7 UI 交互冒烟未全部通过")
-    if build.get("ui_smoke_required") and (build.get("ui_pixel_pass") is not True or build.get("ui_pixel_count") != 17):
+    if build.get("ui_smoke_required") and (build.get("ui_pixel_pass") is not True or build.get("ui_pixel_count") != 20):
         failures.append("D7 缺少完整正文像素检查证据")
     evidence = samples.get("evidence") or {}
     declared = set(samples.get("sample_names", []))
