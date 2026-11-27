@@ -2,6 +2,19 @@ import XCTest
 
 // 本地文件导入与重开检查仍由同一测试类执行。
 extension LeaflowSmokeTests {
+    private func waitForCenteredPDFPage(_ index: Int) {
+        let page = app.images["pdf-page-\(index)"]
+        XCTAssertTrue(page.waitForExistence(timeout: 30))
+        let screen = app.frame
+        let centered = NSPredicate { _, _ in
+            let frame = page.frame
+            return !frame.isEmpty && abs(frame.midX - screen.midX) < 2
+                && frame.minX >= screen.minX - 2 && frame.maxX <= screen.maxX + 2
+        }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: centered, object: page)], timeout: 15),
+            .completed, "PDF目标页尚未居中，不能采集通过截图")
+    }
+
     func testPDFFileImport() {
         launch(["-smokePDFImport"])
         let input = app.buttons["local-import-fixture"]
@@ -14,15 +27,16 @@ extension LeaflowSmokeTests {
         XCTAssertTrue(read.waitForExistence(timeout: 20))
         XCTAssertEqual(app.staticTexts["local-import-chapter-count"].label, "章节数：6")
         read.tap()
-        XCTAssertTrue(app.images["pdf-page-0"].waitForExistence(timeout: 30))
+        waitForCenteredPDFPage(0)
         assertVisibleText("PDF PAGE 1")
         app.swipeLeft()
+        waitForCenteredPDFPage(1)
         assertVisibleText("PDF PAGE 2")
         app.buttons["local-import-reader-close"].tap()
         launch(["-smokePDFImport"])
         XCTAssertTrue(read.waitForExistence(timeout: 30))
         read.tap()
-        XCTAssertTrue(app.images["pdf-page-1"].waitForExistence(timeout: 30))
+        waitForCenteredPDFPage(1)
         assertVisibleText("PDF PAGE 2")
         capture("pdf-cold-reader")
         app.buttons["local-import-reader-close"].tap()
