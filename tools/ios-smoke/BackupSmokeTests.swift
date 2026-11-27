@@ -17,8 +17,12 @@ extension LeaflowSmokeTests {
             for _ in 0..<4 where !control.isHittable { app.swipeUp() }
             XCTAssertTrue(control.waitForExistence(timeout: 10))
             XCTAssertTrue(control.isHittable)
-            if (control.value as? String == "1") != enabled { control.tap() }
-            XCTAssertEqual(control.value as? String, enabled ? "1" : "0")
+            if (control.value as? String == "1") != enabled {
+                // SwiftUI的Switch无障碍框覆盖整行，默认中点命中标签；点右侧实际开关。
+                control.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
+            }
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "value == %@", enabled ? "1" : "0"), object: control)], timeout: 5), .completed)
         }
         open()
         for category in categories { toggle(category, to: false) }
