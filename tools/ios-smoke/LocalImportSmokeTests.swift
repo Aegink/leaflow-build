@@ -8,7 +8,7 @@ extension LeaflowSmokeTests {
         let screen = app.frame
         let centered = NSPredicate { _, _ in
             let frame = page.frame
-            return !frame.isEmpty && abs(frame.midX - screen.midX) < 2
+            return page.value as? String == "已加载" && !frame.isEmpty && abs(frame.midX - screen.midX) < 2
                 && frame.minX >= screen.minX - 2 && frame.maxX <= screen.maxX + 2
         }
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: centered, object: page)], timeout: 15),

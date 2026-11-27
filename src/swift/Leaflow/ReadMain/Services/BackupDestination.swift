@@ -45,14 +45,10 @@ struct WebDAVConfig: Codable, Identifiable, Equatable {
 
     /// remoteRootURL getter（签名域确证：directory 拼接域）。
     var remoteRootURL: URL? {
-        var components = URLComponents(string: url)
-        let trimmed = directory.trimmingCharacters(
-            in: .whitespacesAndNewlines)
-        if !trimmed.isEmpty {
-            components?.path = "/" + trimmed
-                .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        }
-        return components?.url
+        // 0x1002abac8：目录追加到服务地址，不能覆盖服务地址已有的路径。
+        guard let base = URL(string: url.trimmingCharacters(in: .whitespacesAndNewlines)) else { return nil }
+        let trimmed = directory.trimmingCharacters(in: CharacterSet(charactersIn: " /\r\n\t"))
+        return trimmed.isEmpty ? base : base.appendingPathComponent(trimmed, isDirectory: true)
     }
 }
 

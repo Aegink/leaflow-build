@@ -32,6 +32,7 @@ import Kanna
 
 /// WebDAV 客户端（init(config:)/listTree/upload/download 签名域确证）。
 final class WebDAVClient {
+    typealias Transport = (URLRequest) async throws -> (Data, URLResponse)
 
     /// 错误（errorDescription 签名域确证）。
     enum WebDAVError: LocalizedError {
@@ -69,14 +70,18 @@ final class WebDAVClient {
 
     private let config: WebDAVConfig
     private let fileManager = FileManager.default
+    private let transport: Transport
 
     /// init(config:) throws（签名域确证）。
-    init(config: WebDAVConfig) throws {
-        guard !config.url.isEmpty,
-              URL(string: config.url) != nil else {
+    init(config: WebDAVConfig, transport: Transport? = nil) throws {
+        guard let root = config.remoteRootURL,
+              ["http", "https"].contains(root.scheme?.lowercased() ?? ""),
+              root.host != nil, root.query == nil, root.fragment == nil,
+              !root.pathComponents.contains(".."), !root.pathComponents.contains(".") else {
             throw WebDAVError.invalidConfig
         }
         self.config = config
+        self.transport = transport ?? { try await URLSession.shared.data(for: $0) }
     }
 
     // MARK: 请求域（makeRequest/perform/authHeader/absoluteURL 域确证）
@@ -120,8 +125,8 @@ final class WebDAVClient {
     private func perform(
         _ request: URLRequest, acceptableExtra: Set<Int> = []
     ) async throws -> (Data, HTTPURLResponse) {
-        let (data, response) = try await URLSession.shared.data(
-            for: request, delegate: nil)
+        try Task.checkCancellation()
+        let (data, response) = try await transport(request)
         guard let http = response as? HTTPURLResponse else {
             throw WebDAVError.parseFailed
         }
@@ -148,7 +153,7 @@ final class WebDAVClient {
                     "<d:prop><d:resourcetype/><d:getcontentlength/>"
                         + "<d:getlastmodified/></d:prop></d:propfind>")
                 .utf8)
-        let (data, _) = try await perform(request, acceptableExtra: [404])
+        let (data, _) = try await perform(request)
         return data
     }
 
@@ -164,23 +169,23 @@ final class WebDAVClient {
         guard let doc = try? Kanna.XML(xml: data, encoding: .utf8) else {
             throw WebDAVError.parseFailed
         }
+        guard doc.xpath("/*[local-name()='multistatus']").first != nil else { throw WebDAVError.parseFailed }
         var entries: [RemoteEntry] = []
         // Searchable 域：xpath 返回 XPathObject（可迭代 XMLElement），
         // 子检索经 node.xpath —— nodes(forXPath:) 非 Kanna 成员（wave-16）。
         for node in doc.xpath("//*[local-name()='response']") {
-            let href = node.xpath("*[local-name()='href']").first?.text ?? ""
-            let isDirectory = node
-                .xpath("//*[local-name()='collection']").count > 0
-            let sizeString = node
-                .xpath("//*[local-name()='getcontentlength']").first?.text
-            let modified = node
-                .xpath("//*[local-name()='getlastmodified']").first?.text
+            guard let href = node.xpath("*[local-name()='href']").first?.text,
+                  let props = node.xpath("*[local-name()='propstat'][contains(*[local-name()='status'], ' 200 ')]/*[local-name()='prop']").first else { continue }
+            let relative = try relativePath(forHref: href)
+            let isDirectory = props.xpath("*[local-name()='resourcetype']/*[local-name()='collection']").count > 0
+            let sizeString = props.xpath("*[local-name()='getcontentlength']").first?.text
+            let modified = props.xpath("*[local-name()='getlastmodified']").first?.text
             let formatter = DateFormatter()
             formatter.locale = Locale(identifier: "en_US_POSIX")
             formatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss zzz"
             entries.append(
                 RemoteEntry(
-                    path: href, isDirectory: isDirectory,
+                    path: relative, isDirectory: isDirectory,
                     size: Int64(sizeString ?? "0") ?? 0,
                     modifiedAt: modified.flatMap(formatter.date)))
         }
@@ -191,20 +196,27 @@ final class WebDAVClient {
 
     /// listTree()（签名域确证：递归 PROPFIND 域）。
     func listTree() async throws -> [RemoteEntry] {
-        try await ensureDirectoryExists()
-        let root = absoluteURL(for: "")
-        let data = try await propfind(url: root, depth: "infinity")
-        return try parsePropfind(data)
+        var pending = [""]
+        var visited = Set<String>()
+        var result: [String: RemoteEntry] = [:]
+        while let path = pending.popLast() {
+            guard visited.insert(path).inserted else { continue }
+            let data = try await propfind(url: absoluteURL(for: path), depth: "1")
+            for entry in try parsePropfind(data) where entry.path != path && !entry.path.isEmpty {
+                result[entry.path] = entry
+                if entry.isDirectory && !visited.contains(entry.path) { pending.append(entry.path) }
+            }
+        }
+        return result.values.sorted { $0.path < $1.path }
     }
 
     /// ensureDirectoryExists（签名域确证：MKCOL 链域）。
     func ensureDirectoryExists() async throws {
+        guard var base = URL(string: config.url.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            throw WebDAVError.invalidConfig
+        }
         for component in dirComponents(of: config.directory) {
-            var base = config.remoteRootURL ?? URL(string: config.url)!
-            for existing in dirComponents(of: "") {
-                base.appendPathComponent(existing)
-            }
-            base.appendPathComponent(component)
+            base.appendPathComponent(component, isDirectory: true)
             try await mkcol(base)
         }
     }
@@ -212,6 +224,27 @@ final class WebDAVClient {
     /// dirComponents(of: String)（签名域确证）。
     private func dirComponents(of path: String) -> [String] {
         normalizedPath(path).split(separator: "/").map(String.init)
+    }
+
+    /// DAV href使用服务器绝对路径；转成备份根内的相对路径后才能写入本地。
+    private func relativePath(forHref href: String) throws -> String {
+        guard let root = config.remoteRootURL, let parsed = URLComponents(string: href),
+              let decoded = parsed.percentEncodedPath.removingPercentEncoding,
+              !decoded.contains("\\"), !decoded.contains("\0") else { throw WebDAVError.parseFailed }
+        let parts = decoded.split(separator: "/")
+        guard !parts.contains(".."), !parts.contains(".") else { throw WebDAVError.parseFailed }
+        if parsed.host != nil || parsed.scheme != nil {
+            guard parsed.host == root.host, parsed.scheme == root.scheme, parsed.port == root.port else {
+                throw WebDAVError.parseFailed
+            }
+        }
+        let path = normalizedPath(decoded)
+        guard decoded.hasPrefix("/") || parsed.host != nil else { return path }
+        let prefix = normalizedPath(root.path)
+        if path == prefix { return "" }
+        if prefix.isEmpty { return path }
+        guard path.hasPrefix(prefix + "/") else { throw WebDAVError.parseFailed }
+        return String(path.dropFirst(prefix.count + 1))
     }
 
     // MARK: 传输域（download/upload/fetchData/downloadTree 签名域确证）
@@ -227,6 +260,7 @@ final class WebDAVClient {
     /// download(relativePath:to:)（签名域确证）。
     func download(relativePath: String, to destination: URL) async throws {
         let data = try await fetchData(relativePath: relativePath)
+        try fileManager.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
         try data.write(to: destination, options: .atomic)
     }
 
@@ -271,7 +305,13 @@ final class WebDAVClient {
         progress: ((Double) -> Void)? = nil
     ) async throws {
         try await ensureDirectoryExists()
-        let localFiles = enumerateLocalFiles(under: localDirectory)
+        let localFiles = enumerateLocalFiles(under: localDirectory).sorted {
+            // 清单最后写入，文件上传失败不能发布本轮成功清单。
+            if ($0.relativePath == "manifest.json") != ($1.relativePath == "manifest.json") {
+                return $1.relativePath == "manifest.json"
+            }
+            return $0.relativePath < $1.relativePath
+        }
         for (index, file) in localFiles.enumerated() {
             let relative = file.relativePath
             try await upload(localFile: file.url, to: relative)
@@ -354,6 +394,6 @@ final class WebDAVClient {
     func testConnection() async throws -> Bool {
         let root = absoluteURL(for: "")
         let data = try await propfind(url: root, depth: "0")
-        return !data.isEmpty
+        return try !parsePropfind(data).isEmpty
     }
 }

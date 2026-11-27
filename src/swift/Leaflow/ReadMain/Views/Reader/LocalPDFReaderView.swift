@@ -50,22 +50,10 @@ struct LocalPDFReaderView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if vm.pageCount > 0 {
-            TabView(selection: Binding(get: { vm.currentPage }, set: vm.jumpToPage)) {
-                ForEach(vm.pages) { page in
-                    let index = page.pageIndex
-                    Group {
-                        if let image = vm.images[index] {
-                            Image(uiImage: image).resizable().scaledToFit()
-                                .accessibilityIdentifier("pdf-page-\(index)")
-                        } else { ProgressView() }
-                    }
-                    .frame(width: geometry.size.width, height: geometry.size.height)
-                    .contentShape(Rectangle())
-                    .onTapGesture { showMenu.toggle() }
-                    .tag(index)
-                }
-            }
-            .tabViewStyle(.page(indexDisplayMode: .never))
+            // 类型表LocalPDFReaderView.Body直接消费MangaPagedView，提交只在翻页完成后发生。
+            MangaPagedView(pages: vm.pages, startIndex: vm.currentPage,
+                onCenterTap: { showMenu.toggle() }, onPageChange: vm.jumpToPage)
+                .frame(width: geometry.size.width, height: geometry.size.height)
         }
     }
 

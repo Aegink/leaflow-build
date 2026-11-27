@@ -30,6 +30,7 @@ struct MangaPagedView: UIViewControllerRepresentable {
             navigationOrientation: .horizontal)
         controller.dataSource = context.coordinator
         controller.delegate = context.coordinator
+        context.coordinator.controller = controller
         guard pages.indices.contains(startIndex),
               let first = context.coordinator.pageController(for: startIndex) else {
             return controller
@@ -40,7 +41,8 @@ struct MangaPagedView: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ controller: UIPageViewController, context: Context) {
-        context.coordinator.pages = pages
+        context.coordinator.update(pages: pages, selectedIndex: startIndex,
+                                   onCenterTap: onCenterTap, onPageChange: onPageChange)
     }
 
     func makeCoordinator() -> Coordinator {
@@ -55,10 +57,13 @@ struct MangaPagedView: UIViewControllerRepresentable {
     final class Coordinator: NSObject, UIPageViewControllerDataSource, UIPageViewControllerDelegate {
 
         var pages: [MangaPage]
+        weak var controller: UIPageViewController?
         private var startIndex: Int
-        private let onCenterTap: () -> Void
-        private let onPageChange: (Int) -> Void
+        private var onCenterTap: () -> Void
+        private var onPageChange: (Int) -> Void
         private var pageCache: [Int: MangaPageContentViewController] = [:]
+        private var transitioning = false
+        private var deferredIndex: Int?
 
         /// 伪代码 0x100615318（L59-65）。
         init(
@@ -80,24 +85,60 @@ struct MangaPagedView: UIViewControllerRepresentable {
             }
             let controller = MangaPageContentViewController()
             controller.configure(page: pages[index], totalPages: pages.count)
-            controller.onCenterTap = onCenterTap
+            controller.onCenterTap = { [weak self] in self?.onCenterTap() }
             pageCache[index] = controller
             return controller
         }
 
         /// 伪代码 0x100615640（L83-93）：程序化翻页。
         func navigatePage(direction: ReaderPageTurnDirection) {
-            guard let current = currentViewController(), let pageVC = current else { return }
+            guard let pageVC = currentViewController() else { return }
             let delta = direction == .next ? 1 : -1
             guard let targetIndex = index(of: pageVC).flatMap({ $0 + delta }),
                   pages.indices.contains(targetIndex),
                   let target = pageController(for: targetIndex) else { return }
-            // L918-930 setViewControllers(direction:) 确证。
-            _ = target
+            guard !transitioning, let controller else { return }
+            transitioning = true
+            controller.setViewControllers([target], direction: delta > 0 ? .forward : .reverse, animated: true) { [weak self] completed in
+                guard let self else { return }
+                self.transitioning = false
+                if completed { self.startIndex = targetIndex; self.onPageChange(targetIndex) }
+                self.applyDeferredIndex()
+            }
         }
 
-        private func currentViewController() -> UIViewController?? {
-            nil
+        private func currentViewController() -> UIViewController? {
+            controller?.viewControllers?.first
+        }
+
+        func update(pages: [MangaPage], selectedIndex: Int, onCenterTap: @escaping () -> Void,
+                    onPageChange: @escaping (Int) -> Void) {
+            let changed = self.pages != pages
+            if changed {
+                self.pages = pages
+                pageCache = pageCache.filter { index, controller in
+                    pages.indices.contains(index) && controller.page == pages[index]
+                }
+            }
+            self.onCenterTap = onCenterTap
+            self.onPageChange = onPageChange
+            guard changed || selectedIndex != startIndex || currentViewController() == nil else { return }
+            deferredIndex = selectedIndex
+            applyDeferredIndex()
+        }
+
+        private func applyDeferredIndex() {
+            guard !transitioning, let selected = deferredIndex, let controller,
+                  let target = pageController(for: selected) else { return }
+            deferredIndex = nil
+            let direction: UIPageViewController.NavigationDirection = selected >= startIndex ? .forward : .reverse
+            startIndex = selected
+            controller.setViewControllers([target], direction: direction, animated: false)
+        }
+
+        func pageViewController(_ pageViewController: UIPageViewController,
+                                willTransitionTo pendingViewControllers: [UIViewController]) {
+            transitioning = true
         }
 
         private func index(of viewController: UIViewController) -> Int? {
@@ -133,10 +174,14 @@ struct MangaPagedView: UIViewControllerRepresentable {
             previousViewControllers: [UIViewController],
             transitionCompleted completed: Bool
         ) {
+            transitioning = false
             guard finished, completed,
                   let current = pageViewController.viewControllers?.first,
-                  let index = index(of: current) else { return }
+                  let index = index(of: current) else { applyDeferredIndex(); return }
+            startIndex = index
             onPageChange(index)
+            pageCache = pageCache.filter { abs($0.key - index) <= 3 }
+            applyDeferredIndex()
         }
     }
 }

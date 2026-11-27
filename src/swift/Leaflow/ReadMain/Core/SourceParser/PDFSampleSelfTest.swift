@@ -99,6 +99,32 @@ enum PDFSampleSelfTest {
             let vm = LocalPDFReaderViewModel(book: book, service: service)
             await vm.loadBook()
             emit("pdf_reader_all_page_models", ["0,1,2,3,4,5"], [vm.pages.map { String($0.pageIndex) }.joined(separator: ",")])
+            let pager = UIPageViewController(transitionStyle: .scroll, navigationOrientation: .horizontal)
+            var committed: [Int] = []
+            let coordinator = MangaPagedView.Coordinator(pages: vm.pages, startIndex: 0,
+                onCenterTap: {}, onPageChange: { committed.append($0) })
+            coordinator.controller = pager
+            pager.dataSource = coordinator
+            pager.delegate = coordinator
+            let firstController = coordinator.pageController(for: 0)!
+            pager.setViewControllers([firstController], direction: .forward, animated: false)
+            emit("pdf_pager_stable_controller_identity", ["true", "true"],
+                [String(firstController === coordinator.pageController(for: 0)), String(coordinator.pageController(for: -1) == nil)])
+            coordinator.update(pages: vm.pages, selectedIndex: 3, onCenterTap: {}, onPageChange: { committed.append($0) })
+            emit("pdf_pager_directory_navigation", ["3", "0"],
+                [String((pager.viewControllers?.first as? MangaPageContentViewController)?.page?.pageIndex ?? -1), String(committed.count)])
+            coordinator.pageViewController(pager, willTransitionTo: [firstController])
+            coordinator.pageViewController(pager, didFinishAnimating: true, previousViewControllers: [firstController], transitionCompleted: false)
+            emit("pdf_pager_cancelled_swipe_no_commit", ["0"], [String(committed.count)])
+            let secondController = coordinator.pageController(for: 1)!
+            pager.setViewControllers([secondController], direction: .reverse, animated: false)
+            coordinator.pageViewController(pager, didFinishAnimating: true, previousViewControllers: [firstController], transitionCompleted: true)
+            emit("pdf_pager_finished_swipe_commit", ["1"], committed.map(String.init))
+            coordinator.update(pages: vm.pages, selectedIndex: 5, onCenterTap: {}, onPageChange: { committed.append($0) })
+            let finalController = pager.viewControllers!.first!
+            emit("pdf_pager_end_boundary", ["true", "4"],
+                [String(coordinator.pageViewController(pager, viewControllerAfter: finalController) == nil),
+                 String((coordinator.pageViewController(pager, viewControllerBefore: finalController) as? MangaPageContentViewController)?.page?.pageIndex ?? -1)])
             emit("pdf_reader_restored_page", ["2", "6", "1", "true"], [String(vm.currentPage), String(vm.pageCount),
                 String(vm.currentDirectoryIndex), String(vm.images[2] != nil)])
             emit("pdf_preload_range", ["1,2,3,4,5"], [vm.images.keys.sorted().map(String.init).joined(separator: ",")])

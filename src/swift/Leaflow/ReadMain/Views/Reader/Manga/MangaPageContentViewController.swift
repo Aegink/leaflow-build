@@ -29,6 +29,7 @@ final class MangaPageContentViewController: UIViewController {
     private let activityIndicator = UIActivityIndicatorView(style: .large)
     private let pageLabel = UILabel()
     private let retryButton = UIButton(type: .system)
+    private var imageTask: Task<Void, Never>?
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -47,11 +48,12 @@ final class MangaPageContentViewController: UIViewController {
 
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
-        // 伪代码 0x100612a78（L46-49）。
+        imageTask?.cancel()
+        imageTask = nil
     }
 
     deinit {
-        // 伪代码 0x100612c5c（L51-53）。
+        imageTask?.cancel()
     }
 
     /// 伪代码 0x100612dbc（L57-66）：缩放容器。
@@ -60,6 +62,10 @@ final class MangaPageContentViewController: UIViewController {
         zoomView.minimumZoomScale = 1.0
         zoomView.maximumZoomScale = 4.0
         imageView.contentMode = .scaleAspectFit
+        imageView.isAccessibilityElement = true
+        zoomView.bounces = false
+        zoomView.alwaysBounceHorizontal = false
+        zoomView.alwaysBounceVertical = false
         zoomView.addSubview(imageView)
         view.addSubview(zoomView)
         let tap = UITapGestureRecognizer(
@@ -94,35 +100,47 @@ final class MangaPageContentViewController: UIViewController {
         super.viewDidLayoutSubviews()
         zoomView.frame = view.bounds
         imageView.frame = zoomView.bounds
-        activityIndicator.center = view.center
+        activityIndicator.center = CGPoint(x: view.bounds.midX, y: view.bounds.midY)
         pageLabel.frame = CGRect(
             x: 0, y: view.bounds.maxY - 30,
             width: view.bounds.width, height: 20)
-        retryButton.center = view.center
+        retryButton.sizeToFit()
+        retryButton.center = CGPoint(x: view.bounds.midX, y: view.bounds.midY)
     }
 
     /// 伪代码 0x1006135d0（L115-131）：页配置。
     func configure(page: MangaPage, totalPages: Int) {
+        imageTask?.cancel()
         self.page = page
+        imageView.image = nil
+        imageView.accessibilityValue = "加载中"
+        imageView.accessibilityIdentifier = PDFPageImageSource.parse(page.imageURL) == nil
+            ? "manga-page-\(page.pageIndex)" : "pdf-page-\(page.pageIndex)"
+        imageView.accessibilityLabel = "第\(page.pageIndex + 1)页"
         pageLabel.text = "\(page.pageIndex + 1) / \(totalPages)"
         retryButton.isHidden = true
+        if isViewLoaded { loadImage() }
     }
 
     /// 伪代码 0x1006138b0（L135-161）：图片加载
     ///（MangaImageCacheService.getImage 消费确证）。
     private func loadImage() {
-        guard let page, let context = page.imageRequestContext else { return }
+        guard let page, imageView.image == nil else { return }
+        imageTask?.cancel()
         activityIndicator.startAnimating()
-        Task { @MainActor in
+        imageTask = Task { @MainActor [weak self] in
             let result = await MangaImageCacheService.shared.getImage(
-                url: page.imageURL, headers: [:], requestContext: context)
-            activityIndicator.stopAnimating()
+                url: page.imageURL, headers: [:], requestContext: page.imageRequestContext)
+            guard let self, !Task.isCancelled, self.page == page else { return }
+            self.activityIndicator.stopAnimating()
             switch result {
             case .image(let image):
-                imageView.image = image
-                retryButton.isHidden = true
+                self.imageView.image = image
+                self.imageView.accessibilityValue = "已加载"
+                self.retryButton.isHidden = true
             case .failure:
-                retryButton.isHidden = false
+                self.retryButton.isHidden = false
+                self.imageView.accessibilityValue = "加载失败"
             }
         }
     }

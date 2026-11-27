@@ -60,6 +60,7 @@ final class BackupService {
     let defaults: UserDefaults
     let documentsOverride: URL?
     let supportOverride: URL?
+    let webDAVTransport: WebDAVClient.Transport?
 
     /// 备份错误（errorDescription 签名域确证）。
     enum BackupError: LocalizedError {
@@ -91,10 +92,12 @@ final class BackupService {
         }
     }
 
-    init(documentsDirectory: URL? = nil, applicationSupportDirectory: URL? = nil, defaults: UserDefaults = .standard) {
+    init(documentsDirectory: URL? = nil, applicationSupportDirectory: URL? = nil, defaults: UserDefaults = .standard,
+         webDAVTransport: WebDAVClient.Transport? = nil) {
         documentsOverride = documentsDirectory
         supportOverride = applicationSupportDirectory
         self.defaults = defaults
+        self.webDAVTransport = webDAVTransport
     }
 
     // MARK: 目录域（appSupportDir/documentsDir 签名域确证）

@@ -80,7 +80,7 @@ extension BackupService {
         config: WebDAVConfig, categories: Set<SyncCategory>,
         progress: ((Double) -> Void)? = nil
     ) async throws {
-        let client = try WebDAVClient(config: config)
+        let client = try WebDAVClient(config: config, transport: webDAVTransport)
         let staging = fileManager.temporaryDirectory
             .appendingPathComponent(
                 "webdav_backup_\(UUID().uuidString)", isDirectory: true)
@@ -89,13 +89,8 @@ extension BackupService {
         defer { try? fileManager.removeItem(at: staging) }
         try exportDataTree(
             to: staging, categories: categories, incremental: false)
-        try fileManager.contentsOfDirectory(
-            at: staging, includingPropertiesForKeys: nil).forEach { file in
-            Task {
-                try? await client.upload(
-                    localFile: file, to: file.lastPathComponent)
-            }
-        }
+        // 0x1002c9594等待0x1003e585c同步树结束，之后才清理暂存目录。
+        try await client.syncDirectory(from: staging, progress: progress)
     }
 
     /// restoreFromWebDAV(config:categories:progress:)（签名域确证：
@@ -104,28 +99,31 @@ extension BackupService {
         config: WebDAVConfig, categories: Set<SyncCategory>,
         progress: ((Double) -> Void)? = nil
     ) async throws {
-        let client = try WebDAVClient(config: config)
+        let client = try WebDAVClient(config: config, transport: webDAVTransport)
         let staging = fileManager.temporaryDirectory
             .appendingPathComponent(
                 "webdav_restore_\(UUID().uuidString)", isDirectory: true)
         try fileManager.createDirectory(
             at: staging, withIntermediateDirectories: true)
-        try await client.downloadTree(to: staging)
-        try importDataTree(from: staging, categories: categories)
-        try? fileManager.removeItem(at: staging)
+        defer { try? fileManager.removeItem(at: staging) }
+        try await client.downloadTree(to: staging, progress: progress)
+        let root = try resolveBackupRoot(in: staging)
+        _ = try decodeManifest(Data(contentsOf: root.appendingPathComponent("manifest.json")))
+        try importDataTree(from: root, categories: categories)
     }
 
     /// previewWebDAVBackup(config:)（签名域确证）。
     func previewWebDAVBackup(config: WebDAVConfig) async throws
         -> [String: Any] {
-        let client = try WebDAVClient(config: config)
-        let entries = try await client.listTree()
-        return ["entries": entries.count]
+        let client = try WebDAVClient(config: config, transport: webDAVTransport)
+        return try decodeManifest(await client.fetchData(relativePath: "manifest.json"))
     }
 
     /// webDAVLastBackupDate(config:)（签名域确证）。
     func webDAVLastBackupDate(config: WebDAVConfig) async -> Date? {
-        nil
+        guard let manifest = try? await previewWebDAVBackup(config: config),
+              let timestamp = manifest["createdAt"] as? String else { return nil }
+        return ISO8601DateFormatter().date(from: timestamp)
     }
 
     // MARK: iCloud 文件域（ensureDownloaded/isItemDownloaded/

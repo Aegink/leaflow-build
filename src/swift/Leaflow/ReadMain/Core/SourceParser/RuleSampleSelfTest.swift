@@ -123,6 +123,7 @@ enum RuleSampleSelfTest {
             BackupArchiveSampleSelfTest.run(emit: emit)
             await BackupSelectionSampleSelfTest.run(emit: emit)
             await ReadingStatisticsSampleSelfTest.run(emit: emit)
+            await WebDAVSampleSelfTest.run(emit: emit)
             emitRaw("SELFTEST_END")
             exit(0)
         }
