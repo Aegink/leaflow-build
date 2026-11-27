@@ -154,6 +154,37 @@ extension PageViewController.Coordinator {
             DispatchQueue.main.async { [weak self] in self?.consumePendingCommand() }
         }
 
+        // 0x100773844 L1148-1161：命令完成使用捕获的目标键，重新解析当前数组。
+        // UIKit双面动画返回的控制器序列可能首先是纸背，不能据此丢失目标提交。
+        private func finishCommand(_ pageVC: UIPageViewController, target: PageCurlPageKey,
+                                   content: UIViewController, completed: Bool) {
+            turnState.reset()
+            programmaticTurnInFlight = false
+            if completed, let index = resolver.index(for: target) {
+                coordinator.parent.currentPageIndex = index
+                coordinator.refreshDisplayVC(content, for: index)
+                syncHighlight(in: content)
+                coordinator.parent.onPageCommitted?(ReaderPageCommit(
+                    index: index, pages: coordinator.parent.pages,
+                    isDoublePage: coordinator.parent.isDoublePageActive))
+            }
+            // 提交后的SwiftUI更新也走此入口；同步样本/非SwiftUI宿主同样恢复到正面。
+            update(pageViewController: pageVC, pagesChanged: false, pageStructureChanged: false)
+            coordinator.schedulePageCurlPrewarming()
+        }
+
+        func commandViewControllers(_ pageVC: UIPageViewController, content: UIViewController,
+                                    start: PageCurlPageKey, targetIndex: Int,
+                                    direction: ReaderPageTurnDirection) -> [UIViewController]? {
+            guard isCurl else { return [content] }
+            // 0x100772d9c L1109-1163：前翻配当前纸背，回翻配目标纸背。
+            let backIndex = direction == .next ? resolver.index(for: start) : targetIndex
+            guard let backIndex, let back = coordinator.createBackVC(for: pageVC, index: backIndex) else {
+                return nil
+            }
+            return [content, back]
+        }
+
         @discardableResult
         func goToPage(direction: ReaderPageTurnDirection) -> Bool {
             guard !programmaticTurnInFlight, !turnState.isActive, !coordinator.parent.menuVisible,
@@ -168,22 +199,17 @@ extension PageViewController.Coordinator {
                 return false
             }
             let content = coordinator.createDisplayVC(for: index, speechHighlight: coordinator.parent.speechHighlight)
-            var controllers: [UIViewController] = [content]
-            if isCurl {
-                // 0x100772d9c L1109-1163：前翻配当前纸背，回翻配目标纸背。
-                let backIndex = direction == .next ? resolver.index(for: start) : index
-                guard let backIndex, let back = coordinator.createBackVC(for: pageVC, index: backIndex) else {
-                    turnState.reset()
-                    return false
-                }
-                controllers.append(back)
+            guard let controllers = commandViewControllers(pageVC, content: content,
+                start: start, targetIndex: index, direction: direction) else {
+                turnState.reset()
+                return false
             }
             programmaticTurnInFlight = true
             coordinator.cancelPageCurlPrewarming(reason: "翻页命令")
             pageVC.setViewControllers(controllers, direction: direction == .next ? .forward : .reverse,
                                      animated: true) { [weak self, weak pageVC] finished in
                 guard let self, let pageVC else { return }
-                self.finish(pageVC, completed: finished)
+                self.finishCommand(pageVC, target: target, content: content, completed: finished)
             }
             return true
         }
