@@ -20,7 +20,7 @@ UI_SMOKE_NAMES = {"bookshelf_card_read_dismissal", "bookshelf_grid_editing",
                   "book_review_rendered_states", "reader_horizontal_page_turns", "reader_curl_page_turns",
                   "explore_detail_reading_handoff", "explore_imported_source_entry",
                   "explore_detail_state_persistence", "local_book_import_reader", "epub_import_reader", "pdf_import_reader",
-                  "backup_category_persistence"}
+                  "backup_category_persistence", "backup_restore_import_entry"}
 
 def sample_evidence(source: Path, log: str) -> dict:
     """同一逐名口径用于即时阻断与最终证据，防止自测失败后继续跑UI。"""

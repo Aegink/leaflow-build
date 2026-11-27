@@ -240,6 +240,7 @@ final class BackupService {
     func importDataTree(
         from directory: URL, categories: Set<SyncCategory>
     ) throws {
+        try validateImportData(from: directory, categories: categories)
         if categories.contains(.bookshelf) {
             for name in ["bookshelf.json", "groups.json", "readtimes.json", "pinnedbooks.json", "pinnedexplore.json"] {
                 try importJSONFile(name, from: directory, to: documentsDir.appendingPathComponent("bookshelf_data/" + name))

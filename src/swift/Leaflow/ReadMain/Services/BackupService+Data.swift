@@ -3,6 +3,30 @@
 import Foundation
 
 extension BackupService {
+    /// 所选分类的JSON全部读完并校验后才写入，后面的损坏文件不能造成前半恢复。
+    func validateImportData(from directory: URL, categories: Set<SyncCategory>) throws {
+        let names: [SyncCategory: [String]] = [
+            .bookshelf: ["bookshelf.json", "groups.json", "readtimes.json", "pinnedbooks.json", "pinnedexplore.json"],
+            .bookmarks: ["bookmarks.json"], .config: ["booksources.json"], .chapterRules: ["chapter_rules.json"],
+            .replaceRules: ["replace_rules.json"], .highlightRules: ["highlight_rules.json"],
+            .ttsSources: ["tts_sources.json"], .readingStats: ["reading_stats.json"],
+            .readingSettings: ["reading_settings.json"], .localBooks: ["local_books_metadata.json"]]
+        for category in categories {
+            for name in names[category] ?? [] {
+                guard let data = try readJSONPayload(name, from: directory) else { continue }
+                switch category {
+                case .readingStats:
+                    let decoder = JSONDecoder()
+                    decoder.dateDecodingStrategy = .iso8601
+                    _ = try decoder.decode([ReadingRecord].self, from: data)
+                case .readingSettings: _ = try JSONDecoder().decode(ReadingSettings.self, from: data)
+                case .localBooks: _ = try JSONDecoder().decode([LocalBook].self, from: data)
+                default: break
+                }
+            }
+        }
+    }
+
     func estimatedFiles(for category: SyncCategory) -> [URL] {
         switch category {
         case .bookshelf:

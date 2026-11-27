@@ -103,6 +103,18 @@ enum BackupSelectionSampleSelfTest {
             do { try restore.importDataTree(from: configOnly, categories: [.config]) } catch { rejected = true }
             emit("backup_invalid_json_preserves_destination", ["true", "true"], [String(rejected),
                 String(try Data(contentsOf: targetDocs.appendingPathComponent("BookSources.json")) == before)])
+            let mixed = root.appendingPathComponent("mixed-invalid")
+            try FileManager.default.createDirectory(at: mixed, withIntermediateDirectories: true)
+            try Data(#"[{"name":"不可提前覆盖"}]"#.utf8).write(to: mixed.appendingPathComponent("bookshelf.json"))
+            try Data("{".utf8).write(to: mixed.appendingPathComponent("booksources.json"))
+            var mixedRejected = false
+            do { try restore.importDataTree(from: mixed, categories: [.bookshelf, .config]) } catch { mixedRejected = true }
+            emit("backup_preflight_preserves_earlier_category", ["true", "true"], [String(mixedRejected),
+                String(try Data(contentsOf: targetDocs.appendingPathComponent("bookshelf_data/bookshelf.json")) == shelf)])
+            try restore.importDataTree(from: mixed, categories: [.bookshelf])
+            emit("backup_unselected_corruption_ignored", ["true"],
+                [String(try Data(contentsOf: targetDocs.appendingPathComponent("bookshelf_data/bookshelf.json"))
+                    == Data(contentsOf: mixed.appendingPathComponent("bookshelf.json")))])
         } catch { emit("backup_selected_config_only", ["通过"], [error.localizedDescription]) }
     }
 }

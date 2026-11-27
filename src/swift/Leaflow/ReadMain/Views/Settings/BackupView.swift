@@ -21,6 +21,7 @@
 // 还原: 2026-11-20
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// 备份与同步页（body 域确证：六段 settingsCardRow 结构）。
 struct BackupView: View {
@@ -32,6 +33,12 @@ struct BackupView: View {
     @State private var confirmRestoreTarget: String?
     @State private var isExporting = false
     @State private var selectedSummary = ""
+    @State private var showImporter = false
+    @State private var restoreFile: URL?
+    @State private var restoreDirectory: URL?
+    @State private var previewSummary = ""
+    @State private var isRestoring = false
+    @State private var operationMessage = ""
 
     var body: some View {
         ScrollView {
@@ -41,13 +48,25 @@ struct BackupView: View {
                 cloudSyncSection
                 lastBackupSection
                 syncContentSection
+                restoreSection
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 24)
         }
         .navigationTitle("备份与同步")
         .onAppear {
+            autoBackupEnabled = UserDefaults.standard.bool(forKey: "reader_auto_backup_enabled")
+            cloudSyncEnabled = UserDefaults.standard.bool(forKey: "reader_cloud_sync_enabled")
             refreshSummary()
+        }
+        .fileImporter(isPresented: $showImporter, allowedContentTypes: [.zip]) { result in
+            switch result {
+            case .success(let url): prepareRestore(url)
+            case .failure(let error): operationMessage = error.localizedDescription
+            }
+        }
+        .onDisappear {
+            if !isRestoring { clearRestoreFile() }
         }
         .alert(
             "确认恢复",
@@ -60,11 +79,33 @@ struct BackupView: View {
             }
             Button("取消", role: .cancel) {
                 confirmRestoreTarget = nil
+                clearRestoreFile()
             }
         } message: {
             if let target = confirmRestoreTarget {
                 // '确定要从' L3843 域确证：恢复来源确认串。
-                Text("确定要从「\(target)」恢复吗？恢复后当前数据将被覆盖。")
+                Text("确定要从「\(target)」恢复吗？\n\(previewSummary)\n恢复后所选分类的数据将被覆盖。")
+            }
+        }
+    }
+
+    /// 类型表12549与restoreSection：先选择文件并读取清单，再确认恢复。
+    private var restoreSection: some View {
+        settingsCardRow(topGap: 12) {
+            VStack(alignment: .leading, spacing: 8) {
+                Button { showImporter = true } label: {
+                    HStack {
+                        AppThemeSettingsLabel("从备份文件恢复", systemImage: "arrow.counterclockwise")
+                        Spacer()
+                        if isRestoring { ProgressView() }
+                    }
+                }
+                .accessibilityIdentifier("backup-import-restore")
+                .disabled(isRestoring || isExporting)
+                if !operationMessage.isEmpty {
+                    Text(operationMessage).font(.footnote).foregroundStyle(.secondary)
+                        .accessibilityIdentifier("backup-operation-result")
+                }
             }
         }
     }
@@ -211,24 +252,61 @@ struct BackupView: View {
 
     private func performExport() {
         isExporting = true
+        operationMessage = ""
         Task {
-            let url = try? await BackupService.shared.exportBackup(
-                categories: BackupSyncPreferences().selectedCategories)
-            isExporting = false
-            if let url {
+            defer { isExporting = false }
+            do {
+                let url = try await BackupService.shared.exportBackup(
+                    categories: BackupSyncPreferences().selectedCategories)
                 let activity = UIActivityViewController(
                     activityItems: [url], applicationActivities: nil)
                 UIApplication.shared.connectedScenes
                     .compactMap { ($0 as? UIWindowScene)?.keyWindow?.rootViewController }
                     .first?
                     .present(activity, animated: true)
+            } catch {
+                operationMessage = error.localizedDescription
             }
         }
     }
 
     private func performRestore() {
+        guard let restoreFile, !isRestoring else { return }
+        let categories = BackupSyncPreferences().selectedCategories
+        isRestoring = true
+        operationMessage = ""
         Task {
-            await BackupService.shared.restoreLatestBackup()
+            defer { isRestoring = false; clearRestoreFile() }
+            do {
+                try await BackupService.shared.restoreBackup(from: restoreFile, categories: categories)
+                operationMessage = "恢复完成，请重新启动应用以载入恢复的数据。"
+                refreshSummary()
+            } catch { operationMessage = "恢复失败：" + error.localizedDescription }
         }
+    }
+
+    private func prepareRestore(_ source: URL) {
+        clearRestoreFile()
+        operationMessage = ""
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("backup-selection-" + UUID().uuidString)
+        restoreDirectory = directory
+        do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let copied = try CopiedFileImportService(stagingDirectory: directory).copyFile(source)
+            let manifest = try BackupService.shared.previewBackup(from: copied)
+            let included = (manifest["categories"] as? [String] ?? []).compactMap(SyncCategory.init(rawValue:))
+            previewSummary = "包含：" + included.map(\.displayName).joined(separator: "、")
+            restoreFile = copied
+            confirmRestoreTarget = source.lastPathComponent
+        } catch {
+            clearRestoreFile()
+            operationMessage = "无法读取备份：" + error.localizedDescription
+        }
+    }
+
+    private func clearRestoreFile() {
+        restoreFile = nil
+        if let restoreDirectory { try? FileManager.default.removeItem(at: restoreDirectory) }
+        restoreDirectory = nil
     }
 }

@@ -1,6 +1,21 @@
 import XCTest
 
 extension LeaflowSmokeTests {
+    func testBackupRestoreFilePickerEntry() {
+        launch(["-smokeBackupSettings"])
+        let restore = app.buttons["backup-import-restore"]
+        for _ in 0..<4 where !restore.isHittable { app.swipeUp() }
+        XCTAssertTrue(restore.waitForExistence(timeout: 10))
+        restore.tap()
+        let cancel = app.buttons.matching(NSPredicate(format: "label IN %@", ["Cancel", "取消"])).firstMatch
+        XCTAssertTrue(cancel.waitForExistence(timeout: 15), "备份恢复必须打开系统文件选择器")
+        capture("backup-restore-file-picker")
+        cancel.tap()
+        XCTAssertTrue(restore.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.alerts["确认恢复"].exists)
+        passed("backup_restore_import_entry")
+    }
+
     func testBackupCategoryPersistence() {
         let categories = ["bookshelf", "bookmarks", "readingStats", "config", "chapterRules", "replaceRules",
                           "ttsSources", "readingSettings", "highlightRules", "appearance", "localBooks"]
