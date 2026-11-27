@@ -61,6 +61,8 @@ enum ZipUtility {
         let localHeaderOffset: Int
         let compressionMethod: UInt16
         let extraCount: Int
+        let fileNameLength: Int
+        let checksum: UInt32
     }
 
     /// 本地文件头（LocalFileHeader 域还原桥）。
@@ -159,48 +161,56 @@ enum ZipUtility {
         try fileManager.createDirectory(
             at: destination, withIntermediateDirectories: true)
         let data = try Data(contentsOf: archive)
-        guard let eocd = findEOCD(in: data) else {
+        guard let eocd = findEOCD(in: data),
+              eocd.centralDirectoryOffset <= data.count,
+              eocd.centralDirectorySize <= data.count - eocd.centralDirectoryOffset else {
             throw ZipError.invalidArchive
         }
         var cursor = eocd.centralDirectoryOffset
         for _ in 0..<eocd.entryCount {
             guard let entry = parseCentralDirectoryEntry(
                 data: data, offset: cursor) else {
-                break
+                throw ZipError.invalidArchive
             }
-            cursor += 46 + entry.fileName.count + entry.extraCount
+            cursor += 46 + entry.fileNameLength + entry.extraCount
             guard let header = parseLocalFileHeader(
                 data: data, offset: entry.localHeaderOffset) else {
-                continue
+                throw ZipError.invalidArchive
             }
             let dataStart = entry.localHeaderOffset + 30
                 + header.fileNameLength + header.extraFieldLength
-            guard dataStart + header.compressedSize <= data.count else {
-                continue
+            guard dataStart <= data.count, entry.compressedSize <= data.count - dataStart,
+                  header.compressionMethod == entry.compressionMethod else {
+                throw ZipError.invalidArchive
             }
             let payload = data.subdata(
-                in: dataStart..<(dataStart + header.compressedSize))
+                in: dataStart..<(dataStart + entry.compressedSize))
             let inflated: Data?
             switch header.compressionMethod {
             case 0:
                 inflated = payload
             case 8:
-                inflated = inflateWithBuffer(
-                    payload, expectedSize: header.uncompressedSize)
+                inflated = inflateRawDeflate(
+                    payload, expectedSize: entry.uncompressedSize)
             default:
                 throw ZipError.unsupportedCompression
             }
-            guard let inflated else {
+            guard let inflated, inflated.count == entry.uncompressedSize, crc32(inflated) == entry.checksum else {
                 throw ZipError.checksumMismatch
             }
             let name = entry.fileName
+            let root = destination.resolvingSymlinksInPath().standardizedFileURL.path
+            let target = destination.appendingPathComponent(name.replacingOccurrences(of: "\\", with: "/"))
+                .resolvingSymlinksInPath().standardizedFileURL
+            guard !name.isEmpty, !name.hasPrefix("/"), target.path.hasPrefix(root + "/") else {
+                throw ZipError.invalidArchive
+            }
             if name.hasSuffix("/") {
                 try fileManager.createDirectory(
-                    at: destination.appendingPathComponent(name),
+                    at: target,
                     withIntermediateDirectories: true)
                 continue
             }
-            let target = destination.appendingPathComponent(name)
             try fileManager.createDirectory(
                 at: target.deletingLastPathComponent(),
                 withIntermediateDirectories: true)
@@ -214,10 +224,12 @@ enum ZipUtility {
     /// findEOCD(in:)（签名域确证：尾部倒扫域）。
     static func findEOCD(in data: Data) -> EOCDRecord? {
         let bytes = [UInt8](data)
-        guard bytes.count > 22 else { return nil }
+        guard bytes.count >= 22 else { return nil }
         var index = bytes.count - 22
         while index >= 0 {
             if readUInt32(data, at: index) == eocdSignature {
+                let commentLength = Int(readUInt16(data, at: index + 20))
+                guard index + 22 + commentLength == bytes.count else { index -= 1; continue }
                 let entryCount = Int(readUInt16(data, at: index + 10))
                 let size = Int(readUInt32(data, at: index + 12))
                 let offset = Int(readUInt32(data, at: index + 16))
@@ -235,31 +247,32 @@ enum ZipUtility {
     static func parseCentralDirectoryEntry(
         data: Data, offset: Int
     ) -> CentralDirectoryEntry? {
-        guard offset + 46 <= data.count,
+        guard offset >= 0, offset <= data.count, data.count - offset >= 46,
               readUInt32(data, at: offset) == centralSignature else {
             return nil
         }
         let nameLength = Int(readUInt16(data, at: offset + 28))
         let extraCount = Int(readUInt16(data, at: offset + 30))
         let commentCount = Int(readUInt16(data, at: offset + 32))
-        guard offset + 46 + nameLength <= data.count else { return nil }
-        let name = String(
+        guard nameLength + extraCount + commentCount <= data.count - offset - 46 else { return nil }
+        guard let name = String(
             data: data.subdata(in: (offset + 46)..<(offset + 46 + nameLength)),
-            encoding: .utf8) ?? ""
+            encoding: .utf8) else { return nil }
         return CentralDirectoryEntry(
             fileName: name,
             compressedSize: Int(readUInt32(data, at: offset + 20)),
             uncompressedSize: Int(readUInt32(data, at: offset + 24)),
             localHeaderOffset: Int(readUInt32(data, at: offset + 42)),
             compressionMethod: readUInt16(data, at: offset + 10),
-            extraCount: extraCount + commentCount)
+            extraCount: extraCount + commentCount, fileNameLength: nameLength,
+            checksum: readUInt32(data, at: offset + 16))
     }
 
     /// parseLocalFileHeader(data:offset:)（签名域确证）。
     static func parseLocalFileHeader(
         data: Data, offset: Int
     ) -> LocalFileHeader? {
-        guard offset + 30 <= data.count,
+        guard offset >= 0, offset <= data.count, data.count - offset >= 30,
               readUInt32(data, at: offset) == localSignature else {
             return nil
         }
@@ -306,7 +319,8 @@ enum ZipUtility {
     private static func inflateWith(
         stream: inout z_stream, input: Data, expectedSize: Int
     ) -> Data? {
-        var inflated = Data(capacity: max(expectedSize, input.count * 3))
+        guard expectedSize >= 0 else { return nil }
+        var inflated = Data()
         var chunk = [UInt8](repeating: 0, count: 16_384)
         var status: Int32 = Z_OK
         input.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
@@ -321,14 +335,15 @@ enum ZipUtility {
                     status = inflate(&stream, Z_NO_FLUSH)
                     produced = buffer.count - Int(stream.avail_out)
                 }
-                guard status != Z_STREAM_ERROR, status != Z_DATA_ERROR,
-                      status != Z_MEM_ERROR else {
+                guard status == Z_OK || status == Z_STREAM_END,
+                      produced <= expectedSize - inflated.count else {
+                    status = Z_DATA_ERROR
                     return
                 }
                 inflated.append(chunk, count: produced)
-            } while stream.avail_out == 0
+            } while status == Z_OK && stream.avail_out == 0
         }
-        return status == Z_STREAM_ERROR ? nil : inflated
+        return status == Z_STREAM_END && inflated.count == expectedSize ? inflated : nil
     }
 
     // MARK: 校验/读取域（adler32Checksum/readUInt32/readUInt16 域确证）

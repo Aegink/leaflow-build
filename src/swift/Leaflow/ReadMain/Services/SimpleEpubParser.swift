@@ -105,12 +105,11 @@ enum SimpleEpubParser {
 
         // spine 域（idref 顺序 → 章节 HTML 链）。
         let spineIDs = spineIDRefs(opfDoc: opfDoc)
-        let idToItem = Dictionary(
-            uniqueKeysWithValues: manifest.map { ($0.id, $0) })
+        let idToItem = Dictionary(manifest.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })
         var chapters: [(title: String, content: String)] = []
         for id in spineIDs {
             guard let item = idToItem[id],
-                  looksLikeHtmlPath(item.href) else {
+                  looksLikeHtmlPath(cleanPath(item.href)) else {
                 continue
             }
             let href = url(relativeTo: opfURL.deletingLastPathComponent(),
@@ -136,7 +135,7 @@ enum SimpleEpubParser {
     /// opfPath(in:)（container.xml rootfile 域还原桥）。
     private static func opfPath(in containerText: String) -> String {
         guard let doc = parseXML(containerText),
-              let rootfile = doc.at_xpath("//rootfile"),
+              let rootfile = doc.at_xpath("//*[local-name()='rootfile']"),
               let fullPath = rootfile["full-path"] else {
             return "content.opf"
         }
@@ -147,7 +146,7 @@ enum SimpleEpubParser {
     private static func manifestItems(
         opfDoc: XMLDocument
     ) -> [EpubManifestItem] {
-        let nodes = opfDoc.xpath("//manifest/item")
+        let nodes = opfDoc.xpath("//*[local-name()='manifest']/*[local-name()='item']")
         return nodes.compactMap { node in
             guard let id = node["id"], let href = node["href"],
                   let mediaType = node["media-type"] else {
@@ -160,12 +159,12 @@ enum SimpleEpubParser {
 
     /// spineIDRefs(opfDoc:)（spine 域还原桥）。
     private static func spineIDRefs(opfDoc: XMLDocument) -> [String] {
-        opfDoc.xpath("//spine/itemref").compactMap { $0["idref"] }
+        opfDoc.xpath("//*[local-name()='spine']/*[local-name()='itemref']").compactMap { $0["idref"] }
     }
 
     /// opfTitle(opfDoc:)（dc:title 域还原桥）。
     private static func opfTitle(opfDoc: XMLDocument) -> String? {
-        opfDoc.at_xpath("//title")?.text
+        opfDoc.at_xpath("//*[local-name()='title']")?.text
     }
 
     // MARK: 封面域（coverData/extractCoverData/isImageItem 域确证）
@@ -185,7 +184,7 @@ enum SimpleEpubParser {
         baseURL: URL
     ) -> Data? {
         if let coverID = opfDoc.at_xpath(
-            "//meta[@name='cover']")?["content"],
+            "//*[local-name()='meta'][@name='cover']")?["content"],
            let item = manifest.first(where: { $0.id == coverID }),
            let data = coverData(for: item, baseURL: baseURL) {
             return data
@@ -218,9 +217,13 @@ enum SimpleEpubParser {
     /// url(relativeTo:href:)（签名域确证：URL 路径解码域）。
     private static func url(relativeTo baseURL: URL, href: String)
         -> URL {
-        let decoded = href
-            .replacingOccurrences(of: "%20", with: " ")
-        return baseURL.appendingPathComponent(decoded)
+        baseURL.appendingPathComponent(cleanPath(href)).standardizedFileURL
+    }
+
+    // 0x1003a3cfc实际为路径归一：先删fragment/query，再百分号解码和反斜杠归一。
+    private static func cleanPath(_ href: String) -> String {
+        let path = href.components(separatedBy: "#")[0].components(separatedBy: "?")[0]
+        return (path.removingPercentEncoding ?? path).replacingOccurrences(of: "\\", with: "/")
     }
 
     // MARK: 章节域（parseChapter/parseHTML/normalized 三件 域确证）
@@ -232,7 +235,7 @@ enum SimpleEpubParser {
         guard let doc = parseHTML(htmlText) else {
             return (fallbackTitle, normalizedBodyText(htmlText) ?? "")
         }
-        let title = doc.at_xpath("//h1|h2|h3")?.text ?? fallbackTitle
+        let title = doc.at_xpath("//h1|//h2|//h3")?.text ?? fallbackTitle
         let paragraphs = doc.xpath("//p").compactMap { node in
             normalizedParagraph(node.text)
         }
