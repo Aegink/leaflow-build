@@ -46,6 +46,7 @@ final class ReaderViewModel {
     // 固定样本可替换 I/O，仍执行生产装配、分页和导航链。
     var chapterListProvider: ((Book, Bool) async throws -> [Chapter])?
     var chapterContentProvider: ((Book, Int, Bool) async throws -> ChapterContent)?
+    @ObservationIgnored var pageCommitHandler: ((ReaderPageCommit) -> Void)?
 
     func configure(book: Book, settings: ReadingSettings) {
         currentBook = book
@@ -198,6 +199,7 @@ final class ReaderViewModel {
     func handleSwipeUpCancel() {}
 
     func handlePageCommitted(_ commit: ReaderPageCommit) {
+        if let pageCommitHandler { pageCommitHandler(commit); return }
         guard commit.shouldApply(currentIndex: currentPageIndex, pageCount: pages.count) else {
             return
         }

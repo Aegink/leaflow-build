@@ -1,9 +1,9 @@
 // T-1602：模拟器真实手势与页面就绪断言，不替代 iPhone 真机或原版对照。
 import XCTest
-import Vision
 
 final class LeaflowSmokeTests: XCTestCase {
     private var app: XCUIApplication!
+    private var pixelSequence = 0
 
     override func setUpWithError() throws { continueAfterFailure = false }
     override func tearDownWithError() throws { app?.terminate() }
@@ -316,13 +316,15 @@ final class LeaflowSmokeTests: XCTestCase {
         XCTAssertTrue(app.textViews.firstMatch.waitForExistence(timeout: 30))
         assertVisibleText("固定本地正文")
         capture("local-book-import-reader")
+        app.swipeLeft()
+        assertVisibleText("固定本地正文乙")
         app.buttons["local-import-reader-close"].tap()
         launch(["-smokeLocalBookImport"])
         XCTAssertTrue(read.waitForExistence(timeout: 30))
         XCTAssertEqual(app.staticTexts["local-import-chapter-count"].label, "章节数：3")
         read.tap()
         XCTAssertTrue(app.textViews.firstMatch.waitForExistence(timeout: 30))
-        assertVisibleText("固定本地正文")
+        assertVisibleText("固定本地正文乙")
         capture("local-book-import-cold-reader")
         passed("local_book_import_reader")
     }
@@ -429,19 +431,12 @@ final class LeaflowSmokeTests: XCTestCase {
     }
 
     private func assertVisibleText(_ expected: String) {
-        // OCR直接读取屏幕像素，防止AX正文存在但被导航栏遮住仍通过。
-        guard let cgImage = app.screenshot().image.cgImage else { XCTFail("缺少截图像素"); return }
-        let request = VNRecognizeTextRequest()
-        // 模拟器Metal图像转换曾令测试运行器崩溃，CPU路径保留相同像素断言。
-        request.usesCPUOnly = true
-        request.recognitionLevel = .accurate
-        request.recognitionLanguages = ["zh-Hans", "en-US"]
-        do {
-            try VNImageRequestHandler(cgImage: cgImage).perform([request])
-            let text = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined()
-            print("屏幕文字识别：\(text)")
-            XCTAssertTrue(text.contains(expected), "屏幕像素未显示预期正文：\(expected)")
-        } catch { XCTFail("屏幕文字识别失败：\(error.localizedDescription)") }
+        // 模拟器只采集屏幕像素，macOS主机逐张识别；缺图、缺文字均阻断CI。
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        pixelSequence += 1
+        attachment.name = "pixel-text-" + expected.utf8.map { String(format: "%02x", $0) }.joined() + "-\(pixelSequence)"
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
     private func capture(_ name: String) {
         let attachment = XCTAttachment(screenshot: app.screenshot())

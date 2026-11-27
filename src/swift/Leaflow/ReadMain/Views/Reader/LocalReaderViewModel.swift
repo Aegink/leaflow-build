@@ -130,10 +130,14 @@ final class LocalReaderViewModel {
         // loadChapters(for:) 域桥，wave-69）。
         let chapters = localBookService.loadChapters(
             for: book.id.uuidString) ?? []
+        guard !chapters.isEmpty else { hasError = true; return }
+        chapterContents = Array(repeating: "", count: chapters.count)
+        hasError = false
         for index in chapters.indices {
             await loadProcessedChapterText(index)
         }
         await rebuildPages(resyncSpeech: false)
+        restorePosition(chapter: book.durChapterIndex, position: book.durChapterPos)
         saveProgress()
     }
 
@@ -144,15 +148,17 @@ final class LocalReaderViewModel {
 
     /// 伪代码 0x100749644（L251-258）：单章文本加载（规则后处理确证）。
     private func loadProcessedChapterText(_ index: Int) async {
-        guard chapterContents.indices.contains(index) == false else { return }
+        guard chapterContents.indices.contains(index), chapterContents[index].isEmpty else { return }
         // LocalBookService.getChapterContentAsync 域桥（wave-69）。
         let content = await localBookService.getChapterContentAsync(
             book: book, chapterIndex: index) ?? ""
-        chapterContents.append(content)
+        chapterContents[index] = content
     }
 
     /// 伪代码 0x100749934（L261-273）：当前章内容重载。
     func reloadCurrentChapterContent() async {
+        guard chapterContents.indices.contains(currentChapterIndex) else { return }
+        chapterContents[currentChapterIndex] = ""
         await loadProcessedChapterText(currentChapterIndex)
         await rebuildPages(resyncSpeech: false)
     }
@@ -196,10 +202,10 @@ final class LocalReaderViewModel {
     private func commitPages(newPages: [PageData]) {
         pages = newPages
         chapterPageMeta.removeAll()
-        for page in newPages {
+        for (index, page) in newPages.enumerated() {
             let meta = chapterPageMeta[page.chapterIndex]
-            let start = meta?.start ?? page.pageIndex
-            let end = max(meta?.end ?? page.pageIndex, page.pageIndex)
+            let start = meta?.start ?? index
+            let end = index
             chapterPageMeta[page.chapterIndex] =
                 (start: start, end: end, count: (meta?.count ?? 0) + 1)
         }
@@ -207,6 +213,8 @@ final class LocalReaderViewModel {
 
     /// 伪代码 0x10074cc08（L484-511）：页集重建。
     func rebuildPages(resyncSpeech: Bool) async {
+        let anchorChapter = currentPage?.chapterIndex ?? currentChapterIndex
+        let anchorPosition = Double(currentPage?.contentRangeInChapter?.location ?? 0)
         var allPages: [PageData] = []
         let chapters = localBookService.loadChapters(for: book.id.uuidString) ?? []
         for (index, content) in chapterContents.enumerated() {
@@ -215,6 +223,7 @@ final class LocalReaderViewModel {
                 chapterTitle: chapters.indices.contains(index) ? chapters[index].title : book.name))
         }
         commitPages(newPages: allPages)
+        restorePosition(chapter: anchorChapter, position: anchorPosition)
         if resyncSpeech {
             await ReaderSpeechSupport.sharedCoordinator.paginationDidChange(owner: self)
         }
@@ -223,6 +232,7 @@ final class LocalReaderViewModel {
     /// 伪代码 0x10074cd54（L514-544）：分页边界更新。
     @discardableResult
     func updatePaginationBoundsIfNeeded(size: CGSize) -> Bool {
+        guard size.width.isFinite, size.height.isFinite, size.width > 0, size.height > 0 else { return false }
         if containerSize != size {
             containerSize = size
             return true
@@ -250,17 +260,31 @@ final class LocalReaderViewModel {
 
     // MARK: 页序/章节
 
+    // 0x100748bfc/0x10074f584：保存与恢复当前章节的正文偏移，分页变化不沿用旧全局页号。
+    private func restorePosition(chapter: Int, position: Double) {
+        guard !pages.isEmpty else { currentPageIndex = 0; return }
+        let target = min(max(0, chapter), max(0, chapterContents.count - 1))
+        let length = chapterContents.indices.contains(target) ? chapterContents[target].utf16.count : 0
+        let offset = Int(position.isFinite ? min(max(0, position), Double(max(0, length - 1))) : 0)
+        currentPageIndex = pages.firstIndex {
+            $0.chapterIndex == target && $0.contentRangeInChapter.map { NSLocationInRange(offset, $0) } == true
+        } ?? pages.firstIndex { $0.chapterIndex == target } ?? 0
+        currentChapterIndex = pages[currentPageIndex].chapterIndex
+    }
+
     /// 伪代码 0x1007466a8（L40）：页序变更。
     func setCurrentPageIndex(_ index: Int) {
         guard pages.indices.contains(index) else { return }
         currentPageIndex = index
+        currentChapterIndex = pages[index].chapterIndex
+        scheduleDebouncedSave()
         syncSpeechForPageChange(to: index)
     }
 
     /// 伪代码 0x100748628（L172-179）：可见页序变化。
     func onVisiblePageIndicesChanged(_ indices: [Int]) {
         guard let first = indices.sorted().first, pages.indices.contains(first) else { return }
-        currentPageIndex = first
+        setCurrentPageIndex(first)
     }
 
     /// 伪代码 0x10074dbc0（L590-610）：章节切换。
@@ -287,8 +311,7 @@ final class LocalReaderViewModel {
         let lower = max(0, currentChapterIndex - radius)
         let upper = min(chapterContents.count - 1, currentChapterIndex + radius)
         chapterContents = chapterContents.enumerated()
-            .filter { $0.offset >= lower && $0.offset <= upper }
-            .map(\.element)
+            .map { $0.offset >= lower && $0.offset <= upper ? $0.element : "" }
     }
 
     /// 伪代码 0x10074ec64（L677-691）：当前章刷新。
@@ -300,7 +323,9 @@ final class LocalReaderViewModel {
     func jumpToChapter(_ index: Int, coordinateReadAloud: Bool) async {
         guard chapterContents.indices.contains(index) else { return }
         currentChapterIndex = index
+        await loadProcessedChapterText(index)
         await rebuildPages(resyncSpeech: coordinateReadAloud)
+        if let page = pages.firstIndex(where: { $0.chapterIndex == index }) { setCurrentPageIndex(page) }
     }
 
     // MARK: 进度
@@ -310,9 +335,12 @@ final class LocalReaderViewModel {
     /// ListeningDurationTracker.saveIncremental（L4926-4934 确证）+
     /// saveWebViewScrollProgressNow（L4842 确证）。
     func saveProgress() {
-        LocalBookService.shared.saveReadingProgress(
+        guard let page = currentPage else { return }
+        debouncedSaveTask?.cancel()
+        debouncedSaveTask = nil
+        localBookService.saveReadingProgress(
             book: book, chapterIndex: currentChapterIndex,
-            position: Double(currentPageIndex))
+            position: Double(page.contentRangeInChapter?.location ?? 0))
         ReadingDurationTracker.shared.saveIncremental()
         ListeningDurationTracker.shared.saveIncremental()
         saveWebViewScrollProgressNow()

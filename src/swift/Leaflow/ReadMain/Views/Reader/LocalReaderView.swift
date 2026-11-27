@@ -165,6 +165,7 @@ struct LocalReaderView: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: menuVisible)
+        .onDisappear { viewModel?.saveProgress() }
     }
 
     /// 伪代码 0x10072798c（L247-266）：阅读场景（PageContent 承载）。
@@ -206,6 +207,7 @@ struct LocalReaderView: View {
         adapter.menuVisible = menuVisible
         adapter.containerSize = vm.containerSize
         adapter.settings = settings
+        adapter.pageCommitHandler = { [weak vm] commit in vm?.commitPageTurn(commit) }
     }
 
     /// 章节滑条（_chapterSliderValue 初始化确证）。

@@ -62,6 +62,15 @@ def record(root: Path, source: Path, run_id: str, sha: str, require_ui_smoke: bo
     ui_passed = sorted(set(re.findall(r"SMOKE_UI (\S+) pass=true", ui_log)))
     ui_exits = re.findall(r"^ui_test_exit=(\d+)$", read("ui-smoke-result.txt"), re.M)
     ui_ok = (bool(ui_exits) and ui_exits[-1] == "0" and set(ui_passed) == UI_SMOKE_NAMES)
+    try:
+        pixels = json.loads(read("ui-pixels.json"))
+    except (ValueError, TypeError):
+        pixels = {}
+    pixel_ok = (pixels.get("all_pass") is True and len(pixels.get("checks", [])) == 17
+                and not pixels.get("errors")
+                and all(row.get("passed") is True for row in pixels.get("checks", [])))
+    if require_ui_smoke and not pixel_ok:
+        ui_ok = False
     if require_ui_smoke and crash_count != 0:
         errors = max(errors, 1)
     if require_ui_smoke and not ui_ok:
@@ -75,6 +84,7 @@ def record(root: Path, source: Path, run_id: str, sha: str, require_ui_smoke: bo
                  recorded_at=datetime.now(timezone.utc).isoformat())
     if require_ui_smoke:
         build.update(ui_smoke_required=True, ui_smoke_pass=ui_ok, ui_passed=ui_passed,
+                     ui_pixel_pass=pixel_ok, ui_pixel_count=len(pixels.get("checks", [])),
                      ui_test_exit=ui_exits[-1] if ui_exits else None)
     samples = dict(run_id=run_id, source_digest=digest, unique_samples=len(passed),
                    passed_samples=passed, failed_samples=failed,

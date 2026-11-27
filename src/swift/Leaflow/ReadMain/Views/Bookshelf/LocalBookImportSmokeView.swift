@@ -45,7 +45,7 @@ struct LocalBookImportSmokeView: View {
         .task {
             do {
                 let url = FileManager.default.temporaryDirectory.appendingPathComponent(title + ".txt")
-                try "第一章 初见\n固定本地正文已经到达阅读器。\n第二章 重逢\n第二章内容。\n第三章 终章\n第三章内容。"
+                try "第一章 初见\n固定本地正文已经到达阅读器。\n第二章 重逢\n固定本地正文乙。\n第三章 终章\n固定本地正文丙。"
                     .write(to: url, atomically: true, encoding: .utf8)
                 input = url
             } catch { self.error = error.localizedDescription }

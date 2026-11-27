@@ -279,6 +279,9 @@ class GateTests(unittest.TestCase):
             (root / "ui-smoke-result.txt").write_text("ui_test_exit=0\ncrash_reports=0\n", encoding="utf-8")
             (root / "ui-smoke.log").write_text("\n".join(
                 f"SMOKE_UI {name} pass=true" for name in R["UI_SMOKE_NAMES"]), encoding="utf-8")
+            self.assertEqual(R["record"](root, source, "1", "abc", True), 1)
+            (root / "ui-pixels.json").write_text(json.dumps(dict(all_pass=True,
+                checks=[dict(passed=True)] * 17, errors=[])), encoding="utf-8")
             self.assertEqual(R["record"](root, source, "1", "abc", True), 0)
             (root / "ui-smoke-result.txt").write_text("ui_test_exit=0\ncrash_reports=1\n", encoding="utf-8")
             self.assertEqual(R["record"](root, source, "1", "abc", True), 1)

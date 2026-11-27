@@ -184,6 +184,10 @@ jobs:
           STATUS=${PIPESTATUS[0]}
           echo "ui_test_exit=$STATUS" > ui-smoke-result.txt
           xcrun xcresulttool export attachments --path ui-smoke.xcresult --output-path ui-screenshots
+          xcrun swift tools/verify_ui_pixels.swift . 2>&1 | tee ui-pixels.log
+          PIXEL_STATUS=${PIPESTATUS[0]}
+          if [ "$PIXEL_STATUS" -ne 0 ]; then STATUS=1; fi
+          echo "ui_test_exit=$STATUS" > ui-smoke-result.txt
           xcrun xcresulttool export diagnostics --path ui-smoke.xcresult --output-path ui-diagnostics
           xcrun simctl spawn "$UDID" log show --last 20m --style compact \
             --predicate 'process == "Leaflow"' > ui-app.log 2>&1
@@ -294,6 +298,8 @@ jobs:
             sim-tts-*.png
             ui-smoke.log
             ui-smoke-result.txt
+            ui-pixels.json
+            ui-pixels.log
             ui-screenshots/
             ui-diagnostics/
             ui-crashes/
