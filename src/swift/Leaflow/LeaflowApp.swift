@@ -108,6 +108,8 @@ struct LeaflowApp: App {
                     ReaderPageTurnSmokeView()
                 } else if ProcessInfo.processInfo.arguments.contains("-smokeExploreReading") {
                     ExploreReadingSmokeView()
+                } else if ProcessInfo.processInfo.arguments.contains("-smokeBackupSettings") {
+                    NavigationStack { BackupView() }
                 } else if ProcessInfo.processInfo.arguments.contains("-smokeLocalBookImport")
                     || ProcessInfo.processInfo.arguments.contains("-smokeEpubImport")
                     || ProcessInfo.processInfo.arguments.contains("-smokePDFImport") {

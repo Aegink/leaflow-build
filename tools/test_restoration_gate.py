@@ -29,7 +29,8 @@ class GateTests(unittest.TestCase):
         owners = {
             "ReadMain/Services/BackupService.swift": [
                 "ReadMain/Services/BackupService+Export.swift",
-                "ReadMain/Services/BackupService+Cloud.swift"],
+                "ReadMain/Services/BackupService+Cloud.swift",
+                "ReadMain/Services/BackupService+Data.swift"],
             "ReadMain/Views/Bookshelf/LocalBookImportView.swift": [
                 "ReadMain/Views/Bookshelf/LocalBookImportView+Metadata.swift"],
             "ReadMain/Services/LocalBookService.swift": [

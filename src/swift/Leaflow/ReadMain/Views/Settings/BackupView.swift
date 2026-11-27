@@ -31,6 +31,7 @@ struct BackupView: View {
     @State private var estimatedSizeText = ""
     @State private var confirmRestoreTarget: String?
     @State private var isExporting = false
+    @State private var selectedSummary = ""
 
     var body: some View {
         ScrollView {
@@ -166,6 +167,7 @@ struct BackupView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                .accessibilityIdentifier("backup-sync-categories")
                 // '设备：'/'App版本：'/'包含：' 摘要域确证。
                 Text("设备：\(deviceName)")
                     .font(.caption)
@@ -173,7 +175,7 @@ struct BackupView: View {
                 Text("App版本：\(appVersion)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Text("包含：书架、阅读记录、书源、替换规则、主题")
+                Text("包含：\(selectedSummary)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -191,6 +193,8 @@ struct BackupView: View {
     }
 
     private func refreshSummary() {
+        let selected = BackupSyncPreferences().selectedCategories
+        selectedSummary = SyncCategory.allCases.filter { selected.contains($0) }.map(\.displayName).joined(separator: "、")
         let coordinator = AutoBackupCoordinator.shared
         if let last = coordinator.lastBackupDate {
             let formatter = DateFormatter()
@@ -200,7 +204,7 @@ struct BackupView: View {
             lastBackupText = ""
         }
         let size = BackupService.shared.estimateBackupSize(
-            categories: Set(SyncCategory.allCases))
+            categories: selected)
         estimatedSizeText = ByteCountFormatter.string(
             fromByteCount: size, countStyle: .file)
     }
@@ -209,7 +213,7 @@ struct BackupView: View {
         isExporting = true
         Task {
             let url = try? await BackupService.shared.exportBackup(
-                categories: Set(SyncCategory.allCases))
+                categories: BackupSyncPreferences().selectedCategories)
             isExporting = false
             if let url {
                 let activity = UIActivityViewController(

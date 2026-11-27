@@ -56,7 +56,7 @@ final class AutoBackupCoordinator {
         Task { @MainActor in
             do {
                 _ = try await BackupService.shared.exportBackup(
-                    categories: SyncCategory.defaults)
+                    categories: BackupSyncPreferences().selectedCategories)
                 lastBackupDate = Date()
             } catch {
                 // 失败静默域（下次触发重试桥）。

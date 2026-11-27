@@ -121,6 +121,7 @@ enum RuleSampleSelfTest {
             await EpubSampleSelfTest.run(emit: emit)
             await PDFSampleSelfTest.run(emit: emit)
             BackupArchiveSampleSelfTest.run(emit: emit)
+            await BackupSelectionSampleSelfTest.run(emit: emit)
             emitRaw("SELFTEST_END")
             exit(0)
         }

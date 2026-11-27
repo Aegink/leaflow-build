@@ -22,6 +22,9 @@ import Foundation
 final class BackupSyncPreferences {
 
     private let defaults: UserDefaults
+    private static let selectedKey = "BackupSyncEnabledCategories"
+    private static let knownKey = "BackupSyncKnownCategories"
+    private(set) var selectedCategories: Set<SyncCategory>
 
     /// 自动备份开关（BackupView 域桥）。
     var isAutoBackupEnabled: Bool {
@@ -31,31 +34,53 @@ final class BackupSyncPreferences {
     /// init（签名域确证）。
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        if let saved = defaults.stringArray(forKey: Self.selectedKey) {
+            let known = defaults.stringArray(forKey: Self.knownKey) ?? saved
+            selectedCategories = Set(saved.compactMap(SyncCategory.init(rawValue:)))
+                .union(SyncCategory.defaults.subtracting(Set(known.compactMap(SyncCategory.init(rawValue:)))))
+        } else if let legacy = defaults.stringArray(forKey: "reader_sync_categories") {
+            selectedCategories = Self.migrateLegacyCategories(legacy)
+        } else { selectedCategories = SyncCategory.defaults }
+        persist()
+        persistKnownCategories()
     }
 
     /// isEnabled(SyncCategory)（签名域确证：缺省全开域）。
     func isEnabled(_ category: SyncCategory) -> Bool {
-        let raw = defaults.stringArray(
-            forKey: "reader_sync_categories")
-        guard let raw else { return true }
-        let selected = Set(raw.compactMap(SyncCategory.init(rawValue:)))
-        if selected.isEmpty { return true }
-        return selected.contains(category)
+        selectedCategories.contains(category)
     }
 
     /// setEnabled(_:for: SyncCategory)（签名域确证）。
     func setEnabled(_ enabled: Bool, for category: SyncCategory) {
-        var raw = Set(
-            (defaults.stringArray(forKey: "reader_sync_categories") ?? [])
-                .compactMap(SyncCategory.init(rawValue:)))
         if enabled {
-            raw.insert(category)
+            selectedCategories.insert(category)
         } else {
-            raw.remove(category)
+            selectedCategories.remove(category)
         }
-        defaults.set(
-            raw.map(\.rawValue), forKey: "reader_sync_categories")
         persist()
+    }
+
+    func setSelectedCategories(_ selected: Set<SyncCategory>) {
+        selectedCategories = selected
+        persist()
+        persistKnownCategories()
+    }
+
+    // 仅迁移重建包旧7类键，不改写原版11类的含义。
+    private static func migrateLegacyCategories(_ values: [String]) -> Set<SyncCategory> {
+        var result = Set<SyncCategory>()
+        for value in values {
+            switch value {
+            case "bookshelf": result.formUnion([.bookshelf, .localBooks])
+            case "readingProgress": result.insert(.bookshelf)
+            case "sources": result.insert(.config)
+            case "themes": result.insert(.appearance)
+            case "settings": result.formUnion([.readingSettings, .readingStats, .ttsSources])
+            case "replaceRules": result.formUnion([.chapterRules, .replaceRules, .highlightRules])
+            default: if let category = SyncCategory(rawValue: value) { result.insert(category) }
+            }
+        }
+        return result
     }
 
     /// recordAutoBackupCompleted（签名域确证）。
@@ -68,15 +93,14 @@ final class BackupSyncPreferences {
 
     /// persist（签名域确证）。
     func persist() {
+        defaults.set(selectedCategories.map(\.rawValue).sorted(), forKey: Self.selectedKey)
         defaults.synchronize()
     }
 
     /// persistKnownCategories（签名域确证）。
     func persistKnownCategories() {
         defaults.set(
-            SyncCategory.allCases.map(\.rawValue),
-            forKey: "reader_sync_known_categories")
-        persist()
+            SyncCategory.allCases.map(\.rawValue), forKey: Self.knownKey)
     }
 }
 
@@ -129,12 +153,16 @@ extension SyncCategory {
     var systemImage: String {
         switch self {
         case .bookshelf: return "books.vertical"
-        case .readingProgress: return "book"
         case .bookmarks: return "bookmark"
-        case .sources: return "network"
+        case .readingStats: return "chart.bar"
+        case .config: return "network"
+        case .chapterRules: return "list.bullet"
         case .replaceRules: return "arrow_left_arrow_right"
-        case .themes: return "paintpalette"
-        case .settings: return "gearshape"
+        case .ttsSources: return "speaker.wave.2"
+        case .readingSettings: return "textformat"
+        case .highlightRules: return "highlighter"
+        case .appearance: return "paintpalette"
+        case .localBooks: return "folder"
         }
     }
 }

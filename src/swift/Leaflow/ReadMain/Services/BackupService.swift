@@ -57,7 +57,9 @@ final class BackupService {
     static let shared = BackupService()
 
     let fileManager = FileManager.default
-    let bookService = BookService()
+    let defaults: UserDefaults
+    let documentsOverride: URL?
+    let supportOverride: URL?
 
     /// 备份错误（errorDescription 签名域确证）。
     enum BackupError: LocalizedError {
@@ -89,20 +91,24 @@ final class BackupService {
         }
     }
 
-    init() {}
+    init(documentsDirectory: URL? = nil, applicationSupportDirectory: URL? = nil, defaults: UserDefaults = .standard) {
+        documentsOverride = documentsDirectory
+        supportOverride = applicationSupportDirectory
+        self.defaults = defaults
+    }
 
     // MARK: 目录域（appSupportDir/documentsDir 签名域确证）
 
     /// appSupportDir getter（签名域确证）。
     var appSupportDir: URL {
-        FileManager.default.urls(
+        supportOverride ?? FileManager.default.urls(
             for: .applicationSupportDirectory, in: .userDomainMask
         ).first!
     }
 
     /// documentsDir getter（签名域确证）。
     var documentsDir: URL {
-        FileManager.default.urls(
+        documentsOverride ?? FileManager.default.urls(
             for: .documentDirectory, in: .userDomainMask
         ).first!
     }
@@ -155,8 +161,10 @@ final class BackupService {
     func exportBackup(
         categories: Set<SyncCategory>
     ) async throws -> URL {
-        try flushReadingSettingsForBackup()
-        try flushAppThemeSettingsForBackup()
+        if documentsOverride == nil {
+            try flushReadingSettingsForBackup()
+            try flushAppThemeSettingsForBackup()
+        }
         let staging = fileManager.temporaryDirectory
             .appendingPathComponent(
                 "backup_\(UUID().uuidString)", isDirectory: true)
@@ -179,22 +187,26 @@ final class BackupService {
         incremental: Bool
     ) throws {
         var counts: [String: Int] = [:]
-        try exportBookshelfFiles(to: directory, counts: &counts)
+        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
         if categories.contains(.bookshelf) {
-            try exportLocalBooksIfNeeded(
-                false, to: directory, incremental: incremental)
+            try exportBookshelfFiles(to: directory, counts: &counts)
         }
         if categories.contains(.bookmarks) {
             try exportBookmarkFile(to: directory, counts: &counts)
         }
-        if categories.contains(.sources) {
+        if categories.contains(.config) {
             try exportBookSources(to: directory, counts: &counts)
         }
-        if categories.contains(.replaceRules) {
+        if categories.contains(.chapterRules) {
             try exportChapterRules(to: directory, counts: &counts)
+        }
+        if categories.contains(.replaceRules) {
+            try exportReplaceRules(to: directory, counts: &counts)
+        }
+        if categories.contains(.highlightRules) {
             try exportHighlightRules(to: directory, counts: &counts)
         }
-        if categories.contains(.themes) {
+        if categories.contains(.appearance) {
             try exportThemeResources(
                 to: directory, counts: &counts, incremental: incremental)
             try exportReaderBackgrounds(
@@ -204,15 +216,19 @@ final class BackupService {
             try exportChapterTitleAssets(
                 to: directory, counts: &counts, incremental: incremental)
         }
-        if categories.contains(.settings) {
-            exportReadingSettings()
+        if categories.contains(.readingSettings) {
             try exportReadingSettingsFile(to: directory)
+        }
+        if categories.contains(.readingStats) {
             try exportReadingStatistics(
                 to: directory, incremental: incremental)
+        }
+        if categories.contains(.ttsSources) {
             try exportTtsSources(
                 to: directory, counts: &counts, incremental: incremental)
         }
-        try writeManifest(to: directory, counts: counts)
+        try exportLocalBooksIfNeeded(categories.contains(.localBooks), to: directory, incremental: incremental)
+        try writeManifest(to: directory, counts: counts, categories: categories)
     }
 
     // MARK: 导入域（importDataTree/import* 签名域确证）
@@ -222,35 +238,26 @@ final class BackupService {
         from directory: URL, categories: Set<SyncCategory>
     ) throws {
         if categories.contains(.bookshelf) {
-            let source = directory.appendingPathComponent("bookshelf.json")
-            if fileManager.fileExists(atPath: source.path) {
-                try copyFileOverwriting(
-                    from: source,
-                    to: appSupportDir.appendingPathComponent(
-                        "bookshelf.json"))
+            for name in ["bookshelf.json", "groups.json", "readtimes.json", "pinnedbooks.json", "pinnedexplore.json"] {
+                try importJSONFile(name, from: directory, to: documentsDir.appendingPathComponent("bookshelf_data/" + name))
             }
         }
-        if categories.contains(.sources) {
-            let source = directory.appendingPathComponent(
-                "booksources.json")
-            if fileManager.fileExists(atPath: source.path) {
-                try copyFileOverwriting(
-                    from: source,
-                    to: appSupportDir.appendingPathComponent(
-                        "booksources.json"))
+        if categories.contains(.bookmarks) {
+            try importJSONFile("bookmarks.json", from: directory, to: documentsDir.appendingPathComponent("bookshelf_data/bookmarks.json"))
+        }
+        if categories.contains(.config) {
+            try importJSONFile("booksources.json", from: directory, to: documentsDir.appendingPathComponent("BookSources.json"))
+        }
+        if categories.contains(.chapterRules) {
+            if let data = try readJSONPayload("chapter_rules.json", from: directory) {
+                defaults.set(data, forKey: "chapter_rules")
+                try data.write(to: documentsDir.appendingPathComponent("chapter_rules.json"), options: .atomic)
             }
         }
         if categories.contains(.replaceRules) {
-            let source = directory.appendingPathComponent(
-                "replace_rules.json")
-            if fileManager.fileExists(atPath: source.path) {
-                try copyFileOverwriting(
-                    from: source,
-                    to: appSupportDir.appendingPathComponent(
-                        "replace_rules.json"))
-            }
+            try importJSONFile("replace_rules.json", from: directory, to: appSupportDir.appendingPathComponent("replace_rules.json"))
         }
-        if categories.contains(.themes) {
+        if categories.contains(.appearance) {
             let themes = directory.appendingPathComponent("Themes")
             if fileManager.fileExists(atPath: themes.path) {
                 try mirrorDirectory(
@@ -259,7 +266,20 @@ final class BackupService {
                     incremental: false)
             }
         }
-        if categories.contains(.settings) {
+        if categories.contains(.ttsSources), let data = try readJSONPayload("tts_sources.json", from: directory) {
+            defaults.set(data, forKey: "reader_tts_sources")
+        }
+        if categories.contains(.highlightRules) {
+            try importJSONFile("highlight_rules.json", from: directory, to: appSupportDir.appendingPathComponent("highlight_rules.json"))
+        }
+        if categories.contains(.localBooks) { try importLocalBookFiles(from: directory) }
+        if categories.contains(.readingStats) {
+            let stats = directory.appendingPathComponent("reading_stats")
+            if fileManager.fileExists(atPath: stats.path) {
+                try mirrorDirectory(from: stats, to: appSupportDir.appendingPathComponent("reading_stats"), incremental: false)
+            }
+        }
+        if categories.contains(.readingSettings) {
             let settingsFile = directory.appendingPathComponent(
                 "reading_settings.json")
             if fileManager.fileExists(atPath: settingsFile.path),
@@ -329,14 +349,28 @@ final class BackupService {
             }
         guard let latest = files?.first else { return }
         try? await restoreBackup(
-            from: latest, categories: Set(SyncCategory.allCases))
+            from: latest, categories: BackupSyncPreferences().selectedCategories)
     }
 
     // MARK: 估算域（estimateBackupSize 签名域确证）
 
     /// estimateBackupSize(categories:)（签名域确证：BackupView 域桥）。
     func estimateBackupSize(categories: Set<SyncCategory>) -> Int64 {
-        directorySize(appSupportDir)
+        var total: Int64 = 0
+        var visited = Set<String>()
+        for category in categories {
+            for url in estimatedFiles(for: category) where visited.insert(url.path).inserted {
+                if (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true {
+                    total += directorySize(url)
+                } else { total += fileSize(url) }
+            }
+        }
+        if categories.contains(.chapterRules), existingFile(estimatedFiles(for: .chapterRules)) == nil {
+            total += Int64(defaults.data(forKey: "chapter_rules")?.count ?? 0)
+        }
+        if categories.contains(.readingSettings) { total += Int64((try? JSONEncoder().encode(ReadingSettings.load()))?.count ?? 0) }
+        if categories.contains(.ttsSources) { total += Int64(defaults.data(forKey: "reader_tts_sources")?.count ?? 0) }
+        return total
     }
 
 }

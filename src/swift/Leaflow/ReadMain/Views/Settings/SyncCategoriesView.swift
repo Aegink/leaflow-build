@@ -39,6 +39,7 @@ struct SyncCategoriesView: View {
                         Label(category.displayName, systemImage:
                                 category.systemImage)
                     }
+                    .accessibilityIdentifier("sync-category-" + category.rawValue)
                 }
             } header: {
                 Text("同步内容")
@@ -53,44 +54,45 @@ struct SyncCategoriesView: View {
     }
 
     private func load() {
-        let raw = UserDefaults.standard.stringArray(
-            forKey: "reader_sync_categories") ?? []
-        let selected = Set(raw.compactMap(SyncCategory.init(rawValue:)))
-        selectedCategories = selected.isEmpty
-            ? SyncCategory.defaults : selected
+        selectedCategories = BackupSyncPreferences().selectedCategories
     }
 
     private func persist() {
-        UserDefaults.standard.set(
-            selectedCategories.map(\.rawValue),
-            forKey: "reader_sync_categories")
+        BackupSyncPreferences().setSelectedCategories(selectedCategories)
     }
 }
 
-/// 同步分类（CloudSyncController categories: Set<SyncCategory> 域
-/// 交叉确证；case 域按 '同步内容' 脚注枚举还原）。
+/// 类型表5739及0x101339740：11个原版同步分类，默认排除本地书文件。
 enum SyncCategory: String, CaseIterable, Codable, Hashable {
     case bookshelf
-    case readingProgress
     case bookmarks
-    case sources
+    case readingStats
+    case config
+    case chapterRules
     case replaceRules
-    case themes
-    case settings
+    case ttsSources
+    case readingSettings
+    case highlightRules
+    case appearance
+    case localBooks
 
     static var defaults: Set<SyncCategory> {
-        [.bookshelf, .readingProgress, .sources]
+        Set(allCases).subtracting([.localBooks])
     }
 
     var displayName: String {
         switch self {
-        case .bookshelf: return "书架"
-        case .readingProgress: return "阅读进度"
-        case .bookmarks: return "书签与笔记"
-        case .sources: return "书源"
+        case .bookshelf: return "书架与阅读进度"
+        case .bookmarks: return "书签"
+        case .readingStats: return "阅读统计"
+        case .config: return "配置"
+        case .chapterRules: return "目录规则"
         case .replaceRules: return "替换规则"
-        case .themes: return "主题"
-        case .settings: return "应用设置"
+        case .ttsSources: return "朗读源"
+        case .readingSettings: return "阅读设置"
+        case .highlightRules: return "高亮规则"
+        case .appearance: return "外观与主题"
+        case .localBooks: return "本地书籍"
         }
     }
 

@@ -10,47 +10,43 @@ extension BackupService {
     func exportBookshelfFiles(
         to directory: URL, counts: inout [String: Int]
     ) throws {
-        let source = appSupportDir.appendingPathComponent(
-            "bookshelf.json")
-        guard fileManager.fileExists(atPath: source.path) else { return }
-        try fileManager.copyItem(
-            at: source,
-            to: directory.appendingPathComponent("bookshelf.json"))
-        counts["bookshelf"] = bookService.bookshelf.count
+        for name in ["bookshelf.json", "groups.json", "readtimes.json", "pinnedbooks.json", "pinnedexplore.json"] {
+            try exportJSONFile(candidates: [documentsDir.appendingPathComponent("bookshelf_data/" + name),
+                appSupportDir.appendingPathComponent("BookService/" + name)], name: name, to: directory, counts: &counts)
+        }
     }
 
     /// exportBookmarkFile(to:counts:)（签名域确证）。
     func exportBookmarkFile(
         to directory: URL, counts: inout [String: Int]
     ) throws {
-        let source = appSupportDir.appendingPathComponent("bookmarks.json")
-        guard fileManager.fileExists(atPath: source.path) else { return }
-        try fileManager.copyItem(
-            at: source,
-            to: directory.appendingPathComponent("bookmarks.json"))
+        try exportJSONFile(candidates: [documentsDir.appendingPathComponent("bookshelf_data/bookmarks.json"),
+            appSupportDir.appendingPathComponent("BookService/bookmarks.json")], name: "bookmarks.json", to: directory, counts: &counts)
     }
 
     /// exportBookSources(to:counts:)（签名域确证）。
     func exportBookSources(
         to directory: URL, counts: inout [String: Int]
     ) throws {
-        let source = appSupportDir.appendingPathComponent("booksources.json")
-        guard fileManager.fileExists(atPath: source.path) else { return }
-        try fileManager.copyItem(
-            at: source,
-            to: directory.appendingPathComponent("booksources.json"))
+        try exportJSONFile(candidates: [documentsDir.appendingPathComponent("BookSources.json"),
+            appSupportDir.appendingPathComponent("BookSources.json")], name: "booksources.json", to: directory, counts: &counts)
     }
 
     /// exportChapterRules(to:counts:)（签名域确证：替换规则域）。
     func exportChapterRules(
         to directory: URL, counts: inout [String: Int]
     ) throws {
-        let source = appSupportDir.appendingPathComponent(
-            "replace_rules.json")
-        guard fileManager.fileExists(atPath: source.path) else { return }
-        try fileManager.copyItem(
-            at: source,
-            to: directory.appendingPathComponent("replace_rules.json"))
+        if let source = existingFile([documentsDir.appendingPathComponent("chapter_rules.json"), appSupportDir.appendingPathComponent("chapter_rules.json")]) {
+            try exportJSONFile(candidates: [source], name: "chapter_rules.json", to: directory, counts: &counts)
+        } else if let data = defaults.data(forKey: "chapter_rules") {
+            try writeJSONPayload(data, name: "chapter_rules.json", to: directory, counts: &counts)
+        }
+    }
+
+    func exportReplaceRules(to directory: URL, counts: inout [String: Int]) throws {
+        try exportJSONFile(candidates: [appSupportDir.appendingPathComponent("replace_rules.json"),
+            appSupportDir.appendingPathComponent("ReplaceRuleService/replace_rules.json")],
+            name: "replace_rules.json", to: directory, counts: &counts)
     }
 
     /// exportHighlightRules(to:counts:)（签名域确证）。
@@ -118,13 +114,17 @@ extension BackupService {
 
     /// exportLocalBooksIfNeeded(_:to:incremental:)（签名域确证）。
     func exportLocalBooksIfNeeded(
-        _: Bool, to directory: URL, incremental: Bool
+        _ included: Bool, to directory: URL, incremental: Bool
     ) throws {
-        let books = documentsDir.appendingPathComponent("Books")
-        guard fileManager.fileExists(atPath: books.path) else { return }
-        try mirrorDirectory(
-            from: books, to: directory.appendingPathComponent("Books"),
-            incremental: incremental)
+        guard included else { return }
+        for name in ["Books", "local_books", "local_book_covers", "local_books_metadata.json"] {
+            let source = documentsDir.appendingPathComponent(name)
+            guard fileManager.fileExists(atPath: source.path) else { continue }
+            let target = directory.appendingPathComponent(name)
+            if (try source.resourceValues(forKeys: [.isDirectoryKey])).isDirectory == true {
+                try mirrorDirectory(from: source, to: target, incremental: incremental)
+            } else { try copyFileOverwriting(from: source, to: target) }
+        }
     }
 
     /// exportReadingStatistics(to:incremental:)（签名域确证；mirrorDirectory
@@ -144,7 +144,7 @@ extension BackupService {
         to directory: URL, counts: inout [String: Int],
         incremental: Bool
     ) throws {
-        let raw = UserDefaults.standard.data(
+        let raw = defaults.data(
             forKey: "reader_tts_sources")
         guard let raw else { return }
         try raw.write(
@@ -175,7 +175,8 @@ extension BackupService {
 
     /// exportAppSettingsFile(to:)（签名域确证）。
     func exportAppSettingsFile(to directory: URL) throws {
-        try exportAppSettingsFile(to: directory)
+        // 0x1002ba204实际消费阅读设置导出，避免旧桥自递归。
+        try exportReadingSettingsFile(to: directory)
     }
 
     // MARK: 前置域（prepareBackupExport/flush/reload 域签名确证）
@@ -211,14 +212,11 @@ extension BackupService {
     ) throws {
         try fileManager.createDirectory(
             at: destination, withIntermediateDirectories: true)
-        guard let children = try? fileManager.contentsOfDirectory(
-            at: source, includingPropertiesForKeys: nil) else {
-            return
-        }
+        let children = try fileManager.contentsOfDirectory(at: source, includingPropertiesForKeys: [.isDirectoryKey])
         for child in children {
             let target = destination.appendingPathComponent(
                 child.lastPathComponent)
-            if child.hasDirectoryPath {
+            if try child.resourceValues(forKeys: [.isDirectoryKey]).isDirectory == true {
                 try mirrorDirectory(
                     from: child, to: target, incremental: incremental)
             } else if !incremental
@@ -233,27 +231,31 @@ extension BackupService {
         guard fileManager.fileExists(atPath: dest.path) else { return true }
         let srcSize = fileSize(src)
         let destSize = fileSize(dest)
-        return srcSize != destSize
+        if srcSize != destSize { return true }
+        let sourceDate = try? src.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
+        let destinationDate = try? dest.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
+        guard let sourceDate, let destinationDate else { return true }
+        return sourceDate > destinationDate
     }
 
     /// copyFileOverwriting(from:to:)（签名域确证）。
     func copyFileOverwriting(from source: URL, to destination: URL)
         throws {
-        if fileManager.fileExists(atPath: destination.path) {
-            try fileManager.removeItem(at: destination)
-        }
-        try fileManager.copyItem(at: source, to: destination)
+        let data = try Data(contentsOf: source)
+        try fileManager.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try data.write(to: destination, options: .atomic)
     }
 
     // MARK: manifest 域（writeManifest/decodeManifest 签名域确证）
 
     /// writeManifest(to:counts:)（签名域确证）。
     func writeManifest(
-        to directory: URL, counts: [String: Int]
+        to directory: URL, counts: [String: Int], categories: Set<SyncCategory>
     ) throws {
         let manifest: [String: Any] = [
             "createdAt": ISO8601DateFormatter().string(from: Date()),
             "counts": counts,
+            "categories": categories.map(\.rawValue).sorted(),
             "appVersion": Bundle.main.infoDictionary?[
                 "CFBundleShortVersionString"] ?? "",
         ]
