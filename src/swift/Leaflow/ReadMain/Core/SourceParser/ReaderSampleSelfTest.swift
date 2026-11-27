@@ -55,10 +55,19 @@ enum ReaderSampleSelfTest {
                 [String(ordered == ordered.sorted()),
                  String(vm.pages.contains { $0.isLoadingPlaceholder }),
                  String(realContent), String(completeRanges)])
+            // 详情已预装目录，但正文缓存尚未建立；仍须执行真实加载及分页。
+            vm.chapterContents = []
+            await vm.loadBookWithProgress(nil, needRefresh: false,
+                targetChapterIndex: 0, targetPageOffset: nil)
+            emit("reader_preloaded_chapters_cache", ["3", "true", "false"],
+                [String(vm.chapterContents.count),
+                 String(vm.currentPage?.content.contains("固定正文，第1章") == true),
+                 String(vm.hasError)])
         } catch {
             emit("reader_progress_restore", ["通过"], [error.localizedDescription])
             emit("reader_three_chapters", ["通过"], [])
             emit("reader_page_order", ["通过"], [])
+            emit("reader_preloaded_chapters_cache", ["通过"], [])
         }
     }
 }

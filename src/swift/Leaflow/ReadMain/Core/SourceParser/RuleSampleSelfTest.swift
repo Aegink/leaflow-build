@@ -114,6 +114,7 @@ enum RuleSampleSelfTest {
             await ReaderPageTurnSampleSelfTest.run(emit: emit)
             await ReaderPageCurlSampleSelfTest.run(emit: emit)
             ReaderRouteSampleSelfTest.run(emit: emit)
+            ExploreSourceSampleSelfTest.run(emit: emit)
             emitRaw("SELFTEST_END")
             exit(0)
         }

@@ -61,7 +61,8 @@ extension ReaderViewModel {
                     needRefresh: needRefresh)
             }
             guard !list.isEmpty else { throw AppError.emptyContent }
-            if chapters != list || needRefresh {
+            // 预装目录不代表正文缓存已建立，两者必须保持同样的槽位数。
+            if chapters != list || chapterContents.count != list.count || needRefresh {
                 pages.removeAll()
                 chapterContents = Array(repeating: "", count: list.count)
                 chapterStateStore.clearAllChapters()

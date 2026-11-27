@@ -161,6 +161,28 @@ final class LeaflowSmokeTests: XCTestCase {
         XCTAssertTrue(app.textViews["source-import-text"].waitForExistence(timeout: 10))
     }
 
+    func testExploreImportedSourceEntry() {
+        launch(["-smokeSources", "-sourceManageViewingRemote", "NO"])
+        openSourceImport()
+        let input = app.textViews["source-import-text"]
+        input.tap()
+        input.typeText(#"{"bookSourceUrl":"https://sample.invalid/ui-discovery","bookSourceName":"固定发现配置","exploreUrl":"推荐::https://sample.invalid/list","ruleExplore":{"bookList":"//li"}}"#)
+        app.buttons["source-import-submit"].tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"), object: input)], timeout: 15), .completed)
+        let exploreTab = app.tabBars.buttons["发现"]
+        XCTAssertTrue(exploreTab.waitForExistence(timeout: 10))
+        exploreTab.tap()
+        XCTAssertTrue(app.staticTexts["固定发现配置"].firstMatch.waitForExistence(timeout: 20))
+        capture("explore-imported-source")
+        launch([])
+        XCTAssertTrue(app.tabBars.buttons["发现"].waitForExistence(timeout: 30))
+        app.tabBars.buttons["发现"].tap()
+        XCTAssertTrue(app.staticTexts["固定发现配置"].firstMatch.waitForExistence(timeout: 20))
+        capture("explore-source-cold-start")
+        passed("explore_imported_source_entry")
+    }
+
     func testReaderSelectedTextReplacement() {
         launch(["-smokeReaderSelection"])
         let text = app.textViews["reader-selection-text"]

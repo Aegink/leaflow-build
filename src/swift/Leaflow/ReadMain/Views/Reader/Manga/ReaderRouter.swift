@@ -13,10 +13,10 @@ struct ReaderRouter: View {
     @State private var settings: ReadingSettings
     @State private var ready = false
 
-    init(book: Book, settings: ReadingSettings = .load(), preparedTextReader: ReaderViewModel? = nil) {
+    init(book: Book, settings: ReadingSettings? = nil, preparedTextReader: ReaderViewModel? = nil) {
         self.book = book
         self.preparedTextReader = preparedTextReader
-        _settings = State(initialValue: settings)
+        _settings = State(initialValue: settings ?? .load())
         _sourceService = ObservedObject(wrappedValue: preparedTextReader?.sourceService ?? .shared)
     }
 
