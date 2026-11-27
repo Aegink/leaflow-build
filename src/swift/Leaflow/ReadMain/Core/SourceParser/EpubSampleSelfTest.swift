@@ -53,7 +53,8 @@ enum EpubSampleSelfTest {
             let emptyDirectory = root.appendingPathComponent("empty")
             try FileManager.default.createDirectory(at: emptyDirectory, withIntermediateDirectories: true)
             let emptyZip = root.appendingPathComponent("empty.zip")
-            try ZipUtility.createZip(from: emptyDirectory, to: emptyZip)
+            // 固定零条目ZIP，单独验证EOCD边界；系统目录归档另有目录往返样本。
+            try Data([0x50, 0x4B, 0x05, 0x06] + Array(repeating: UInt8(0), count: 18)).write(to: emptyZip)
             try ZipUtility.extractZip(from: emptyZip, to: root.appendingPathComponent("empty-output"))
             emit("zip_empty_archive", ["0"], [String(ZipUtility.findEOCD(in: try Data(contentsOf: emptyZip))?.entryCount ?? -1)])
             emit("zip_invalid_deflate_rejected", ["true"], [String(ZipUtility.inflateRawDeflate(Data([0xFF]), expectedSize: 10) == nil)])

@@ -56,8 +56,8 @@ final class BackupService {
 
     static let shared = BackupService()
 
-    private let fileManager = FileManager.default
-    private let bookService = BookService()
+    let fileManager = FileManager.default
+    let bookService = BookService()
 
     /// 备份错误（errorDescription 签名域确证）。
     enum BackupError: LocalizedError {
@@ -108,12 +108,14 @@ final class BackupService {
     }
 
     /// resolveBackupRoot(in:)（签名域确证：备份根目录域）。
-    private func resolveBackupRoot(in directory: URL) throws -> URL {
-        let root = directory.appendingPathComponent("backup",
-                                                   isDirectory: true)
-        try fileManager.createDirectory(
-            at: root, withIntermediateDirectories: true)
-        return root
+    func resolveBackupRoot(in directory: URL) throws -> URL {
+        if fileManager.fileExists(atPath: directory.appendingPathComponent("manifest.json").path) { return directory }
+        if let enumerator = fileManager.enumerator(at: directory, includingPropertiesForKeys: [.isDirectoryKey]) {
+            for case let item as URL in enumerator where item.lastPathComponent == "manifest.json" {
+                return item.deletingLastPathComponent()
+            }
+        }
+        throw BackupError.manifestMissing
     }
 
     // MARK: 尺寸域（directorySize/fileSize/formatSize 签名域确证）
@@ -137,7 +139,7 @@ final class BackupService {
         return total
     }
 
-    private func fileSize(_ url: URL) -> Int64 {
+    func fileSize(_ url: URL) -> Int64 {
         (try? url.resourceValues(forKeys: [.fileSizeKey]))?
             .fileSize.map(Int64.init) ?? 0
     }
@@ -213,299 +215,6 @@ final class BackupService {
         try writeManifest(to: directory, counts: counts)
     }
 
-    // MARK: 分类导出域（export* 九签名域确证）
-
-    /// exportBookshelfFiles(to:counts:)（签名域确证：bookshelf.json）。
-    private func exportBookshelfFiles(
-        to directory: URL, counts: inout [String: Int]
-    ) throws {
-        let source = appSupportDir.appendingPathComponent(
-            "bookshelf.json")
-        guard fileManager.fileExists(atPath: source.path) else { return }
-        try fileManager.copyItem(
-            at: source,
-            to: directory.appendingPathComponent("bookshelf.json"))
-        counts["bookshelf"] = bookService.bookshelf.count
-    }
-
-    /// exportBookmarkFile(to:counts:)（签名域确证）。
-    private func exportBookmarkFile(
-        to directory: URL, counts: inout [String: Int]
-    ) throws {
-        let source = appSupportDir.appendingPathComponent("bookmarks.json")
-        guard fileManager.fileExists(atPath: source.path) else { return }
-        try fileManager.copyItem(
-            at: source,
-            to: directory.appendingPathComponent("bookmarks.json"))
-    }
-
-    /// exportBookSources(to:counts:)（签名域确证）。
-    private func exportBookSources(
-        to directory: URL, counts: inout [String: Int]
-    ) throws {
-        let source = appSupportDir.appendingPathComponent("booksources.json")
-        guard fileManager.fileExists(atPath: source.path) else { return }
-        try fileManager.copyItem(
-            at: source,
-            to: directory.appendingPathComponent("booksources.json"))
-    }
-
-    /// exportChapterRules(to:counts:)（签名域确证：替换规则域）。
-    private func exportChapterRules(
-        to directory: URL, counts: inout [String: Int]
-    ) throws {
-        let source = appSupportDir.appendingPathComponent(
-            "replace_rules.json")
-        guard fileManager.fileExists(atPath: source.path) else { return }
-        try fileManager.copyItem(
-            at: source,
-            to: directory.appendingPathComponent("replace_rules.json"))
-    }
-
-    /// exportHighlightRules(to:counts:)（签名域确证）。
-    private func exportHighlightRules(
-        to directory: URL, counts: inout [String: Int]
-    ) throws {
-        let source = appSupportDir.appendingPathComponent(
-            "highlight_rules.json")
-        guard fileManager.fileExists(atPath: source.path) else { return }
-        try fileManager.copyItem(
-            at: source,
-            to: directory.appendingPathComponent("highlight_rules.json"))
-    }
-
-    /// exportThemeResources(to:counts:incremental:)（签名域确证；
-    /// incremental 形参补齐——mirrorDirectory 消费域，wave-16）。
-    private func exportThemeResources(
-        to directory: URL, counts: inout [String: Int], incremental: Bool
-    ) throws {
-        let themes = appSupportDir.appendingPathComponent("Themes")
-        guard fileManager.fileExists(atPath: themes.path) else { return }
-        try mirrorDirectory(
-            from: themes,
-            to: directory.appendingPathComponent("Themes"),
-            incremental: incremental)
-    }
-
-    /// exportReaderBackgrounds(to:incremental:)（签名域确证）。
-    private func exportReaderBackgrounds(
-        to directory: URL, incremental: Bool
-    ) throws {
-        let backgrounds = appSupportDir.appendingPathComponent("backgrounds")
-        guard fileManager.fileExists(atPath: backgrounds.path) else { return }
-        try mirrorDirectory(
-            from: backgrounds,
-            to: directory.appendingPathComponent("backgrounds"),
-            incremental: incremental)
-    }
-
-    /// exportFontResources(to:counts:)（签名域确证）。
-    private func exportFontResources(
-        to directory: URL, counts: inout [String: Int],
-        incremental: Bool
-    ) throws {
-        let fonts = appSupportDir.appendingPathComponent("Fonts")
-        guard fileManager.fileExists(atPath: fonts.path) else { return }
-        try mirrorDirectory(
-            from: fonts, to: directory.appendingPathComponent("Fonts"),
-            incremental: incremental)
-    }
-
-    /// exportChapterTitleAssets(to:counts:)（签名域确证）。
-    private func exportChapterTitleAssets(
-        to directory: URL, counts: inout [String: Int],
-        incremental: Bool
-    ) throws {
-        let assets = appSupportDir.appendingPathComponent(
-            "ChapterTitleAssets")
-        guard fileManager.fileExists(atPath: assets.path) else { return }
-        try mirrorDirectory(
-            from: assets,
-            to: directory.appendingPathComponent("ChapterTitleAssets"),
-            incremental: incremental)
-    }
-
-    /// exportLocalBooksIfNeeded(_:to:incremental:)（签名域确证）。
-    private func exportLocalBooksIfNeeded(
-        _: Bool, to directory: URL, incremental: Bool
-    ) throws {
-        let books = documentsDir.appendingPathComponent("Books")
-        guard fileManager.fileExists(atPath: books.path) else { return }
-        try mirrorDirectory(
-            from: books, to: directory.appendingPathComponent("Books"),
-            incremental: incremental)
-    }
-
-    /// exportReadingStatistics(to:incremental:)（签名域确证；mirrorDirectory
-    /// incremental 参域对齐，wave-16 补参）。
-    private func exportReadingStatistics(
-        to directory: URL, incremental: Bool
-    ) throws {
-        let stats = appSupportDir.appendingPathComponent("reading_stats")
-        guard fileManager.fileExists(atPath: stats.path) else { return }
-        try mirrorDirectory(
-            from: stats, to: directory.appendingPathComponent("reading_stats"),
-            incremental: incremental)
-    }
-
-    /// exportTtsSources(to:counts:)（签名域确证）。
-    private func exportTtsSources(
-        to directory: URL, counts: inout [String: Int],
-        incremental: Bool
-    ) throws {
-        let raw = UserDefaults.standard.data(
-            forKey: "reader_tts_sources")
-        guard let raw else { return }
-        try raw.write(
-            to: directory.appendingPathComponent("tts_sources.json"),
-            options: .atomic)
-    }
-
-    // MARK: 设置域（exportReadingSettings/exportAppSettings 签名域）
-
-    /// exportReadingSettings（签名域确证：flush 桥）。
-    private func exportReadingSettings() {
-        ReadingSettings.load().save()
-    }
-
-    /// exportReadingSettingsFile(to:)（签名域确证）。
-    private func exportReadingSettingsFile(to directory: URL) throws {
-        let settings = ReadingSettings.load()
-        let data = try JSONEncoder().encode(settings)
-        try data.write(
-            to: directory.appendingPathComponent("reading_settings.json"),
-            options: .atomic)
-    }
-
-    /// exportAppSettings（签名域确证）。
-    private func exportAppSettings() {
-        // App 设置快照桥（UserDefaults 域还原桥）。
-    }
-
-    /// exportAppSettingsFile(to:)（签名域确证）。
-    private func exportAppSettingsFile(to directory: URL) throws {
-        try exportAppSettingsFile(to: directory)
-    }
-
-    // MARK: 前置域（prepareBackupExport/flush/reload 域签名确证）
-
-    /// prepareBackupExport（签名域确证）。
-    private func prepareBackupExport() {
-        try? normalizeThemeResourcesForBackup()
-        reloadFontsForBackup()
-    }
-
-    private func flushReadingSettingsForBackup() throws {
-        ReadingSettings.load().save()
-    }
-
-    private func flushAppThemeSettingsForBackup() throws {
-        AppThemeManager.shared.flushPendingSave()
-    }
-
-    private func reloadFontsForBackup() {
-        CustomFontService.shared.reloadPersistedFonts(
-            pruneMissingFiles: true)
-    }
-
-    private func normalizeThemeResourcesForBackup() throws {
-        ThemeFileManager.normalizeStoredThemeResources()
-    }
-
-    // MARK: 镜像域（mirrorDirectory/needsCopy/copyFileOverwriting 签名域）
-
-    /// mirrorDirectory(from:to:incremental:)（签名域确证）。
-    private func mirrorDirectory(
-        from source: URL, to destination: URL, incremental: Bool
-    ) throws {
-        try fileManager.createDirectory(
-            at: destination, withIntermediateDirectories: true)
-        guard let children = try? fileManager.contentsOfDirectory(
-            at: source, includingPropertiesForKeys: nil) else {
-            return
-        }
-        for child in children {
-            let target = destination.appendingPathComponent(
-                child.lastPathComponent)
-            if child.hasDirectoryPath {
-                try mirrorDirectory(
-                    from: child, to: target, incremental: incremental)
-            } else if !incremental
-                || needsCopy(src: child, dest: target) {
-                try copyFileOverwriting(from: child, to: target)
-            }
-        }
-    }
-
-    /// needsCopy(src:dest:)（签名域确证：存在/尺寸/时间三判域）。
-    private func needsCopy(src: URL, dest: URL) -> Bool {
-        guard fileManager.fileExists(atPath: dest.path) else { return true }
-        let srcSize = fileSize(src)
-        let destSize = fileSize(dest)
-        return srcSize != destSize
-    }
-
-    /// copyFileOverwriting(from:to:)（签名域确证）。
-    private func copyFileOverwriting(from source: URL, to destination: URL)
-        throws {
-        if fileManager.fileExists(atPath: destination.path) {
-            try fileManager.removeItem(at: destination)
-        }
-        try fileManager.copyItem(at: source, to: destination)
-    }
-
-    // MARK: manifest 域（writeManifest/decodeManifest 签名域确证）
-
-    /// writeManifest(to:counts:)（签名域确证）。
-    private func writeManifest(
-        to directory: URL, counts: [String: Int]
-    ) throws {
-        let manifest: [String: Any] = [
-            "createdAt": ISO8601DateFormatter().string(from: Date()),
-            "counts": counts,
-            "appVersion": Bundle.main.infoDictionary?[
-                "CFBundleShortVersionString"] ?? "",
-        ]
-        let data = try JSONSerialization.data(
-            withJSONObject: manifest, options: [.sortedKeys])
-        try data.write(
-            to: directory.appendingPathComponent("manifest.json"),
-            options: .atomic)
-    }
-
-    /// decodeManifest(Data)（签名域确证）。
-    private func decodeManifest(_ data: Data) throws -> [String: Any] {
-        guard let manifest = try? JSONSerialization.jsonObject(
-            with: data) as? [String: Any] else {
-            throw BackupError.manifestMissing
-        }
-        return manifest
-    }
-
-    // MARK: 归档域（createBackupArchive/previewBackup 签名域确证）
-
-    /// createBackupArchive(from:)（签名域确证）。
-    private func createBackupArchive(from directory: URL) throws {
-        let archive = directory.deletingLastPathComponent()
-            .appendingPathComponent("backup.zip")
-        try? fileManager.removeItem(at: archive)
-        try ZipUtility.createZip(from: directory, to: archive)
-    }
-
-    /// previewBackup(from:)（签名域确证：manifest 预览域）。
-    func previewBackup(from url: URL) throws -> [String: Any] {
-        let staging = fileManager.temporaryDirectory
-            .appendingPathComponent(
-                "backup_preview_\(UUID().uuidString)", isDirectory: true)
-        try fileManager.createDirectory(
-            at: staging, withIntermediateDirectories: true)
-        defer { try? fileManager.removeItem(at: staging) }
-        try ZipUtility.extractZip(from: url, to: staging)
-        let manifestData = try Data(
-            contentsOf: staging.appendingPathComponent("manifest.json"))
-        return try decodeManifest(manifestData)
-    }
-
     // MARK: 导入域（importDataTree/import* 签名域确证）
 
     /// importDataTree(from:categories:)（签名域确证）。
@@ -561,7 +270,7 @@ final class BackupService {
     }
 
     /// importReadingSettings(from: Data)（签名域确证）。
-    private func importReadingSettings(from data: Data) {
+    func importReadingSettings(from data: Data) {
         guard let settings = try? JSONDecoder().decode(
             ReadingSettings.self, from: data) else {
             return
@@ -570,12 +279,12 @@ final class BackupService {
     }
 
     /// importAppSettings(from: Data)（签名域确证）。
-    private func importAppSettings(from data: Data) {
+    func importAppSettings(from data: Data) {
         // App 设置快照导入桥。
     }
 
     /// importHighlightRules(from: URL)（签名域确证）。
-    private func importHighlightRules(from url: URL) throws {
+    func importHighlightRules(from url: URL) throws {
         let destination = appSupportDir.appendingPathComponent(
             "highlight_rules.json")
         try copyFileOverwriting(from: url, to: destination)
@@ -594,7 +303,9 @@ final class BackupService {
             at: staging, withIntermediateDirectories: true)
         defer { try? fileManager.removeItem(at: staging) }
         try ZipUtility.extractZip(from: url, to: staging)
-        try importDataTree(from: staging, categories: categories)
+        let root = try resolveBackupRoot(in: staging)
+        _ = try decodeManifest(Data(contentsOf: root.appendingPathComponent("manifest.json")))
+        try importDataTree(from: root, categories: categories)
     }
 
     /// restoreLatestBackup()（BackupView 消费域确证——最近本地备份回灌桥；
@@ -628,187 +339,6 @@ final class BackupService {
         directorySize(appSupportDir)
     }
 
-    // MARK: iCloud 域（isICloudAvailable/resolveICloudRoot/backupTo/
-    // restoreFrom/lastBackupDate 签名域确证）
-
-    /// isICloudAvailable getter（签名域确证）。
-    var isICloudAvailable: Bool {
-        FileManager.default.ubiquityIdentityToken != nil
-    }
-
-    /// resolveICloudRoot()（签名域确证）。
-    func resolveICloudRoot() async -> URL? {
-        guard isICloudAvailable else { return nil }
-        guard let documents = FileManager.default.url(
-            forUbiquityContainerIdentifier: nil)?
-            .appendingPathComponent("Documents", isDirectory: true)
-        else {
-            return nil
-        }
-        return documents.appendingPathComponent("qireader_backup",
-                                               isDirectory: true)
-    }
-
-    /// backupToICloud(categories:)（签名域确证）。
-    func backupToICloud(categories: Set<SyncCategory>) async throws {
-        guard let root = await resolveICloudRoot() else {
-            throw BackupError.iCloudUnavailable
-        }
-        let staging = fileManager.temporaryDirectory
-            .appendingPathComponent(
-                "icloud_backup_\(UUID().uuidString)", isDirectory: true)
-        try fileManager.createDirectory(
-            at: staging, withIntermediateDirectories: true)
-        try exportDataTree(
-            to: staging, categories: categories, incremental: true)
-        let destination = root.appendingPathComponent(
-            fileDateStamp() + ".zip")
-        try? fileManager.createDirectory(
-            at: root, withIntermediateDirectories: true)
-        try ZipUtility.createZip(from: staging, to: destination)
-        try? fileManager.removeItem(at: staging)
-    }
-
-    /// restoreFromICloud(categories:)（签名域确证）。
-    func restoreFromICloud(categories: Set<SyncCategory>) async throws {
-        guard let root = await resolveICloudRoot() else {
-            throw ICloudSyncError.rootUnavailable
-        }
-        let latest = (try? fileManager.contentsOfDirectory(
-            at: root, includingPropertiesForKeys: nil))?
-            .filter { $0.pathExtension == "zip" }
-            .sorted { $0.lastPathComponent > $1.lastPathComponent }
-            .first
-        guard let latest else { return }
-        try await restoreBackup(from: latest, categories: categories)
-    }
-
-    /// iCloudLastBackupDate()（签名域确证）。
-    func iCloudLastBackupDate() async -> Date? {
-        guard let root = await resolveICloudRoot() else { return nil }
-        let latest = (try? fileManager.contentsOfDirectory(
-            at: root, includingPropertiesForKeys: nil))?
-            .filter { $0.pathExtension == "zip" }
-            .compactMap { try? $0.resourceValues(forKeys: [.contentModificationDateKey])
-                .contentModificationDate }
-            .max()
-        return latest
-    }
-
-    // MARK: WebDAV 域（backupToWebDAV/restoreFromWebDAV/preview/
-    // lastBackupDate 签名域确证）
-
-    /// backupToWebDAV(config:categories:progress:)（签名域确证：
-    /// WebDAVClient.upload 桥）。
-    func backupToWebDAV(
-        config: WebDAVConfig, categories: Set<SyncCategory>,
-        progress: ((Double) -> Void)? = nil
-    ) async throws {
-        let client = try WebDAVClient(config: config)
-        let staging = fileManager.temporaryDirectory
-            .appendingPathComponent(
-                "webdav_backup_\(UUID().uuidString)", isDirectory: true)
-        try fileManager.createDirectory(
-            at: staging, withIntermediateDirectories: true)
-        defer { try? fileManager.removeItem(at: staging) }
-        try exportDataTree(
-            to: staging, categories: categories, incremental: false)
-        try fileManager.contentsOfDirectory(
-            at: staging, includingPropertiesForKeys: nil).forEach { file in
-            Task {
-                try? await client.upload(
-                    localFile: file, to: file.lastPathComponent)
-            }
-        }
-    }
-
-    /// restoreFromWebDAV(config:categories:progress:)（签名域确证：
-    /// downloadTreeRecursively 桥）。
-    func restoreFromWebDAV(
-        config: WebDAVConfig, categories: Set<SyncCategory>,
-        progress: ((Double) -> Void)? = nil
-    ) async throws {
-        let client = try WebDAVClient(config: config)
-        let staging = fileManager.temporaryDirectory
-            .appendingPathComponent(
-                "webdav_restore_\(UUID().uuidString)", isDirectory: true)
-        try fileManager.createDirectory(
-            at: staging, withIntermediateDirectories: true)
-        try await client.downloadTree(to: staging)
-        try importDataTree(from: staging, categories: categories)
-        try? fileManager.removeItem(at: staging)
-    }
-
-    /// previewWebDAVBackup(config:)（签名域确证）。
-    func previewWebDAVBackup(config: WebDAVConfig) async throws
-        -> [String: Any] {
-        let client = try WebDAVClient(config: config)
-        let entries = try await client.listTree()
-        return ["entries": entries.count]
-    }
-
-    /// webDAVLastBackupDate(config:)（签名域确证）。
-    func webDAVLastBackupDate(config: WebDAVConfig) async -> Date? {
-        nil
-    }
-
-    // MARK: iCloud 文件域（ensureDownloaded/isItemDownloaded/
-    // collectUndownloadedItems/downloadTreeRecursively 签名域确证）
-
-    /// isItemDownloaded(URL)（签名域确证）。
-    private func isItemDownloaded(_ url: URL) -> Bool {
-        guard let values = try? url.resourceValues(forKeys: [
-            .ubiquitousItemDownloadingStatusKey]) else {
-            return false
-        }
-        return values.ubiquitousItemDownloadingStatus
-            == .current
-    }
-
-    /// collectUndownloadedItems(under:)（签名域确证）。
-    private func collectUndownloadedItems(under directory: URL) -> [URL] {
-        guard let enumerator = fileManager.enumerator(
-            at: directory, includingPropertiesForKeys: nil) else {
-            return []
-        }
-        return enumerator.allObjects.compactMap { $0 as? URL }
-            .filter { !isItemDownloaded($0) }
-    }
-
-    /// ensureDownloaded(_:timeout:)（签名域确证）。
-    private func ensureDownloaded(_ url: URL, timeout: Double) async throws {
-        try FileManager.default.startDownloadingUbiquitousItem(at: url)
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if isItemDownloaded(url) { return }
-            try await Task.sleep(nanoseconds: 500_000_000)
-        }
-    }
-
-    /// downloadTreeRecursively(at:timeout:)（签名域确证）。
-    private func downloadTreeRecursively(
-        at directory: URL, timeout: Double
-    ) async throws {
-        for url in collectUndownloadedItems(under: directory) {
-            try await ensureDownloaded(url, timeout: timeout)
-        }
-    }
-
-    // MARK: 帮助域（fileDateStamp/userDefaultsDataSize 域还原桥）
-
-    private func fileDateStamp() -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyyMMdd_HHmmss"
-        return formatter.string(from: Date())
-    }
-
-    private func userDefaultsDataSize(forKey key: String) -> Int64 {
-        (defaultsObject(forKey: key) as? Data).map { Int64($0.count) } ?? 0
-    }
-
-    private func defaultsObject(forKey key: String) -> Any? {
-        UserDefaults.standard.object(forKey: key)
-    }
 }
 
 // MARK: - T-1401-13/15 逐域补齐（备份清单域）

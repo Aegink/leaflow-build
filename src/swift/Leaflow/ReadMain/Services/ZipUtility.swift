@@ -80,78 +80,24 @@ enum ZipUtility {
 
     // MARK: 打包域（createZip 签名域确证）
 
-    /// createZip(from:to:)（签名域确证：目录遍历 + local/central/EOCD
-    /// 三段写入域）。
+    /// 0x1003f2588/0x1003f332c：协调完整目录上传归档，再复制到目标文件。
     static func createZip(from directory: URL, to output: URL) throws {
-        let fileManager = FileManager.default
-        let files = (try? fileManager.contentsOfDirectory(
-            at: directory, includingPropertiesForKeys: [
-                .fileSizeKey, .isDirectoryKey,
-            ]))?.filter {
-                !((try? $0.resourceValues(forKeys: [.isDirectoryKey]))?
-                    .isDirectory ?? true)
-            } ?? []
-
-        var archive = Data()
-        var central = Data()
-        var offsets: [Int] = []
-
-        for file in files {
-            let data = try Data(contentsOf: file)
-            let name = file.lastPathComponent
-            let nameBytes = [UInt8](name.utf8)
-            let crc = crc32(data)
-
-            offsets.append(archive.count)
-            // local file header 域。
-            archive.append(fromUInt32(localSignature))
-            archive.append(fromUInt16(20))
-            archive.append(fromUInt16(0))
-            archive.append(fromUInt16(0)) // stored
-            archive.append(fromUInt16(0))
-            archive.append(fromUInt16(0))
-            archive.append(fromUInt32(crc))
-            archive.append(fromUInt32(UInt32(data.count)))
-            archive.append(fromUInt32(UInt32(data.count)))
-            archive.append(fromUInt16(UInt16(nameBytes.count)))
-            archive.append(fromUInt16(0))
-            archive.append(contentsOf: nameBytes)
-            archive.append(data)
-
-            // central directory entry 域。
-            central.append(fromUInt32(centralSignature))
-            central.append(fromUInt16(20))
-            central.append(fromUInt16(20))
-            central.append(fromUInt16(0))
-            central.append(fromUInt16(0))
-            central.append(fromUInt16(0))
-            central.append(fromUInt16(0))
-            central.append(fromUInt32(crc))
-            central.append(fromUInt32(UInt32(data.count)))
-            central.append(fromUInt32(UInt32(data.count)))
-            central.append(fromUInt16(UInt16(nameBytes.count)))
-            central.append(fromUInt16(0))
-            central.append(fromUInt16(0))
-            central.append(fromUInt16(0))
-            central.append(fromUInt16(0))
-            central.append(fromUInt32(0))
-            central.append(fromUInt32(UInt32(offsets.last ?? 0)))
-            central.append(contentsOf: nameBytes)
-        }
-
-        let centralOffset = archive.count
-        archive.append(central)
-        // EOCD 域。
-        archive.append(fromUInt32(eocdSignature))
-        archive.append(fromUInt16(0))
-        archive.append(fromUInt16(0))
-        archive.append(fromUInt16(UInt16(files.count)))
-        archive.append(fromUInt16(UInt16(files.count)))
-        archive.append(fromUInt32(UInt32(central.count)))
-        archive.append(fromUInt32(UInt32(centralOffset)))
-        archive.append(fromUInt16(0))
-
-        try archive.write(to: output, options: .atomic)
+        var coordinationError: NSError?
+        var copyError: Error?
+        var copied = false
+        NSFileCoordinator().coordinate(readingItemAt: directory, options: .forUploading,
+            error: &coordinationError) { archiveURL in
+                do {
+                    if FileManager.default.fileExists(atPath: output.path) {
+                        try FileManager.default.removeItem(at: output)
+                    }
+                    try FileManager.default.copyItem(at: archiveURL, to: output)
+                    copied = true
+                } catch { copyError = error }
+            }
+        if let coordinationError { throw coordinationError }
+        if let copyError { throw copyError }
+        guard copied else { throw ZipError.invalidArchive }
     }
 
     /// extractZip(from:to:)（签名域确证：findEOCD → central 遍历 →
