@@ -21,15 +21,14 @@
 //     PageContentViewController.initialPageBounds ivar（0x100754300 L505-510 确证）
 //   - pgo_only（ICF 合并，无独立地址）：updateContentImage(UIImage)（与 configure 的
 //     contentImage 分支共体）
-//   - 已知噪声：configure 两个重载中出现的 viewDidLayoutSubviews 调用（L79/L483）
-//     实为 removeEmbeddedContentViewController（ICF 误标）；
-//     viewDidLayoutSubviews 块体（willMove/removeFromParent）疑为 removeEmbedded
-//     的共体路径，语义按签名 + 调用关系还原
+//   - PGO 标签交错：0x100754a6c 实为 removeEmbeddedContentViewController；
+//     0x100754e98 为初始化字段。Objective-C 布局入口 0x1007549c8 调用
+//     0x100754884，按 bounds 更新背景图、快照和嵌入视图，不移除子控制器。
+//     取证：work/logs/t1602_page_curl_probe.txt。
 // 状态: 语义级还原（不是原始源码；变量名/注释为还原者所加）
 // 置信度:
 //   - configure 两个重载: high（选择子+trace 分段+contentMode 常量确证）
-//   - viewDidLayoutSubviews: medium（块体语义为嵌入清理，归属待真机对照）
-//   - removeEmbeddedContentViewController: high（四 ivar 清空确证）
+//   - viewDidLayoutSubviews/removeEmbeddedContentViewController: high（Objective-C 调用链确证）
 // 还原: 2026-11-19
 
 import UIKit
@@ -40,19 +39,17 @@ final class PageBackViewController: UIViewController {
 
     // MARK: ivar（伪代码 init/清空块确证）
 
-    /// 关联页标识（configure 写入；removeEmbeddedContentViewController 清空为空串）。
+    /// 关联页标识（configure 写入，子控制器替换时保留）。
     private(set) var associatedPageId: String = ""
     private var backgroundImageView: UIImageView?
     private var contentImageView: UIImageView?
     private(set) var embeddedContentViewController: UIViewController?
-    /// 懒计算的关联标识串（implicit closure #1 () -> String in configure）。
-    private lazy var associatedPageIdTrace: String = { associatedPageId }()
 
     // MARK: 图片快照路径
 
     /// 伪代码 0x100753f6c，L11-52。
     /// associatedPageId 写入；view.backgroundColor = backgroundColor；
-    /// backgroundImage：nil → 移除 backgroundImageView；否则创建/复用
+    /// backgroundImage：nil → 隐藏 backgroundImageView；否则创建/复用
     /// UIImageView（contentMode 2 = scaleAspectFill，frame = view.bounds，setImage）；
     /// contentImage：nil → contentImageView 隐藏；否则创建/复用
     /// UIImageView（contentMode 0，alpha 1.0，transform 单位阵，frame = bounds，
@@ -73,14 +70,16 @@ final class PageBackViewController: UIViewController {
             } else {
                 let imageView = UIImageView(image: background)
                 imageView.contentMode = .scaleAspectFill
+                imageView.clipsToBounds = true
+                imageView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
                 imageView.frame = view.bounds
                 view.addSubview(imageView)
                 backgroundImageView = imageView
             }
+            backgroundImageView?.frame = view.bounds
             backgroundImageView?.isHidden = false
         } else {
-            backgroundImageView?.removeFromSuperview()
-            backgroundImageView = nil
+            backgroundImageView?.isHidden = true
         }
 
         if let content = contentImage {
@@ -89,12 +88,16 @@ final class PageBackViewController: UIViewController {
             } else {
                 let imageView = UIImageView(image: content)
                 imageView.contentMode = .scaleToFill
+                imageView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
                 imageView.alpha = 1.0
                 imageView.frame = view.bounds
                 imageView.transform = .identity
                 view.addSubview(imageView)
                 contentImageView = imageView
             }
+            contentImageView?.alpha = 1.0
+            contentImageView?.transform = .identity
+            contentImageView?.frame = view.bounds
             contentImageView?.isHidden = false
             if let contentImageView {
                 view.bringSubviewToFront(contentImageView)
@@ -118,10 +121,10 @@ final class PageBackViewController: UIViewController {
 
     /// 伪代码 0x100754300，L54-100。
     /// trace："pageId" + associatedPageId → OperationSample；
-    /// removeEmbeddedContentViewController；view.backgroundColor = backgroundColor；
+    /// 隐藏快照；view.backgroundColor = backgroundColor；
     /// background image 处理（同图片路径）；trace "background"；
     /// embeddedContentViewController 与新 VC 相同 → 跳过 addChild（L472-485）；
-    /// 否则 addChild(contentViewController)；trace "addChild"；
+    /// 否则 removeEmbeddedContentViewController + addChild；trace "addChild"；
     /// VC 是 PageContentViewController → initialPageBounds = view.bounds（L505-510）；
     /// loadViewIfNeeded；trace "load"；contentVC.view.frame = view.bounds；trace "frame"；
     /// contentVC.view.isUserInteractionEnabled = false；
@@ -134,11 +137,9 @@ final class PageBackViewController: UIViewController {
         contentViewController: UIViewController,
         associatedPageId: String
     ) {
-        removeEmbeddedContentViewController()
         self.associatedPageId = associatedPageId
-        // trace 分段（"pageId" + associatedPageId，字面量确证；
-        // implicit closure #1 () -> String 为懒计算标识）。
-        ReaderPerformanceTrace.log("pageId" + associatedPageIdTrace) { true }
+        ReaderPerformanceTrace.log("pageId=" + associatedPageId) { true }
+        contentImageView?.isHidden = true
         view.backgroundColor = backgroundColor
 
         if let background = backgroundImage {
@@ -147,18 +148,21 @@ final class PageBackViewController: UIViewController {
             } else {
                 let imageView = UIImageView(image: background)
                 imageView.contentMode = .scaleAspectFill
+                imageView.clipsToBounds = true
+                imageView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
                 imageView.frame = view.bounds
-                view.addSubview(imageView)
+                view.insertSubview(imageView, at: 0)
                 backgroundImageView = imageView
             }
+            backgroundImageView?.frame = view.bounds
             backgroundImageView?.isHidden = false
         } else {
-            backgroundImageView?.removeFromSuperview()
-            backgroundImageView = nil
+            backgroundImageView?.isHidden = true
         }
 
         let isSameController = embeddedContentViewController === contentViewController
         if !isSameController {
+            removeEmbeddedContentViewController()
             addChild(contentViewController)
         }
 
@@ -169,6 +173,7 @@ final class PageBackViewController: UIViewController {
 
         contentViewController.loadViewIfNeeded()
         contentViewController.view.frame = view.bounds
+        contentViewController.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         contentViewController.view.isUserInteractionEnabled = false
 
         if !isSameController {
@@ -181,13 +186,16 @@ final class PageBackViewController: UIViewController {
 
     // MARK: 布局与清理
 
-    /// 伪代码 0x100754a6c，L102-107。
-    /// 块体：embeddedContentViewController 存在 → willMove(toParent: nil) +
-    /// view.removeFromSuperview + removeFromParent + ivar 清空。
-    /// 该语义与 configure 的嵌入流程配套（过渡结束后由布局回调清理）；
-    /// 嵌入视图帧同步（frame = bounds）疑与 removeEmbedded 共体，待真机对照。
+    /// 0x1007549c8 → 0x100754884：布局同步三类子视图，保留包含关系。
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        backgroundImageView?.frame = view.bounds
+        contentImageView?.frame = view.bounds
+        embeddedContentViewController?.view.frame = view.bounds
+    }
+
+    /// 0x100754a6c：仅清除旧嵌入内容，不改变页标识或图片缓存。
+    private func removeEmbeddedContentViewController() {
         guard let embedded = embeddedContentViewController else { return }
         embedded.willMove(toParent: nil)
         embedded.view.removeFromSuperview()
@@ -195,13 +203,4 @@ final class PageBackViewController: UIViewController {
         embeddedContentViewController = nil
     }
 
-    /// 伪代码 0x100754e98，L129-135。
-    /// associatedPageId 置空串；backgroundImageView/contentImageView/
-    /// embeddedContentViewController 三 ivar 清空。
-    private func removeEmbeddedContentViewController() {
-        associatedPageId = ""
-        backgroundImageView = nil
-        contentImageView = nil
-        embeddedContentViewController = nil
-    }
 }

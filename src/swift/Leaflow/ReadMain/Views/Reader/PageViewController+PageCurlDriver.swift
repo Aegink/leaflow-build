@@ -158,6 +158,7 @@ extension PageViewController.Coordinator {
         // UIKit双面动画返回的控制器序列可能首先是纸背，不能据此丢失目标提交。
         private func finishCommand(_ pageVC: UIPageViewController, target: PageCurlPageKey,
                                    content: UIViewController, completed: Bool) {
+            logPageCurlPerf("命令结束 completed=\(completed)，target=\(target)，displayed=\(String(describing: displayKey(for: pageVC.viewControllers?.first)))")
             turnState.reset()
             programmaticTurnInFlight = false
             if completed, let index = resolver.index(for: target) {

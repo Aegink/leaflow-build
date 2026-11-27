@@ -100,7 +100,60 @@ enum ReaderPageCurlSampleSelfTest {
              String(external == .committed(displayed: keys[4], carriedTargets: [], pagesChanged: true)),
              String(state.phase == .idle)])
         checkCache(pages: pages, emit: emit)
+        checkBackLifecycle(emit: emit)
         await checkController(emit: emit)
+    }
+
+    @MainActor
+    private static func checkBackLifecycle(emit: (String, [String], [String]) -> Void) {
+        let back = PageBackViewController()
+        back.view.frame = CGRect(x: 0, y: 0, width: 400, height: 600)
+        let first = PageContentViewController(isInteractive: false)
+        first.configure(pageData: ReaderPageTurnSampleSelfTest.pages()[0],
+            settings: ReadingSettings.load(), bookName: "纸背样本", totalChapters: 2)
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 2, height: 2)).image { context in
+            UIColor.blue.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 2, height: 2))
+        }
+        back.configure(backgroundColor: .white, backgroundImage: image,
+            contentViewController: first, associatedPageId: "甲")
+        back.view.bounds = CGRect(x: 0, y: 0, width: 320, height: 480)
+        back.viewDidLayoutSubviews()
+        emit("curl_back_layout_keeps_content", Array(repeating: "true", count: 5),
+            [String(first.parent === back), String(first.view.superview === back.view),
+             String(back.embeddedContentViewController === first),
+             String(first.view.frame == back.view.bounds),
+             String(first.contentTextView.text == "固定翻页正文甲")])
+        back.configure(backgroundColor: .white, backgroundImage: image,
+            contentViewController: first, associatedPageId: "甲更新")
+        emit("curl_back_reconfigure_same_child", Array(repeating: "true", count: 4),
+            [String(back.children.count == 1), String(back.children.first === first),
+             String(back.view.subviews.count == 2), String(back.associatedPageId == "甲更新")])
+        let second = UIViewController()
+        back.configure(backgroundColor: .white, backgroundImage: nil,
+            contentViewController: second, associatedPageId: "乙")
+        let background = back.view.subviews.compactMap { $0 as? UIImageView }.first
+        emit("curl_back_replace_detaches_old_child", Array(repeating: "true", count: 5),
+            [String(first.parent == nil), String(first.view.superview == nil),
+             String(back.children.count == 1 && second.parent === back),
+             String(back.embeddedContentViewController === second),
+             String(background?.isHidden == true)])
+        back.configure(backgroundColor: .white, backgroundImage: image,
+            contentImage: image, associatedPageId: "快照")
+        back.view.bounds = CGRect(x: 0, y: 0, width: 280, height: 440)
+        back.viewDidLayoutSubviews()
+        let images = back.view.subviews.compactMap { $0 as? UIImageView }
+        emit("curl_back_snapshot_detaches_child", Array(repeating: "true", count: 5),
+            [String(second.parent == nil && second.view.superview == nil),
+             String(back.children.isEmpty && back.embeddedContentViewController == nil),
+             String(images.count == 2 && images.allSatisfy { !$0.isHidden }),
+             String(images.allSatisfy { $0.frame == back.view.bounds }),
+             String(back.associatedPageId == "快照")])
+        back.configure(backgroundColor: .white, backgroundImage: nil,
+            contentViewController: first, associatedPageId: "再次嵌入")
+        emit("curl_back_embedded_hides_snapshot", Array(repeating: "true", count: 3),
+            [String(images.allSatisfy(\.isHidden)), String(first.parent === back),
+             String(back.view.subviews.count == 3 && back.children.count == 1)])
     }
 
     private static func checkCache(pages: [PageData], emit: (String, [String], [String]) -> Void) {
@@ -136,11 +189,24 @@ enum ReaderPageCurlSampleSelfTest {
         let coordinator = parent.makeCoordinator()
         let controller = parent.makeUIPageViewController(coordinator: coordinator)
         let driver = coordinator.pageCurlDriver
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 400, height: 600))
+        guard let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene })
+            .first(where: { $0.activationState == .foregroundActive }) else {
+            emit("curl_controller_initial_page", ["活动场景"], ["未找到活动场景"])
+            return
+        }
+        let previousKeyWindow = scene.windows.first(where: \.isKeyWindow)
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: 400, height: 600)
         window.rootViewController = controller
-        window.isHidden = false
-        defer { window.isHidden = true; window.rootViewController = nil }
+        window.makeKeyAndVisible()
+        defer {
+            window.isHidden = true
+            window.rootViewController = nil
+            previousKeyWindow?.makeKeyAndVisible()
+        }
         controller.view.layoutIfNeeded()
+        // 系统卷页依赖已呈现的场景，等待首轮显隐/布局转场结束再发送命令。
+        try? await Task.sleep(nanoseconds: 300_000_000)
         let initial = controller.viewControllers?.first as? PageContentViewController
         emit("curl_controller_initial_page", ["固定翻页正文乙", "true", "true"],
             [initial?.contentTextView.text ?? "",
