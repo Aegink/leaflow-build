@@ -1,66 +1,96 @@
 // 原路径: ReadMain/Views/Reader/Manga/ReaderRouter.swift
-// 证据:
-//   - PGO: 5 个主函数（index/task_functions.csv T-304-05 / ReaderRouter.swift），
-//     地址：body 0x10063cd00 L21-29 / isTextBook 0x10043fad8 L31-33 /
-//     isAudioSource 0x10063d128 L35-58 / isMangaSource 0x10063d5f4 L60-83
-//   - CovMap: 上述 L 区段
-//   - IDA: src/pseudocode/Leaflow/ReadMain/Views/Reader/Manga/ReaderRouter.c
-//   - 事实：书路由四分派 —— 文本（ReaderView）/漫画（MangaReaderView）/
-//     音频（AudioPlayerView）/本地 PDF（LocalPDFReaderView）
-// 状态: 语义级还原（不是原始源码；变量名/注释为还原者所加）
-// 置信度: high（分派链确证）
-// 还原: 2026-11-19
-
+// 类型表8901/34242：Book、预装配文本阅读器、BookService及音频/漫画/文本三分支。
+// 0x10063c848：优先同书架身份，再同内容且同来源；0x10063d128/0x10063d5f4：类型解析。
 import SwiftUI
 
-/// 阅读器路由（按书类型分发）。
+@MainActor
 struct ReaderRouter: View {
+    let book: Book
+    var preparedTextReader: ReaderViewModel?
+    @EnvironmentObject private var bookService: BookService
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var sourceService: SourceService
+    @State private var settings: ReadingSettings
+    @State private var ready = false
 
-    var book: Book
-    var settings: ReadingSettings
+    init(book: Book, settings: ReadingSettings = .load(), preparedTextReader: ReaderViewModel? = nil) {
+        self.book = book
+        self.preparedTextReader = preparedTextReader
+        _settings = State(initialValue: settings)
+        _sourceService = ObservedObject(wrappedValue: preparedTextReader?.sourceService ?? .shared)
+    }
 
     var body: some View {
-        // 伪代码 0x10063cd00（L21-29）：四分派。
-        // ReaderView 域桥：Book(String id)→bookId(Int) 恒等桥——真机核清项。
-        if Self.isAudioSource(book) {
-            AudioPlayerView(book: book)
-        } else if Self.isMangaSource(book) {
-            MangaReaderView(book: book)
-        } else if Self.isTextBook(book) {
-            LocalReaderView(book: LocalBook(from: book), settings: .constant(settings))
-        } else {
-            ReaderView(settings: .constant(settings), bookId: 0)
+        NavigationStack {
+            Group {
+                if ready {
+                    let latest = Self.latestBook(for: book, bookService: bookService)
+                    if Self.isAudioSource(latest, sourceService: sourceService) {
+                        AudioPlayerView(book: latest)
+                    } else if Self.isMangaSource(latest, sourceService: sourceService) {
+                        MangaReaderView(book: latest)
+                    } else {
+                        ReaderView(settings: $settings, book: latest, viewModel: preparedTextReader)
+                    }
+                } else {
+                    ProgressView("正在打开书籍")
+                }
+            }
+            .navigationTitle(book.name)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("关闭") { dismiss() }
+                        .accessibilityIdentifier("reader-router-close")
+                }
+            }
+        }
+        .task {
+            await bookService.waitUntilReady()
+            if !sourceService.hasLoadedOnce { await sourceService.loadLocalSources() }
+            guard !Task.isCancelled else { return }
+            ready = true
         }
     }
-}
 
-extension ReaderRouter {
-
-    /// 伪代码 0x10043fad8（L31-33）：纯文本判定。
-    /// bookType 域桥（Book 无 bookSourceType 成员——类型分档桥，真机核清项）。
-    static func isTextBook(_ book: Book) -> Bool {
-        book.bookType == 0
+    static func latestBook(for book: Book, bookService: BookService) -> Book {
+        latestBook(for: book, bookshelf: bookService.bookshelf)
     }
 
-    /// 伪代码 0x10063d128（L35-58）：音频源判定（bookSourceType == audio 域确证）。
-    static func isAudioSource(_ book: Book) -> Bool {
-        book.bookType == 2
+    static func latestBook(for book: Book, bookshelf: [Book]) -> Book {
+        bookshelf.first(where: { $0.matchesBookshelfIdentity(as: book) })
+            ?? bookshelf.first(where: { $0.isSameContent(as: book) && $0.matchesSourceScope(as: book) })
+            ?? book
     }
 
-    /// 伪代码 0x10063d5f4（L60-83）：漫画源判定。
-    static func isMangaSource(_ book: Book) -> Bool {
-        book.bookType == 1
+    static func isTextBook(_ book: Book, sourceService: SourceService = .shared) -> Bool {
+        !isAudioSource(book, sourceService: sourceService) && !isMangaSource(book, sourceService: sourceService)
     }
-}
 
-/// 本地书桥（LocalBook(from: Book) 转换，T-601-01 签名域）。
-private extension LocalBook {
-    init(from book: Book) {
-        self.init(
-            id: UUID(),
-            name: book.name,
-            author: book.author,
-            filePath: book.bookUrl ?? "",
-            format: "txt")
+    static func isAudioSource(_ book: Book, sourceService: SourceService = .shared) -> Bool {
+        matchesType(book, type: 1, tab: "听书", sourceService: sourceService)
+    }
+
+    static func isMangaSource(_ book: Book, sourceService: SourceService = .shared) -> Bool {
+        matchesType(book, type: 2, tab: "漫画", sourceService: sourceService)
+    }
+
+    private static func matchesType(_ book: Book, type: Int, tab: String, sourceService: SourceService) -> Bool {
+        // 有效整数是显式覆盖；0及未知整数也须阻止源类型回退。
+        if let value = book.getVariable("bookType"), let selected = Int(value) { return selected == type }
+        guard let sourceURL = book.bookSourceUrl else { return false }
+        let source: BookSource?
+        if let storage = book.sourceStorageKind {
+            source = sourceService.getSource(byUrl: sourceURL, storageKind: storage)
+        } else {
+            source = sourceService.getSource(byUrl: sourceURL)
+        }
+        guard let source else { return false }
+        if source.bookSourceType == type { return true }
+        guard let state = BookSource.readState("sourceVariable_", source: source),
+              let data = state.data(using: .utf8),
+              let values = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return false }
+        return values["tab"] as? String == tab
     }
 }

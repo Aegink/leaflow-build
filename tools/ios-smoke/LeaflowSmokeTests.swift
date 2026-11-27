@@ -265,6 +265,35 @@ final class LeaflowSmokeTests: XCTestCase {
         capture("reader-turn-returned")
     }
 
+    func testExploreDetailReadingHandoff() {
+        launch(["-smokeExploreReading"])
+        let book = app.buttons["explore-reading-book"]
+        XCTAssertTrue(book.waitForExistence(timeout: 30))
+        book.tap()
+        let read = app.buttons["开始阅读"]
+        XCTAssertTrue(read.waitForExistence(timeout: 10))
+        capture("explore-book-detail")
+        app.buttons["explore-detail-close"].tap()
+        XCTAssertTrue(book.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["reader-router-close"].exists)
+        book.tap()
+        XCTAssertTrue(read.waitForExistence(timeout: 10))
+        read.tap()
+        let close = app.buttons["reader-router-close"]
+        XCTAssertTrue(close.waitForExistence(timeout: 30))
+        let text = app.textViews.firstMatch
+        XCTAssertTrue(text.waitForExistence(timeout: 20))
+        assertVisibleText("固定发现正文")
+        XCTAssertFalse(app.buttons["explore-detail-close"].exists)
+        capture("explore-reader-opened")
+        close.tap()
+        XCTAssertTrue(book.waitForExistence(timeout: 10))
+        book.tap()
+        XCTAssertTrue(read.waitForExistence(timeout: 10))
+        capture("explore-detail-reopened")
+        passed("explore_detail_reading_handoff")
+    }
+
     private func waitForPosition(_ expected: String, _ element: XCUIElement) {
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "label == %@", expected), object: element)], timeout: 10), .completed)

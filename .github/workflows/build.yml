@@ -39,6 +39,7 @@ jobs:
 
       - name: Rule sample self-test (-selfTestRules)
         id: selftest
+        timeout-minutes: 12
         run: |
           set +e
           UDID=$(xcrun simctl list devices available | grep -m1 "iPhone" | grep -oE '[0-9A-F-]{36}')
@@ -70,6 +71,20 @@ jobs:
           cat selftest-result.txt
           xcrun simctl shutdown "$UDID" 2>/dev/null
           python3 -I tools/record_build_evidence.py --samples-only
+
+      - name: Collect failed self-test diagnostics
+        if: failure() && steps.selftest.outcome == 'failure'
+        timeout-minutes: 2
+        run: |
+          UDID=$(xcrun simctl list devices available | grep -m1 "iPhone" | grep -oE '[0-9A-F-]{36}')
+          DATA=$(xcrun simctl get_app_container "$UDID" com.leaflow.app data 2>/dev/null || true)
+          if [ -n "$DATA" ] && [ -f "$DATA/Documents/selftest.txt" ]; then
+            cat "$DATA/Documents/selftest.txt" >> selftest.log
+          fi
+          xcrun simctl spawn "$UDID" log show --last 5m --style compact \
+            --predicate 'process == "Leaflow"' > selftest-diagnostics.txt 2>&1 || true
+          xcrun simctl terminate "$UDID" com.leaflow.app 2>/dev/null || true
+          xcrun simctl shutdown "$UDID" 2>/dev/null || true
 
       - name: Smoke test (boot simulator, install, launch, check alive)
         id: smoke
@@ -270,6 +285,7 @@ jobs:
             smoke-result.txt
             selftest-result.txt
             selftest.log
+            selftest-diagnostics.txt
             ipa-result.txt
             sim-screenshot.png
             sim-settings.png

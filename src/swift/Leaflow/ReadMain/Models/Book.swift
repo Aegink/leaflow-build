@@ -109,14 +109,6 @@ struct Book: Codable, Identifiable, Equatable, Hashable {
             bookSourceUrl: bookSourceUrl)
     }
 
-    /// legacyId getter（0x10022a1d8 L74-79 域确证）。
-    var legacyId: String {
-        id_
-            ?? Self.normalizedKey(
-                bookUrl: bookUrl ?? "", bookSourceUrl: bookSourceUrl)
-            ?? ""
-    }
-
     /// init(bookUrl:…22 参)（签名域确证；id_ 不入参——经
     /// resolvedBookId/save 链回填）。全参默认值——空 Book 构造（`Book()`）
     /// 即本 init 退化调用；默认值取属性声明默认（还原推断）。
@@ -168,71 +160,6 @@ struct Book: Codable, Identifiable, Equatable, Hashable {
         self.sourceStorageKind = sourceStorageKind
         self.bookType = bookType
         self.skipUpdate = skipUpdate
-    }
-
-    /// normalizedIdentifier（static ×4 ICF 副本签名确证）。
-    static func normalizedIdentifier(_ value: String?) -> String? {
-        guard let value, !value.isEmpty else { return nil }
-        return value
-    }
-
-    /// resolvedBookId（0x100229e34 L51-63 域确证）。
-    static func resolvedBookId(
-        savedId: String?, bookUrl: String, bookSourceUrl: String?
-    ) -> String {
-        if let savedId, !savedId.isEmpty {
-            return savedId
-        }
-        return normalizedKey(
-            bookUrl: bookUrl, bookSourceUrl: bookSourceUrl) ?? bookUrl
-    }
-
-    private static func normalizedKey(
-        bookUrl: String, bookSourceUrl: String?
-    ) -> String? {
-        guard !bookUrl.isEmpty else { return nil }
-        return "\(bookSourceUrl ?? "")::\(bookUrl)"
-    }
-
-    /// normalizeBookIdIfNeeded（0x10022a144 L66-71 域确证）。
-    mutating func normalizeBookIdIfNeeded() -> Bool {
-        let resolved = Self.resolvedBookId(
-            savedId: id_, bookUrl: bookUrl ?? "",
-            bookSourceUrl: bookSourceUrl)
-        if id_ != resolved {
-            id_ = resolved
-            return true
-        }
-        return false
-    }
-
-    // MARK: 内容指纹域（0x10022a5c0 L92-102 域确证）
-
-    /// contentFingerprint getter（签名确证）。
-    var contentFingerprint: String {
-        let author = author ?? ""
-        return "\(name.lowercased())|\(author.lowercased())"
-    }
-
-    /// isSameContent(as:)（0x10022a5c0 L92-102 域确证）。
-    func isSameContent(as other: Book) -> Bool {
-        contentFingerprint == other.contentFingerprint
-    }
-
-    /// matchesSourceScope(as:)（0x10022ac60 L108-111 域确证）。
-    func matchesSourceScope(as other: Book) -> Bool {
-        (bookSourceUrl ?? "") == (other.bookSourceUrl ?? "")
-    }
-
-    /// matchesBookshelfIdentity(as:)（签名确证）。
-    func matchesBookshelfIdentity(as other: Book) -> Bool {
-        id == other.id
-    }
-
-    /// sourceStateKey getter（0x10022ad10 L145-149 域确证）。
-    var sourceStateKey: String? {
-        guard let url = bookSourceUrl, !url.isEmpty else { return nil }
-        return url
     }
 
     // MARK: 章节缓存键域

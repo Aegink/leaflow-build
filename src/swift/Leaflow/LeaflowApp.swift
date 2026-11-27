@@ -70,6 +70,7 @@ enum AppDebugConfiguration {
 struct LeaflowApp: App {
 
     @Environment(\.scenePhase) private var scenePhase
+    @StateObject private var bookService = BookService()
 
     init() {
         // T-1601-B1：固定样本自测（-selfTestRules，CI 抓 console）。
@@ -105,6 +106,8 @@ struct LeaflowApp: App {
                     BookReviewSmokeView()
                 } else if ProcessInfo.processInfo.arguments.contains("-smokeReaderPageTurn") {
                     ReaderPageTurnSmokeView()
+                } else if ProcessInfo.processInfo.arguments.contains("-smokeExploreReading") {
+                    ExploreReadingSmokeView()
                 } else if ProcessInfo.processInfo.arguments.contains("-smokeTtsPlayer")
                     || ProcessInfo.processInfo.arguments.contains("-smokeTtsQuick") {
                     TtsPlayerSmokeView()
@@ -117,6 +120,7 @@ struct LeaflowApp: App {
                         .splashOverlay()
                 }
             }
+            .environmentObject(bookService)
         }
     }
 

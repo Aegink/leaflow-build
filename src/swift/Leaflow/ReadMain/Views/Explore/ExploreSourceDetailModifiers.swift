@@ -155,14 +155,45 @@ struct ExploreSourceDetailLifecycleModifier: ViewModifier {
 /// 弹层分发修饰（body(content:) 签名确证；"输入内容" L3998/
 /// "正在加载分类..." @ptr 域确证）。
 struct ExploreSourceDetailPresentationsModifier: ViewModifier {
+    @Binding var selectedBook: ExploreSelectedBook?
+    @Binding var pendingReadBook: Book?
+    let onReadBookFromDetail: (Book) -> Void
     @Binding var filterSheet: Bool
     @Binding var browserRequest: RemoteBrowserRequest?
     @Binding var openRoute: ExploreOpenRoute?
     @Binding var searchRoute: ExploreSearchRoute?
     let source: BookSource
+    var preparedTextReader: ReaderViewModel? = nil
+    @State private var readingBook: Book?
 
     func body(content: Content) -> some View {
         content
+            .fullScreenCover(item: $readingBook) { book in
+                ReaderRouter(book: book, preparedTextReader: preparedTextReader)
+                    .id(book.id)
+            }
+            .sheet(item: $selectedBook) { selection in
+                NavigationStack {
+                    BookDetailView(book: selection.book, availableSources: [], onRead: onReadBookFromDetail,
+                        initialChapters: preparedTextReader?.chapters)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button("关闭") { selectedBook = nil }
+                                .accessibilityIdentifier("explore-detail-close")
+                        }
+                    }
+                }
+                .id(selection.id)
+            }
+            .task(id: selectedBook?.id) {
+                guard let book = ExploreReaderRequest.takePending(
+                    isDetailPresented: selectedBook != nil, pending: &pendingReadBook) else { return }
+                // 0x10053d4d0→0x100542448：详情退出后延迟0.35秒，重新选书会取消旧交接。
+                do { try await Task.sleep(nanoseconds: 350_000_000) }
+                catch { return }
+                guard !Task.isCancelled, selectedBook == nil, readingBook == nil else { return }
+                readingBook = book
+            }
             .sheet(isPresented: $filterSheet) {
                 NavigationStack {
                     Text("正在加载分类...")
@@ -189,5 +220,19 @@ struct ExploreSourceDetailPresentationsModifier: ViewModifier {
 extension RemoteBrowserRequest: Identifiable {
     var id: String {
         url.absoluteString + (sourceStateKey ?? "")
+    }
+}
+
+/// 类型表8015：每次选择创建独立呈现身份，重复打开同一书也能重新初始化详情。
+struct ExploreSelectedBook: Identifiable {
+    let id = UUID()
+    let book: Book
+}
+
+enum ExploreReaderRequest {
+    static func takePending(isDetailPresented: Bool, pending: inout Book?) -> Book? {
+        guard !isDetailPresented else { return nil }
+        defer { pending = nil }
+        return pending
     }
 }

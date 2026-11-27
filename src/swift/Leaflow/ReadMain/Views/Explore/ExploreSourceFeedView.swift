@@ -52,7 +52,8 @@ struct ExploreSourceFeedView: View {
     @State private var sections: [ExploreFeedSection] = []
     @State private var isLoadingFeed = false
     @State private var errorMessage: String?
-    @State private var selectedBook: Book?
+    @State private var selectedBook: ExploreSelectedBook?
+    @State private var pendingReadBook: Book?
     @State private var pendingTextActionPresented = false
     @State private var pendingTextActionValue = ""
     @State private var pendingTextActionKey: String?
@@ -63,7 +64,7 @@ struct ExploreSourceFeedView: View {
     @State private var openRoute: ExploreOpenRoute?
     @State private var feedTaskActive = false
 
-    private let sourceService = SourceService()
+    private let sourceService = SourceService.shared
 
     /// maxStoredBooksPerSection getter（签名确证）。
     private var maxStoredBooksPerSection: Int { 12 }
@@ -76,6 +77,9 @@ struct ExploreSourceFeedView: View {
                     onDisappear: { handleFeedDisappear() }))
             .modifier(
                 ExploreSourceDetailPresentationsModifier(
+                    selectedBook: $selectedBook,
+                    pendingReadBook: $pendingReadBook,
+                    onReadBookFromDetail: handleReadBookFromDetail,
                     filterSheet: $showFilterSheet,
                     browserRequest: $pendingBrowserRequest,
                     openRoute: $openRoute,
@@ -273,15 +277,14 @@ struct ExploreSourceFeedView: View {
 
     // MARK: 书籍联动（签名域确证）
 
-    /// handleReadBookFromDetail（签名确证）。
     private func handleReadBookFromDetail(_ book: Book) {
-        selectedBook = book
-        // TODO(T-601-01): ReaderRouter 阅读入口。
+        pendingReadBook = book
+        selectedBook = nil
     }
 
     /// handleSelectedBookChange（签名确证）。
     private func handleSelectedBookChange(_ book: Book) {
-        selectedBook = book
+        selectedBook = ExploreSelectedBook(book: book)
     }
 
     // MARK: 弹层域（签名域确证）
