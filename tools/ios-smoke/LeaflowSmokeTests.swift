@@ -299,6 +299,34 @@ final class LeaflowSmokeTests: XCTestCase {
         XCTAssertTrue(app.buttons["书籍变量"].waitForExistence(timeout: 10))
     }
 
+    func testLocalBookFileImport() {
+        launch(["-smokeLocalBookImport"])
+        let input = app.buttons["local-import-fixture"]
+        XCTAssertTrue(input.waitForExistence(timeout: 30))
+        input.tap()
+        let save = app.buttons["local-book-import-save"]
+        XCTAssertTrue(save.waitForExistence(timeout: 10))
+        XCTAssertEqual(app.textFields["书名"].value as? String, "固定导入书籍")
+        capture("local-book-import-preview")
+        save.tap()
+        let read = app.buttons["local-import-read"]
+        XCTAssertTrue(read.waitForExistence(timeout: 20))
+        XCTAssertEqual(app.staticTexts["local-import-chapter-count"].label, "章节数：3")
+        read.tap()
+        XCTAssertTrue(app.textViews.firstMatch.waitForExistence(timeout: 30))
+        assertVisibleText("固定本地正文")
+        capture("local-book-import-reader")
+        app.buttons["local-import-reader-close"].tap()
+        launch(["-smokeLocalBookImport"])
+        XCTAssertTrue(read.waitForExistence(timeout: 30))
+        XCTAssertEqual(app.staticTexts["local-import-chapter-count"].label, "章节数：3")
+        read.tap()
+        XCTAssertTrue(app.textViews.firstMatch.waitForExistence(timeout: 30))
+        assertVisibleText("固定本地正文")
+        capture("local-book-import-cold-reader")
+        passed("local_book_import_reader")
+    }
+
     func testExploreDetailBookState() {
         launch(["-smokeExploreReading"])
         let entry = app.buttons["explore-reading-book"]

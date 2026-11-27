@@ -38,6 +38,8 @@ struct LocalBook: Codable, Identifiable, Equatable, Hashable {
     var durChapterPos: Double = 0
     var totalChapters: Int = 0
     var group: String?
+    var chapterPattern: String?
+    var detectedEncoding: String?
     var addedAt: Date = Date()
 
     /// filePath getter（0x100241344 L38-41 域确证）。
@@ -91,17 +93,21 @@ struct LocalChapter: Codable, Identifiable, Equatable, Hashable {
     var title: String
     var startPosition: Int
     var endPosition: Int
+    var startUTF16: Int?
+    var endUTF16: Int?
     var startTag: String?
 
     /// init（0x100340254 L107-114 域确证）。
     init(
         id: Int, title: String, startPosition: Int, endPosition: Int,
-        startTag: String? = nil
+        startTag: String? = nil, startUTF16: Int? = nil, endUTF16: Int? = nil
     ) {
         self.id = id
         self.title = title
         self.startPosition = startPosition
         self.endPosition = endPosition
+        self.startUTF16 = startUTF16
+        self.endUTF16 = endUTF16
         self.startTag = startTag
     }
 

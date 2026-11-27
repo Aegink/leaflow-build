@@ -116,6 +116,7 @@ enum RuleSampleSelfTest {
             ReaderRouteSampleSelfTest.run(emit: emit)
             ExploreSourceSampleSelfTest.run(emit: emit)
             BookDetailSampleSelfTest.run(emit: emit)
+            await LocalBookSampleSelfTest.run(emit: emit)
             emitRaw("SELFTEST_END")
             exit(0)
         }

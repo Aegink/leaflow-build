@@ -74,6 +74,7 @@ struct LocalReaderView: View {
                             let vm = LocalReaderViewModel(
                                 book: book, settings: settings,
                                 localBookService: LocalBookService.shared)
+                            vm.updatePaginationBoundsIfNeeded(size: geometry.size)
                             viewModel = vm
                             ttsSleepTimer.bind(to: vm)
                             await vm.loadBook()
@@ -175,10 +176,17 @@ struct LocalReaderView: View {
         syncAdapter(viewModel)
         return VStack(spacing: 0) {
             chapterSlider
-            ReaderContentSurface(
-                viewModel: adapter,
-                settings: settings,
-                onRetry: { await viewModel.retryLoading() })
+            GeometryReader { contentGeometry in
+                ReaderContentSurface(
+                    viewModel: adapter,
+                    settings: settings,
+                    onRetry: { await viewModel.retryLoading() })
+                    .task(id: contentGeometry.size) {
+                        if viewModel.updatePaginationBoundsIfNeeded(size: contentGeometry.size) {
+                            await viewModel.rebuildPages(resyncSpeech: true)
+                        }
+                    }
+            }
         }
     }
 
@@ -197,6 +205,7 @@ struct LocalReaderView: View {
         adapter.hasError = vm.hasError
         adapter.menuVisible = menuVisible
         adapter.containerSize = vm.containerSize
+        adapter.settings = settings
     }
 
     /// 章节滑条（_chapterSliderValue 初始化确证）。
