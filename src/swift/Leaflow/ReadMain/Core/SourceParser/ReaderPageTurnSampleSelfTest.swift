@@ -154,14 +154,14 @@ enum ReaderPageTurnSampleSelfTest {
             targetID: .init(chapterIndex: 0, pageIndex: 1), direction: .next, sourceIndex: 0, targetIndex: 1)
         renderer.prepare(transition: next, incoming: incoming)
         renderer.render(progress: 0.5)
-        let forward = [current.view.superview?.transform.tx ?? 999, incoming.view.superview?.transform.tx ?? 999,
+        let forward: [CGFloat] = [current.view.superview?.transform.tx ?? 999, incoming.view.superview?.transform.tx ?? 999,
             host.view.subviews.dropLast().last?.alpha ?? 999, current.view.superview?.layer.cornerRadius ?? 999]
         _ = renderer.finishSettlement(committed: false)
         let previous = PageTurnTransition(sourceID: next.targetID, targetID: next.sourceID,
             direction: .previous, sourceIndex: 1, targetIndex: 0)
         renderer.prepare(transition: previous, incoming: incoming)
         renderer.render(progress: 0.5)
-        let reverse = [current.view.superview?.transform.tx ?? 999, incoming.view.superview?.transform.tx ?? 999,
+        let reverse: [CGFloat] = [current.view.superview?.transform.tx ?? 999, incoming.view.superview?.transform.tx ?? 999,
             host.view.subviews.dropLast().last?.alpha ?? 999, incoming.view.superview?.layer.cornerRadius ?? 999]
         emit("turn_renderer_visual_fields", ["-200.00", "-30.00", "0.15", "24.00", "30.00", "-200.00", "0.15", "24.00"],
             (forward + reverse).map { String(format: "%.2f", Double($0)) })
