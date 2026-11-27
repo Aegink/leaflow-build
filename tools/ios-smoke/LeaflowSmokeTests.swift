@@ -249,6 +249,13 @@ final class LeaflowSmokeTests: XCTestCase {
     private func openActions() {
         let title = app.staticTexts["固定书架样本"].firstMatch
         XCTAssertTrue(title.waitForExistence(timeout: 20))
+        let ready = NSPredicate { _, _ in
+            let frame = title.frame
+            return title.isHittable && frame.height >= 12 && frame.width >= 60
+                && frame.minY >= self.app.navigationBars.firstMatch.frame.maxY
+        }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: ready, object: title)], timeout: 15), .completed,
+            "书架标题尚未完成布局，不能执行长按")
         title.press(forDuration: 1)
         XCTAssertTrue(app.buttons["开始阅读"].waitForExistence(timeout: 10))
         // 展开真实操作表，避免 medium 档把下面的入口留在屏幕外。
