@@ -217,6 +217,7 @@ extension PageContentViewController {
     func paragraphAlignedAttributedText(
         _ attributed: NSAttributedString, alignment: NSTextAlignment
     ) -> NSAttributedString {
+        guard attributed.length > 0 else { return attributed }
         let mutable = NSMutableAttributedString(attributedString: attributed)
         let paragraphStyle: NSMutableParagraphStyle
         if let existing = attributed.attribute(

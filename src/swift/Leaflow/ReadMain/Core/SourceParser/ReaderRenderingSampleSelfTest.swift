@@ -48,6 +48,37 @@ enum ReaderRenderingSampleSelfTest {
                 [String(refreshed === controller), String(controller.contentTextView.attributedText.string == first.content),
                  String(pool.viewController(for: -1, isDoublePage: false) == nil
                     && pool.viewController(for: 1, isDoublePage: false) == nil)])
+            let cache = ReaderPageBodyCache()
+            var builds = 0
+            func cached(_ page: PageData, width: CGFloat = 320.1, scale: CGFloat = 2,
+                        style: Int = 0) -> NSAttributedString {
+                cache.attributedText(for: page, settings: settings, contentStyle: style,
+                    width: width, displayScale: scale) {
+                        builds += 1
+                        return NSAttributedString(string: page.content)
+                    }
+            }
+            let initial = cached(first)
+            let reused = cached(first)
+            emit("reader_body_cache_reuse", ["true", "1"],
+                [String(initial === reused), String(builds)])
+            var changed = first
+            changed.content = "等长替换正文"
+            let replaced = cached(changed)
+            emit("reader_body_cache_same_length", ["true", "等长替换正文", "2"],
+                [String(first.content.utf16.count == changed.content.utf16.count),
+                 replaced.string, String(builds)])
+            _ = cached(changed, width: 320.2)
+            _ = cached(changed, width: 320.2, scale: 2.001)
+            _ = cached(changed, width: 320.2, scale: 2.001, style: 1)
+            emit("reader_body_cache_layout_precision", ["5"], [String(builds)])
+            changed.continuesParagraphOnNextPage.toggle()
+            _ = cached(changed, width: 320.2, scale: 2.001, style: 1)
+            cache.invalidate()
+            _ = cached(changed, width: 320.2, scale: 2.001, style: 1)
+            emit("reader_body_cache_page_state", ["7"], [String(builds)])
+            let empty = controller.paragraphAlignedAttributedText(NSAttributedString(string: ""), alignment: .left)
+            emit("reader_empty_body_alignment", ["0"], [String(empty.length)])
             let incoming = UIViewController()
             let transition = PageTurnTransition(from: PageTurnPageID(chapterIndex: 0, pageIndex: 0),
                 to: PageTurnPageID(chapterIndex: 0, pageIndex: 1), direction: .next)

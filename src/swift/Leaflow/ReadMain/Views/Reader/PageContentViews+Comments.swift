@@ -195,18 +195,24 @@ final class CommentAttachment: NSTextAttachment {
 // MARK: - 正文缓存（ReaderPageBodyCache）
 
 /// 正文属性串缓存（PGO：attributedText(for:settings:contentStyle:width:displayScale:build:)
-/// /invalidate；签名确证，键组合按参数集推断）。
+/// /invalidate）。类型表10232与0x10075f6a0确证完整页面比较及CGFloat精度。
+/// 外观/高亮修订计数的设置端恢复仍归T1602-D01，不据此宣称完整还原。
 final class ReaderPageBodyCache {
     private var cachedKey: BodyCacheKey?
     private var cachedValue: NSAttributedString?
 
     private struct BodyCacheKey: Equatable {
-        let chapterIndex: Int
-        let pageIndex: Int
-        let charCount: Int
+        let page: PageData
         let contentStyle: Int
-        let width: Int
-        let displayScale: Int
+        let width: CGFloat
+        let displayScale: CGFloat
+
+        static func == (lhs: BodyCacheKey, rhs: BodyCacheKey) -> Bool {
+            lhs.page.hasSameRenderableState(as: rhs.page)
+                && lhs.contentStyle == rhs.contentStyle
+                && lhs.width == rhs.width
+                && lhs.displayScale == rhs.displayScale
+        }
     }
 
     func attributedText(
@@ -218,12 +224,10 @@ final class ReaderPageBodyCache {
         build: () -> NSAttributedString
     ) -> NSAttributedString {
         let key = BodyCacheKey(
-            chapterIndex: page.chapterIndex,
-            pageIndex: page.pageIndex,
-            charCount: page.charCount,
+            page: page,
             contentStyle: contentStyle,
-            width: Int(width),
-            displayScale: Int(displayScale * 100))
+            width: width,
+            displayScale: displayScale)
         if key == cachedKey, let cachedValue {
             return cachedValue
         }
