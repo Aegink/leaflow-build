@@ -29,6 +29,15 @@ enum LoginModelSampleSelfTest {
             let no = try JSONDecoder().decode(LoginUiStyle.self, from: Data(#"{"layoutWrapBefore":" no ","layoutFlexGrow":"bad","layoutFlexShrink":true}"#.utf8))
             emit("login_model_invalid_style_members", ["false", "true", "true"],
                 [String(no.layoutWrapBefore ?? true), String(no.layoutFlexGrow == nil), String(no.layoutFlexShrink == nil)])
+            let inputs = try JSONDecoder().decode([LoginUiItem].self,
+                from: Data(#"[{"name":"a"},{"name":"b","type":"password"},{"name":"c","type":"select"},{"name":"d","type":"toggle"},{"name":"e","type":"button"}]"#.utf8))
+            emit("login_layout_default_basis", ["1.0", "1.0", "1.0", "1.0", "-1.0"],
+                inputs.map { String($0.normalizedFlexBasis) })
+            let styled = try JSONDecoder().decode([LoginUiItem].self,
+                from: Data(#"[{"name":"half","style":{"layoutFlexBasisPercent":0.5,"layoutFlexGrow":2}},{"name":"invalid","style":{"layoutFlexBasisPercent":50,"layoutFlexGrow":-1}},{"name":"zero","type":"button","style":{"layoutFlexBasisPercent":0}}]"#.utf8))
+            emit("login_layout_style_basis_and_grow", ["0.5", "2.0", "1.0", "0.0", "-1.0"],
+                [String(styled[0].normalizedFlexBasis), String(styled[0].normalizedFlexGrow),
+                 String(styled[1].normalizedFlexBasis), String(styled[1].normalizedFlexGrow), String(styled[2].normalizedFlexBasis)])
         } catch { emit("login_model_original_fields", ["通过"], [error.localizedDescription]) }
     }
 }

@@ -115,7 +115,8 @@ enum LoginService {
         // TODO(T-1602): 原版关联主机及系统Cookie清除仍需与浏览器域完整对齐。
     }
 
-    /// 伪代码 0x10034f228（L237-241）：持久化键。
+    /// 旧重建包的兼容读取键；登录信息新写入使用loginInfo_源状态。
+    /// TODO(T-1602): 原版0x10034f228实际为UI默认值缓存身份，须另行恢复缓存语义。
     static func loginInfoDefaultsCacheKey(source: BookSource) -> String {
         "login.info.\(source.bookSourceUrl)"
     }

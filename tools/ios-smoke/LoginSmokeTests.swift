@@ -7,6 +7,9 @@ extension LeaflowSmokeTests {
         openSourceLogin()
         let account = app.textFields["source-login-field-account"]
         XCTAssertTrue(account.waitForExistence(timeout: 10))
+        let statusField = app.textFields["source-login-field-status"]
+        XCTAssertGreaterThan(statusField.frame.minY, account.frame.maxY)
+        XCTAssertGreaterThan(account.frame.width, app.frame.width * 0.7)
         XCTAssertFalse(app.staticTexts["登录成功"].exists)
         account.tap()
         account.typeText("sample")

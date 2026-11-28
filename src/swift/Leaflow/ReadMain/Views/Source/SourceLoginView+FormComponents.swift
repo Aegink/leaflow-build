@@ -126,16 +126,23 @@ struct LoginWebView: UIViewRepresentable {
 
 // MARK: - LoginFormFlexLayout
 
+struct LoginFlexBasisKey: LayoutValueKey { static let defaultValue: CGFloat = -1 }
+struct LoginFlexGrowKey: LayoutValueKey { static let defaultValue: CGFloat = 0 }
+struct LoginWrapBeforeKey: LayoutValueKey { static let defaultValue = false }
+
 /// 登录表单 Flex 布局（sizeThatFits/arrangedRows/placeSubviews/
 /// preferredWidth + flushCurrentRow 签名确证；flex_start/flex_end 域）。
 struct LoginFormFlexLayout: Layout {
     var availableWidth: CGFloat = 0
+    var spacing: CGFloat = 8
 
     /// preferredWidth(for:availableWidth:)（签名确证）。
     private func preferredWidth(
         for subview: LayoutSubview, availableWidth: CGFloat
     ) -> CGFloat {
         let size = subview.sizeThatFits(.unspecified)
+        let basis = subview[LoginFlexBasisKey.self]
+        if basis > 0, basis <= 1 { return max(0, availableWidth) * basis }
         if availableWidth > 0 && size.width > availableWidth {
             return availableWidth
         }
@@ -158,9 +165,10 @@ struct LoginFormFlexLayout: Layout {
         }
         for subview in subviews {
             let width = preferredWidth(for: subview, availableWidth: availableWidth)
-            if currentWidth + width > availableWidth, !current.isEmpty {
+            if !current.isEmpty, subview[LoginWrapBeforeKey.self] || currentWidth + spacing + width > availableWidth {
                 flushCurrentRow()
             }
+            if !current.isEmpty { currentWidth += spacing }
             current.append(subview)
             currentWidth += width
         }
@@ -174,11 +182,10 @@ struct LoginFormFlexLayout: Layout {
         let width = proposal.width ?? availableWidth
         let rows = arrangedRows(for: subviews, availableWidth: width)
         var totalHeight: CGFloat = 0
-        for row in rows {
-            let rowHeight = row
-                .map { $0.sizeThatFits(.unspecified).height }
-                .max() ?? 0
-            totalHeight += rowHeight
+        for (index, row) in rows.enumerated() {
+            let sizes = rowSizes(row, width: width)
+            totalHeight += sizes.map(\.height).max() ?? 0
+            if index > 0 { totalHeight += spacing }
         }
         return CGSize(width: width, height: totalHeight)
     }
@@ -193,15 +200,29 @@ struct LoginFormFlexLayout: Layout {
         for row in rows {
             var x = bounds.minX
             var rowHeight: CGFloat = 0
-            for subview in row {
-                let size = subview.sizeThatFits(.unspecified)
+            let sizes = rowSizes(row, width: bounds.width)
+            for (index, subview) in row.enumerated() {
+                let size = sizes[index]
                 subview.place(
                     at: CGPoint(x: x, y: y),
+                    anchor: .topLeading,
                     proposal: ProposedViewSize(size))
-                x += size.width
+                x += size.width + spacing
                 rowHeight = max(rowHeight, size.height)
             }
-            y += rowHeight
+            y += rowHeight + spacing
+        }
+    }
+
+    private func rowSizes(_ row: [LayoutSubview], width: CGFloat) -> [CGSize] {
+        let widths = row.map { preferredWidth(for: $0, availableWidth: width) }
+        let growth = row.map { max(0, $0[LoginFlexGrowKey.self]) }
+        let totalGrowth = growth.reduce(0, +)
+        let remaining = max(0, width - widths.reduce(0, +) - CGFloat(max(0, row.count - 1)) * spacing)
+        return row.enumerated().map { index, subview in
+            let finalWidth = widths[index] + (totalGrowth > 0 ? remaining * growth[index] / totalGrowth : 0)
+            let height = subview.sizeThatFits(ProposedViewSize(width: finalWidth, height: nil)).height
+            return CGSize(width: finalWidth, height: height)
         }
     }
 }

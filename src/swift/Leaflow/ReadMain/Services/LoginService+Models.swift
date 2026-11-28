@@ -19,6 +19,14 @@ struct LoginUiItem: Codable, Identifiable, Hashable {
     var id: String { name + "/" + (type ?? "") + "/" + (viewName ?? "") }
     var normalizedType: String { type?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? "text" }
 
+    /// SourceLoginView 0x100c87530：basis采用0...1比例，输入类默认1，按钮默认-1自适应。
+    var normalizedFlexBasis: Double {
+        if let basis = style?.layoutFlexBasisPercent, basis > 0, basis <= 1 { return basis }
+        return ["text", "password", "select", "toggle", "checkbox"].contains(normalizedType) ? 1 : -1
+    }
+
+    var normalizedFlexGrow: Double { max(0, style?.layoutFlexGrow ?? 0) }
+
     var resolvedDefaultValue: String {
         if let defaultValue { return defaultValue }
         let kind = normalizedType

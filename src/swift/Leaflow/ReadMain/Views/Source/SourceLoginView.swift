@@ -266,6 +266,9 @@ struct SourceLoginView: View {
                         availableWidth: UIScreen.main.bounds.width - 32.0) {
                         ForEach(localVisibleLoginUiItems) { item in
                             localLoginUiItemView(for: item)
+                                .layoutValue(key: LoginFlexBasisKey.self, value: normalizedFlexBasis(for: item))
+                                .layoutValue(key: LoginFlexGrowKey.self, value: normalizedFlexGrow(for: item))
+                                .layoutValue(key: LoginWrapBeforeKey.self, value: item.style?.layoutWrapBefore ?? false)
                         }
                     }
                 }
@@ -323,6 +326,8 @@ struct SourceLoginView: View {
                 item.placeholder ?? resolvedViewName(for: item),
                 text: binding(for: item))
                 .textContentType(.password)
+                .textFieldStyle(.roundedBorder)
+                .frame(minHeight: 44)
                 .disabled(isExecuting)
                 .accessibilityIdentifier("source-login-field-\(item.name)")
         case "select":
@@ -332,6 +337,7 @@ struct SourceLoginView: View {
                 }
             }
             .pickerStyle(.menu)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             .disabled(isExecuting)
             .accessibilityIdentifier("source-login-field-\(item.name)")
         case "checkbox", "toggle":
@@ -344,11 +350,14 @@ struct SourceLoginView: View {
                 }
             }
             .buttonStyle(.plain)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             .disabled(isExecuting)
             .accessibilityIdentifier("source-login-field-\(item.name)")
         default:
             TextField(
                 item.placeholder ?? resolvedViewName(for: item), text: binding(for: item))
+                .textFieldStyle(.roundedBorder)
+                .frame(minHeight: 44)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .disabled(isExecuting)

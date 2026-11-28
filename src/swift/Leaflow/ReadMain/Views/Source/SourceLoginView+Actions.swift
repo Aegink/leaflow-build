@@ -213,12 +213,12 @@ extension SourceLoginView {
 
     /// normalizedFlexBasis(for:)（签名确证）。
     func normalizedFlexBasis(for item: LoginUiItem) -> CGFloat {
-        max(CGFloat((item.values?.count ?? 1)), 1) * 80.0
+        CGFloat(item.normalizedFlexBasis)
     }
 
     /// normalizedFlexGrow(for:)（签名确证）。
     func normalizedFlexGrow(for item: LoginUiItem) -> CGFloat {
-        (item.type ?? "") == "text" ? 1.0 : 0.0
+        CGFloat(item.normalizedFlexGrow)
     }
 
     /// resolvedViewName(for:)（签名确证）。
