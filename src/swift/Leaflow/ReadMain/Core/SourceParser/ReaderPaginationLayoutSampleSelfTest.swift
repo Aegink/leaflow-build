@@ -65,6 +65,9 @@ enum ReaderPaginationLayoutSampleSelfTest {
                  String((body.attribute(.kern, at: 0, effectiveRange: nil) as? NSNumber)?.intValue ?? 0)])
             settings.fontName = "NotInstalled-T1602"
             emit("pagination_layout_missing_font_fallback", ["22"], [String(Int(settings.uiFont.pointSize))])
+            settings.fontName = "Courier New"
+            emit("pagination_layout_family_name_resolves", ["Courier New", "22", "Courier New"],
+                [settings.uiFont.familyName, String(Int(settings.uiFont.pointSize)), settings.widgetFont(size: 16).familyName])
             settings.fontName = "Courier"
             settings.letterSpacing = 0
             let normal = try ReaderPaginator.paginate(content: String(repeating: "fixed body text ", count: 100),

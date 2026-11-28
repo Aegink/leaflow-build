@@ -348,8 +348,10 @@ extension ReadingSettings {
 
     /// 0x100222bb8：自定义字体按family/weight构造描述符，缺失时回退系统字体。
     var uiFont: UIFont {
+        let resolved = UIFont(name: fontName, size: fontSize)
+            ?? UIFont.fontNames(forFamilyName: fontName).first.flatMap { UIFont(name: $0, size: fontSize) }
         guard fontName != "System", !fontName.isEmpty,
-              let custom = UIFont(name: fontName, size: fontSize) else {
+              let custom = resolved else {
             return Self.preferredReaderSystemUIFont(ofSize: fontSize, weight: fontWeight,
                 prefersSimplifiedChinese: false)
         }
@@ -371,6 +373,7 @@ extension ReadingSettings {
             return cached
         }
         let font = UIFont(name: fontName, size: size)
+            ?? UIFont.fontNames(forFamilyName: fontName).first.flatMap { UIFont(name: $0, size: size) }
             ?? .systemFont(ofSize: size, weight: fontWeight)
         widgetFontCache = font
         return font

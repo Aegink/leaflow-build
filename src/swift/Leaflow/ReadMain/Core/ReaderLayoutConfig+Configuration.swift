@@ -75,6 +75,7 @@ extension ChapterTitleConfig {
             base = .systemFont(ofSize: fontSize, weight: weight)
         } else {
             base = UIFont(name: fontFamily, size: fontSize)
+                ?? UIFont.fontNames(forFamilyName: fontFamily).first.flatMap { UIFont(name: $0, size: fontSize) }
                 ?? .systemFont(ofSize: fontSize, weight: weight)
         }
         if useBold || fontWeightName == "bold" {
