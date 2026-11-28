@@ -8,7 +8,7 @@ enum LayoutWidgetSampleSelfTest {
         guard let defaults = UserDefaults(suiteName: suite) else { return }
         defer { defaults.removePersistentDomain(forName: suite) }
         do {
-            let raw = #"{"id":"00000000-0000-0000-0000-000000000001","item":"customText","xPercent":0.75,"yPercent":0.9,"fontSize":13,"opacity":0.4,"customColorHex":"#112233","customText":"固定页脚","customDateFormat":"HH:mm","pageScope":"normalPageOnly","textAlignment":"right"}"#
+            let raw = ##"{"id":"00000000-0000-0000-0000-000000000001","item":"customText","xPercent":0.75,"yPercent":0.9,"fontSize":13,"opacity":0.4,"customColorHex":"#112233","customText":"固定页脚","customDateFormat":"HH:mm","pageScope":"normalPageOnly","textAlignment":"right"}"##
             let widget = try JSONDecoder().decode(LayoutWidget.self, from: Data(raw.utf8))
             emit("widget_original_fields", ["customText", "0.75", "0.9", "13.0", "0.4", "固定页脚", "right"],
                 [widget.item, String(describing: widget.xPercent), String(describing: widget.yPercent),

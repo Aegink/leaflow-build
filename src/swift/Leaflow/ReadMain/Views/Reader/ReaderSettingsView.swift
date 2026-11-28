@@ -168,16 +168,15 @@ struct ReaderSettingsView: View {
     /// headerFooterSection getter（PGO 签名确证）。
     private var headerFooterSection: some View {
         Section("页眉页脚") {
-            TextField(
-                "页眉文本",
-                text: Binding(
-                    get: { settings.backgroundImageName },
-                    set: { settings.backgroundImageName = $0 }))
-            TextField(
-                "页脚文本",
-                text: Binding(
-                    get: { settings.textUnderlineColorHex },
-                    set: { settings.textUnderlineColorHex = $0 }))
+            Button {
+                settings.save()
+                onDismiss()
+                dismiss()
+                NotificationCenter.default.post(name: .readerEnterWidgetEditMode, object: nil)
+            } label: {
+                Label("在阅读页面上编辑位置", systemImage: "hand.draw")
+            }
+            .accessibilityIdentifier("reader-edit-widgets")
         }
     }
 

@@ -240,6 +240,8 @@ struct ReaderView: View {
             charCount: viewModel.currentPage?.charCount ?? 0,
             isReady: viewModel.currentPage.map { !$0.isLoadingPlaceholder && !$0.isErrorPlaceholder } ?? false))
         .modifier(ReaderSelectionPresentationModifier(vm: viewModel))
+        .modifier(ReaderWidgetEditingModifier(settings: $settings, bookName: viewModel.bookName,
+            chapterTitle: viewModel.currentPage?.chapterTitle ?? ""))
         .modifier(ReaderReviewPresentationModifier(vm: viewModel, showReview: $showReview, request: reviewRequest))
     }
 
