@@ -18,19 +18,26 @@
 // 还原: 2026-11-20
 
 import Foundation
+import Combine
 
 /// 朗读源试听播放器（init/play/stop 签名域确证）。
 @MainActor
-final class HttpTtsPreviewPlayer {
+final class HttpTtsPreviewPlayer: ObservableObject {
+    // 0x100b0bbfc/0x1012795a0：管理页与编辑页的原版固定试听文本。
+    static let defaultText = "这是一段测试文本，用于验证在线朗读源是否正常工作"
+    @Published private(set) var isPlaying = false
+    @Published private(set) var isPreparing = false
+    @Published private(set) var lastError: String?
 
     private let synthesizer: HttpTtsSynthesizing
     private let audioPlayback: AppAudioPlaybackCoordinating
     private let errorPresenter: ReadAloudErrorPresenting
-    private let makeDriver: (HttpTts, Float) -> HttpReadAloudDriver
+    private let makeDriver: (HttpTts, HttpTtsSynthesizing) -> ReadAloudDriver
 
-    private var driver: HttpReadAloudDriver?
+    private var driver: ReadAloudDriver?
     private var generation = 0
     private var lease: AppAudioPlaybackCoordinator.AppAudioPlaybackLease?
+    private var preparationTask: Task<Void, Never>?
 
     /// init(synthesizer:audioPlayback:errorPresenter:makeDriver:)
     /// （签名域确证）。
@@ -38,7 +45,7 @@ final class HttpTtsPreviewPlayer {
         synthesizer: HttpTtsSynthesizing,
         audioPlayback: AppAudioPlaybackCoordinating,
         errorPresenter: ReadAloudErrorPresenting,
-        makeDriver: @escaping (HttpTts, Float) -> HttpReadAloudDriver
+        makeDriver: @escaping (HttpTts, HttpTtsSynthesizing) -> ReadAloudDriver
     ) {
         self.synthesizer = synthesizer
         self.audioPlayback = audioPlayback
@@ -49,26 +56,45 @@ final class HttpTtsPreviewPlayer {
     /// play(source:text:)（签名域确证：新代次租约 + 驱动启动）。
     func play(source: HttpTts, text: String) {
         stop()
-        generation += 1
+        lastError = nil
+        let spokenText = ReadAloudTextSanitizer.clean(text)
+        guard !spokenText.isEmpty else {
+            lastError = "试听文本为空"
+            errorPresenter.show(message: "试听文本为空")
+            return
+        }
+        isPreparing = true
         let currentGeneration = generation
-        Task { @MainActor in
+        preparationTask = Task { @MainActor [weak self] in
+            guard let self else { return }
             do {
                 let lease = try await audioPlayback.acquire(
                     client: .init(name: "TtsPreview", isPreview: true),
                     onPreempt: { [weak self] in
-                        Task { @MainActor in self?.stop() }
+                        Task { @MainActor in
+                            guard self?.generation == currentGeneration else { return }
+                            self?.stop()
+                        }
                     },
                     onInterruption: { [weak self] interruption in
                         Task { @MainActor in
+                            guard self?.generation == currentGeneration else { return }
                             self?.handle(interruption)
                         }
                     },
                     remoteCommands: .init())
+                guard generation == currentGeneration, !Task.isCancelled else {
+                    audioPlayback.release(lease)
+                    return
+                }
                 self.lease = lease
                 startDriver(
-                    source: source, spokenText: text,
+                    source: source, spokenText: spokenText,
                     generation: currentGeneration)
             } catch {
+                guard generation == currentGeneration, !Task.isCancelled else { return }
+                stop()
+                lastError = error.localizedDescription
                 errorPresenter.present(error)
             }
         }
@@ -78,8 +104,12 @@ final class HttpTtsPreviewPlayer {
     private func startDriver(
         source: HttpTts, spokenText: String, generation: Int
     ) {
-        let driver = makeDriver(source, 1.0)
+        guard self.generation == generation else { return }
+        let driver = makeDriver(source, synthesizer)
         self.driver = driver
+        driver.onEvent = { [weak self] event in
+            Task { @MainActor in self?.consume(event, generation: generation) }
+        }
         // 试听段（单段 + 章节标题域）。ReadAloudLocation 为结构体
         // （pageIndex/chapterIndex 域）——零页锚点 + isChapterTitle 标志
         // （wave-16）。
@@ -95,11 +125,33 @@ final class HttpTtsPreviewPlayer {
 
     /// stop（签名域确证：租约释放 + 驱动停转）。
     func stop() {
+        generation += 1
+        preparationTask?.cancel()
+        preparationTask = nil
+        driver?.onEvent = nil
         driver?.stop()
         driver = nil
+        isPlaying = false
+        isPreparing = false
         if let lease {
             audioPlayback.release(lease)
             self.lease = nil
+        }
+    }
+
+    private func consume(_ event: ReadAloudDriverEvent, generation: Int) {
+        guard self.generation == generation else { return }
+        switch event {
+        case .started:
+            isPreparing = false
+            isPlaying = true
+        case .finished:
+            stop()
+        case .failed(let message):
+            stop()
+            lastError = message
+            errorPresenter.show(message: message)
+        default: break
         }
     }
 

@@ -23,7 +23,7 @@ UI_SMOKE_NAMES = {"bookshelf_card_read_dismissal", "bookshelf_grid_editing",
                   "backup_category_persistence", "backup_restore_import_entry", "reading_settings_cold_persistence",
                   "source_login_actions_persistence", "explore_detail_variables_persistence", "reader_widget_edit_persistence",
                   "explore_source_variable_persistence", "reader_quick_spacing_repagination", "reader_font_picker_persistence",
-                  "backup_category_restore_defaults", "tts_source_selection_edit_persistence"}
+                  "backup_category_restore_defaults", "tts_source_selection_edit_persistence", "tts_source_file_picker_entry"}
 
 def sample_evidence(source: Path, log: str) -> dict:
     """同一逐名口径用于即时阻断与最终证据，防止自测失败后继续跑UI。"""

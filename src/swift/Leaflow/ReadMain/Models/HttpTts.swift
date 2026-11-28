@@ -76,10 +76,9 @@ struct HttpTts: Codable, Identifiable, Equatable {
         self.enabled = enabled
     }
 
-    /// hasJsScript getter（0x10024132c/0x100241840 L80 域确证：
-    /// jsLib/loginCheckJs 非空检测）。
+    /// 0x100240898实际块：检查请求URL中的两种脚本标记。
     var hasJsScript: Bool {
-        !(jsLib ?? "").isEmpty || !(loginCheckJs ?? "").isEmpty
+        url.contains("@js:") || url.contains("<js>")
     }
 
     /// init(from:)（0x10023fe9c L31-54 块体确证：CodingKeys 容器链，

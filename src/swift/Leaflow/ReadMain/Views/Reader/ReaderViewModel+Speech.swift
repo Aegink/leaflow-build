@@ -91,9 +91,19 @@ enum ReaderSpeechSupport {
         preferences.migrateLegacySourceSelection(using: repository)
         return repository
     }()
+    static let audioPlayback = AppAudioPlaybackCoordinator(
+        audioSession: ReadAloudAudioSessionController(), nowPlaying: ReadAloudNowPlayingController())
+    static let synthesizer = HttpTtsSynthesizer(transport: URLSession.shared,
+        webSocketTransport: URLSessionHttpTtsWebSocketTransport(), runtimeStore: runtimeStore)
+    static let previewPlayer = HttpTtsPreviewPlayer(synthesizer: synthesizer, audioPlayback: audioPlayback,
+        errorPresenter: DefaultReadAloudErrorPresenter { message, _ in AppErrorPresenter.shared.warning(message) },
+        makeDriver: { source, synthesizer in
+            HttpReadAloudDriver(source: source, speechRate: 1, downloadAhead: 1, tailTrimMilliseconds: 0,
+                synthesizer: synthesizer, decoder: HttpTtsAudioDecoder(), audioCache: sources.audioCache,
+                startupTimeoutNanoseconds: 8_000_000_000)
+        })
     static let sharedCoordinator = ReadAloudCoordinator(
         factory: DefaultReadAloudDriverFactory(preferences: preferences, sources: sources,
-            synthesizer: HttpTtsSynthesizer(transport: URLSession.shared,
-                webSocketTransport: URLSessionHttpTtsWebSocketTransport(), runtimeStore: runtimeStore)),
-        preferences: preferences)
+            synthesizer: synthesizer),
+        preferences: preferences, audioPlayback: audioPlayback)
 }

@@ -25,6 +25,7 @@
 // 还原: 2026-11-20
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// 朗读源管理页（body/filteredSources 签名域确证）。
 struct TtsSourceManageView: View {
@@ -42,6 +43,8 @@ struct TtsSourceManageView: View {
     @State private var importURLString = ""
     @State private var statusMessage = ""
     @State private var isParsing = false
+    @State private var showFileImport = false
+    @ObservedObject private var previewPlayer = ReaderSpeechSupport.previewPlayer
     /// T-1601-E2：帮助页入口（TtsHelpSheet 此前零引用）。
     @State private var showHelp = false
 
@@ -63,7 +66,7 @@ struct TtsSourceManageView: View {
                     }
                     // '从文件导入' L2567 域确证。
                     Button {
-                        importFromFile(URL(fileURLWithPath: ""))
+                        showFileImport = true
                     } label: {
                         Label("从文件导入", systemImage: "doc")
                     }
@@ -89,6 +92,7 @@ struct TtsSourceManageView: View {
                     // '操作' L7930 域确证。
                     Image(systemName: "ellipsis.circle")
                 }
+                .accessibilityIdentifier("tts-source-actions")
                 Button {
                     showHelp = true
                 } label: {
@@ -104,6 +108,12 @@ struct TtsSourceManageView: View {
         }
         .sheet(isPresented: $showHelp) {
             TtsHelpSheet()
+        }
+        .fileImporter(isPresented: $showFileImport, allowedContentTypes: [.json, .plainText]) { result in
+            switch result {
+            case .success(let url): importFromFile(url)
+            case .failure(let error): statusMessage = "导入失败：\(error.localizedDescription)"
+            }
         }
         .sheet(item: $editSelection) { selection in
             TtsEditView(
@@ -131,6 +141,7 @@ struct TtsSourceManageView: View {
         .onAppear {
             reload()
         }
+        .onDisappear { previewPlayer.stop() }
     }
 
     // MARK: 当前源（'当前朗读源' L1026 / '系统 TTS' L4421 域确证）
@@ -138,6 +149,14 @@ struct TtsSourceManageView: View {
     @ViewBuilder
     private var currentSection: some View {
         Section("当前朗读源") {
+            if previewPlayer.isPreparing || previewPlayer.isPlaying {
+                HStack {
+                    Text(previewPlayer.isPreparing ? "正在准备音频" : "正在试听")
+                    Spacer()
+                    Button("停止试听") { previewPlayer.stop() }
+                }
+            }
+            if let error = previewPlayer.lastError { Text(error).foregroundStyle(.red) }
             Button {
                 // selectSystemTTS() 签名域确证。
                 selectSystemTTS()
@@ -282,7 +301,7 @@ struct TtsSourceManageView: View {
 
     /// testSource(_: HttpTts)（签名域确证）。
     private func testSource(_ source: HttpTts) {
-        TtsSourceStore.shared.preview(source)
+        previewPlayer.play(source: source, text: HttpTtsPreviewPlayer.defaultText)
     }
 
     /// deleteSources(at: IndexSet)（签名域确证）。
@@ -332,14 +351,11 @@ struct TtsSourceManageView: View {
 
     /// importFromFile(_: URL)（签名域确证）。
     private func importFromFile(_ url: URL) {
-        let picker = UIDocumentPickerViewController(
-            forOpeningContentTypes: [.json, .plainText])
-        UIApplication.shared.connectedScenes
-            .compactMap {
-                ($0 as? UIWindowScene)?.keyWindow?.rootViewController
-            }
-            .first?
-            .present(picker, animated: true)
+        do {
+            let count = try TtsSourceStore.shared.importFile(url)
+            statusMessage = "已导入 \(count) 条"
+            reload()
+        } catch { statusMessage = "导入失败：\(error.localizedDescription)" }
     }
 
     private func finishImport(_ data: Data) {
@@ -429,6 +445,14 @@ final class TtsSourceStore {
         return count
     }
 
+    func importFile(_ url: URL) throws -> Int {
+        let accessed = url.startAccessingSecurityScopedResource()
+        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+        let count = importJSON(try Data(contentsOf: url))
+        guard count > 0 else { throw HttpTtsSourceRepository.HttpTtsSourceRepositoryError.invalidPayload }
+        return count
+    }
+
     func exportAll() -> URL? {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -441,7 +465,4 @@ final class TtsSourceStore {
         catch { return nil }
     }
 
-    func preview(_ source: HttpTts) {
-        // 试听桥（T-801-05 HttpTtsAudioPreparer 分册落地）。
-    }
 }

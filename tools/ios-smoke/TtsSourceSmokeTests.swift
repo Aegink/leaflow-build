@@ -1,6 +1,20 @@
 import XCTest
 
 extension LeaflowSmokeTests {
+    func testTtsSourceFilePickerEntry() {
+        launch(["-smokeTtsSources"])
+        let menu = app.buttons["tts-source-actions"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 15))
+        menu.tap()
+        app.buttons["从文件导入"].tap()
+        let cancel = app.buttons.matching(NSPredicate(format: "label IN %@", ["Cancel", "取消"])).firstMatch
+        XCTAssertTrue(cancel.waitForExistence(timeout: 30))
+        capture("tts-source-file-picker")
+        cancel.tap()
+        XCTAssertTrue(menu.waitForExistence(timeout: 10))
+        passed("tts_source_file_picker_entry")
+    }
+
     func testTtsSourceSelectionAndEditPersistence() {
         executionTimeAllowance = 300
         launch(["-smokeTtsSources", "-smokeTtsSourcesReset"])

@@ -26,6 +26,10 @@ enum HttpTtsRepositorySampleSelfTest {
             emit("tts_id_explicit_numeric_preserved", ["-42", "0", "9007199254740993"],
                 try [",\"id\":-42", ",\"id\":0", ",\"id\":\"9007199254740993\""].map { String(try decode($0).id) })
             emit("tts_id_external_string_hash", ["5861614267305397068"], [String(try decode(",\"id\":\"external-key\"").id)])
+            emit("tts_model_url_script_markers", ["true", "true", "false"],
+                ["@js:result", "<js>result</js>", "https://sample.invalid"].map {
+                    String(HttpTts(numericId: 1, name: "脚本判断", url: $0, jsLib: "const x=1").hasJsScript)
+                })
 
             let a = source(42, "甲"), b = source(420, "乙")
             let oldData = try JSONEncoder().encode([a])
@@ -118,6 +122,26 @@ enum HttpTtsRepositorySampleSelfTest {
             try backup.importDataTree(from: exported, categories: [.ttsSources])
             emit("tts_repository_backup_restore_original_key", ["9007199254740993:大ID改名"],
                 bridge.loadSources().map { "\($0.id):\($0.name)" })
+            let file = root.appendingPathComponent("文件朗读源.json")
+            try JSONEncoder().encode(source(8, "文件源")).write(to: file)
+            emit("tts_repository_file_import_real_bytes", ["1", "文件源"],
+                [String(try bridge.importFile(file)), repository.source(id: 8)?.name ?? ""])
+            try Data("{".utf8).write(to: file)
+            var invalidFileRejected = false
+            do { _ = try bridge.importFile(file) } catch { invalidFileRejected = true }
+            emit("tts_repository_invalid_file_preserves_existing", ["true", "2"],
+                [String(invalidFileRejected), String(bridge.loadSources().count)])
+            let shelfURL = root.appendingPathComponent("docs/bookshelf_data/bookshelf.json")
+            try FileManager.default.createDirectory(at: shelfURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try Data("[]".utf8).write(to: shelfURL)
+            try Data(#"[{"name":"不可提前覆盖"}]"#.utf8).write(to: exported.appendingPathComponent("bookshelf.json"))
+            try Data(#"[{"id":42,"name":"缺URL"}]"#.utf8).write(to: exported.appendingPathComponent("tts_sources.json"))
+            var malformedRejected = false
+            do { try backup.importDataTree(from: exported, categories: [.bookshelf, .ttsSources]) }
+            catch { malformedRejected = true }
+            emit("tts_repository_backup_schema_preflight", ["true", "[]", "2"],
+                [String(malformedRejected), String(decoding: try Data(contentsOf: shelfURL), as: UTF8.self),
+                 String(bridge.loadSources().count)])
             emit("tts_repository_setup", ["成功"], ["成功"])
         } catch { emit("tts_repository_setup", ["成功"], [error.localizedDescription]) }
     }

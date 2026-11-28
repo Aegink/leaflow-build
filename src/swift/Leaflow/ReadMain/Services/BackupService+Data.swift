@@ -21,6 +21,7 @@ extension BackupService {
                     _ = try decoder.decode([ReadingRecord].self, from: data)
                 case .readingSettings: _ = try ReadingSettingsBackup.validatedValues(from: data)
                 case .localBooks: _ = try JSONDecoder().decode([LocalBook].self, from: data)
+                case .ttsSources: _ = try JSONDecoder().decode([HttpTts].self, from: data)
                 default: break
                 }
             }

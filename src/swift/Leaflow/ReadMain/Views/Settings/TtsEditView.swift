@@ -45,8 +45,8 @@ struct TtsEditView: View {
     @State private var draft = HttpTts(
         numericId: 0, name: "", url: "")
     @State private var showDiscardConfirm = false
-    @State private var testResult = ""
     @State private var saveError: String?
+    @ObservedObject private var previewPlayer = ReaderSpeechSupport.previewPlayer
 
     init(mode: TtsEditMode, original: HttpTts? = nil, onSaved: (() -> Void)? = nil) {
         self.mode = mode
@@ -98,6 +98,7 @@ struct TtsEditView: View {
                 get: { saveError != nil }, set: { if !$0 { saveError = nil } })) {
                 Button("确定", role: .cancel) { saveError = nil }
             } message: { Text(saveError ?? "") }
+            .onDisappear { previewPlayer.stop() }
         }
     }
 
@@ -197,15 +198,15 @@ struct TtsEditView: View {
     private var testSection: some View {
         Section {
             Button {
-                testSource()
+                if previewPlayer.isPlaying || previewPlayer.isPreparing { previewPlayer.stop() }
+                else { testSource() }
             } label: {
-                Text("测试")
+                Text(previewPlayer.isPlaying || previewPlayer.isPreparing ? "停止试听" : "测试")
             }
-            if !testResult.isEmpty {
-                Text(testResult)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+            .disabled(!canSave)
+            if previewPlayer.isPreparing { ProgressView("正在准备音频") }
+            if previewPlayer.isPlaying { Text("正在试听") }
+            if let error = previewPlayer.lastError { Text(error).foregroundStyle(.red) }
         }
     }
 
@@ -266,7 +267,7 @@ struct TtsEditView: View {
 
     /// testSource()（签名域确证：试听请求桥）。
     private func testSource() {
-        testResult = "已发起试听请求（TtsSourceStore 桥）"
+        previewPlayer.play(source: draft, text: HttpTtsPreviewPlayer.defaultText)
     }
 
     /// showLoginHeader()（签名域确证：登录头弹层桥）。
