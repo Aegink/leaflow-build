@@ -21,7 +21,12 @@ extension LeaflowSmokeTests {
         capture("tts-help-search")
         search.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 17))
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "匹配 0"), object: count)], timeout: 10), .completed)
-        app.buttons["关闭"].tap()
+        let cancelSearch = app.buttons.matching(NSPredicate(format: "label IN %@", ["Cancel", "取消"])).firstMatch
+        XCTAssertTrue(cancelSearch.waitForExistence(timeout: 10))
+        cancelSearch.tap()
+        let close = app.buttons["关闭"]
+        XCTAssertTrue(close.waitForExistence(timeout: 10))
+        close.tap()
         XCTAssertTrue(help.waitForExistence(timeout: 10))
         passed("tts_help_document_search")
     }
