@@ -17,6 +17,7 @@ extension LeaflowSmokeTests {
     }
 
     func testBackupCategoryPersistence() {
+        executionTimeAllowance = 300
         let categories = ["bookshelf", "bookmarks", "readingStats", "config", "chapterRules", "replaceRules",
                           "ttsSources", "readingSettings", "highlightRules", "appearance", "localBooks"]
         func open() {

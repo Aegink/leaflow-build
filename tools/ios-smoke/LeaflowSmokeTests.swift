@@ -318,6 +318,8 @@ final class LeaflowSmokeTests: XCTestCase {
     }
 
     func testExploreDetailBookState() {
+        // 实际含多次冷启动及编辑链，CI记录持续执行超过默认180秒；保留全部断言。
+        executionTimeAllowance = 300
         launch(["-smokeExploreReading", "-smokeExploreBookState"])
         let entry = app.buttons["explore-reading-book"]
         XCTAssertTrue(entry.waitForExistence(timeout: 30))
