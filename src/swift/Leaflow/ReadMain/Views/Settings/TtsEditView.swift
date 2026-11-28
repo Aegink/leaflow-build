@@ -46,6 +46,14 @@ struct TtsEditView: View {
         numericId: 0, name: "", url: "")
     @State private var showDiscardConfirm = false
     @State private var testResult = ""
+    @State private var saveError: String?
+
+    init(mode: TtsEditMode, original: HttpTts? = nil, onSaved: (() -> Void)? = nil) {
+        self.mode = mode
+        self.original = original
+        self.onSaved = onSaved
+        _draft = State(initialValue: original ?? HttpTts(numericId: 0, name: "", url: ""))
+    }
 
     var body: some View {
         NavigationStack {
@@ -86,6 +94,10 @@ struct TtsEditView: View {
             } message: {
                 Text("未保存的修改将丢失")
             }
+            .alert("保存失败", isPresented: Binding(
+                get: { saveError != nil }, set: { if !$0 { saveError = nil } })) {
+                Button("确定", role: .cancel) { saveError = nil }
+            } message: { Text(saveError ?? "") }
         }
     }
 
@@ -101,6 +113,7 @@ struct TtsEditView: View {
                 get: { draft.url },
                 set: { draft.url = $0 }), axis: .vertical)
                 .font(.system(.caption, design: .monospaced))
+                .accessibilityIdentifier("tts-edit-url")
         }
     }
 
@@ -242,10 +255,13 @@ struct TtsEditView: View {
 
     /// saveSource()（签名域确证：新增/更新写回存储域）。
     private func saveSource() {
+        if isCreate && draft.id == 0 { draft.numericId = HttpTts.stableNumericId(for: draft.name) }
         draft.lastUpdateTime = Date().timeIntervalSince1970
-        draft.enabled = true
-        TtsSourceStore.save(draft, originalID: originalSourceID)
-        onSaved?()
+        if draft.enabled == nil { draft.enabled = true }
+        do {
+            try TtsSourceStore.shared.save(draft, originalID: originalSourceID)
+            onSaved?()
+        } catch { saveError = error.localizedDescription }
     }
 
     /// testSource()（签名域确证：试听请求桥）。

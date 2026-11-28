@@ -59,7 +59,7 @@ extension TtsPlayable {
 
     /// httpTtsSources getter（0x1008b8118 L43 域确证）。
     var httpTtsSources: [HttpTts] {
-        TtsSourceStore.loadSources()
+        TtsSourceStore.shared.loadSources()
     }
 }
 

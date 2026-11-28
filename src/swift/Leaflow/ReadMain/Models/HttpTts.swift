@@ -13,7 +13,7 @@
 //     0x1002411c4 L39（URLsForDirectory:9 域 + 'Books'
 //     0x736B6F6F42 追加域）/ hasJsScript closure 三域 0x10024132c/
 //     0x100241840 L80（String.hash + Hasher finalize 域）/
-//     stableNumericId(for:) 0x100240898 L83-90（Int64 哈希域）
+//     stableNumericId(for:) 实际块0x1002406f8，乘数0x1001be0f8
 //   - init(numericId:name:url:...) 十三参签名域确证
 //   - 事实：HttpTts = 朗读源模型（id: Int64 稳定哈希；jsLib/
 //     loginCheckJs 双脚本域）
@@ -86,11 +86,15 @@ struct HttpTts: Codable, Identifiable, Equatable {
     /// name/url 必填 decode，其余 decodeIfPresent）。
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        let decodedId = try c.decodeIfPresent(Int64.self, forKey: .id)
-            ?? HttpTts.stableNumericId(
-                for: try c.decode(String.self, forKey: .url))
-        numericId = decodedId
         name = try c.decode(String.self, forKey: .name)
+        // 0x100240090/0d0/108/378：整数、数字串、非空串哈希、名称哈希。
+        if let value = try? c.decode(Int64.self, forKey: .id) {
+            numericId = value
+        } else if let value = try? c.decode(String.self, forKey: .id), !value.isEmpty {
+            numericId = Int64(value) ?? Self.stableNumericId(for: value)
+        } else {
+            numericId = Self.stableNumericId(for: name)
+        }
         url = try c.decode(String.self, forKey: .url)
         contentType = try c.decodeIfPresent(
             String.self, forKey: .contentType)
@@ -145,12 +149,10 @@ struct HttpTts: Codable, Identifiable, Equatable {
         case enabled
     }
 
-    /// stableNumericId(for:)（0x100240898 L83-90 块体确证：URL 串
-    /// 稳定 Int64 哈希）。
-    static func stableNumericId(for url: String) -> Int64 {
-        var hasher = Hasher()
-        hasher.combine(url)
-        let hashed = hasher.finalize()
-        return hashed == 0 ? 1 : Int64(bitPattern: UInt64(hashed))
+    /// 0x1002406f8：UTF-8 FNV-1a，溢出乘法后保留低63位。
+    static func stableNumericId(for value: String) -> Int64 {
+        var hash: UInt64 = 0xcbf29ce484222325
+        for byte in value.utf8 { hash = (hash ^ UInt64(byte)) &* 0x100000001b3 }
+        return Int64(hash & 0x7fffffffffffffff)
     }
 }

@@ -211,11 +211,17 @@ final class ReadAloudPreferences: ObservableObject {
     func migrateLegacySourceSelection(
         using repository: HttpTtsSourceRepository
     ) {
-        let legacy = defaults.integer(forKey: "reader_tts_selected")
-        guard selectedHTTPSourceID == nil, legacy != 0,
-              repository.source(id: Int64(legacy)) != nil else { return }
-        selectEngine(.http(sourceID: Int64(legacy)))
-        defaults.removeObject(forKey: "reader_tts_selected")
+        // 新选择（含显式系统引擎）优先，避免冷启动复活旧HTTP选择。
+        guard defaults.object(forKey: Self.engineKey) == nil,
+              selectedHTTPSourceID == nil else { return }
+        for key in ["reader_tts_current", "reader_tts_selected"] {
+            guard let legacy = (defaults.object(forKey: key) as? NSNumber)?.int64Value,
+                  legacy != 0, repository.source(id: legacy) != nil else { continue }
+            selectEngine(.http(sourceID: legacy))
+            defaults.removeObject(forKey: "reader_tts_current")
+            defaults.removeObject(forKey: "reader_tts_selected")
+            return
+        }
     }
 }
 

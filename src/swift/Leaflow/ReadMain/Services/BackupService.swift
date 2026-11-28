@@ -265,7 +265,7 @@ final class BackupService {
             try importAppearanceResources(from: directory)
         }
         if categories.contains(.ttsSources), let data = try readJSONPayload("tts_sources.json", from: directory) {
-            defaults.set(data, forKey: "reader_tts_sources")
+            try HttpTtsSourceRepository.replaceStoredData(data, defaults: defaults)
         }
         if categories.contains(.highlightRules) {
             try importJSONFile("highlight_rules.json", from: directory, to: appSupportDir.appendingPathComponent("highlight_rules.json"))
@@ -358,7 +358,7 @@ final class BackupService {
             total += Int64(defaults.data(forKey: "chapter_rules")?.count ?? 0)
         }
         if categories.contains(.readingSettings) { total += Int64((try? exportReadingSettings())?.count ?? 0) }
-        if categories.contains(.ttsSources) { total += Int64(defaults.data(forKey: "reader_tts_sources")?.count ?? 0) }
+        if categories.contains(.ttsSources) { total += Int64(HttpTtsSourceRepository.storedData(defaults: defaults)?.count ?? 0) }
         return total
     }
 

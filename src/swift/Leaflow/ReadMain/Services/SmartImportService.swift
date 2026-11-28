@@ -204,7 +204,7 @@ final class SmartImportService {
 
     private func importHttpTts(from data: Data) {
         guard let json = String(data: data, encoding: .utf8) else { return }
-        _ = TtsSourceStore.importJSON(Data(json.utf8))
+        _ = TtsSourceStore.shared.importJSON(Data(json.utf8))
     }
 
     private func importReplaceRules(from data: Data) {

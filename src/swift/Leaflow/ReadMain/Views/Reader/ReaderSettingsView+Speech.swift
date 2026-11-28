@@ -26,7 +26,7 @@ extension ReaderSettingsView {
                 get: { preferences.selectedEngine },
                 set: { preferences.selectEngine($0) })) {
                 Text("系统 TTS").tag(ReadAloudEngineSelection.system(voiceIdentifier: preferences.systemVoiceIdentifier))
-                ForEach(TtsSourceStore.loadSources()) { source in
+                ForEach(TtsSourceStore.shared.loadSources()) { source in
                     Text(source.name).tag(ReadAloudEngineSelection.http(sourceID: source.id))
                 }
             }

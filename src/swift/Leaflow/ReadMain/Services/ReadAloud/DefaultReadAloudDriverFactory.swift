@@ -61,7 +61,7 @@ final class DefaultReadAloudDriverFactory: ReadAloudDriverFactory {
                 tailTrimMilliseconds: preferences.httpTailTrimMilliseconds,
                 synthesizer: synthesizer,
                 decoder: HttpTtsAudioDecoder(),
-                audioCache: HttpTtsAudioCache(),
+                audioCache: sources.audioCache,
                 startupTimeoutNanoseconds: 8_000_000_000)
         case .system(let voiceIdentifier):
             return SystemReadAloudDriver(

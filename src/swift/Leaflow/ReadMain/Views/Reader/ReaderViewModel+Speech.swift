@@ -75,11 +75,25 @@ extension ReaderViewModel {
 
 @MainActor
 enum ReaderSpeechSupport {
-    static let preferences = ReadAloudPreferences()
-    static let sources = HttpTtsSourceRepository()
+    static let defaults: UserDefaults = {
+        guard ProcessInfo.processInfo.arguments.contains("-smokeTtsSources") else { return .standard }
+        let suite = "t1602-tts-sources-ui"
+        let defaults = UserDefaults(suiteName: suite)!
+        if ProcessInfo.processInfo.arguments.contains("-smokeTtsSourcesReset") {
+            defaults.removePersistentDomain(forName: suite)
+        }
+        return defaults
+    }()
+    static let runtimeStore = HttpTtsRuntimeStore(defaults: defaults)
+    static let preferences = ReadAloudPreferences(defaults: defaults)
+    static let sources: HttpTtsSourceRepository = {
+        let repository = HttpTtsSourceRepository(defaults: defaults, runtimeStore: runtimeStore)
+        preferences.migrateLegacySourceSelection(using: repository)
+        return repository
+    }()
     static let sharedCoordinator = ReadAloudCoordinator(
         factory: DefaultReadAloudDriverFactory(preferences: preferences, sources: sources,
             synthesizer: HttpTtsSynthesizer(transport: URLSession.shared,
-                webSocketTransport: URLSessionHttpTtsWebSocketTransport(), runtimeStore: .shared)),
+                webSocketTransport: URLSessionHttpTtsWebSocketTransport(), runtimeStore: runtimeStore)),
         preferences: preferences)
 }

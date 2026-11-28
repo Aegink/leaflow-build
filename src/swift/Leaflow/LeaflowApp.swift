@@ -112,6 +112,8 @@ struct LeaflowApp: App {
                     SourceLoginSmokeView()
                 } else if ProcessInfo.processInfo.arguments.contains("-smokeExploreReading") {
                     ExploreReadingSmokeView()
+                } else if ProcessInfo.processInfo.arguments.contains("-smokeTtsSources") {
+                    NavigationStack { TtsSourceManageView() }
                 } else if ProcessInfo.processInfo.arguments.contains("-smokeBackupSettings") {
                     NavigationStack { BackupView() }
                         .onAppear {

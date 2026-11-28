@@ -33,8 +33,11 @@ struct TtsSourceManageView: View {
     @State private var currentSourceID: Int64?
     @State private var useSystemTTS = true
     @State private var searchText = ""
-    @State private var showEdit = false
-    @State private var editTarget: HttpTts?
+    private struct EditSelection: Identifiable {
+        let id = UUID()
+        let source: HttpTts?
+    }
+    @State private var editSelection: EditSelection?
     @State private var showNetworkImport = false
     @State private var importURLString = ""
     @State private var statusMessage = ""
@@ -92,22 +95,22 @@ struct TtsSourceManageView: View {
                     Image(systemName: "questionmark.circle")
                 }
                 Button {
-                    editTarget = nil
-                    showEdit = true
+                    editSelection = EditSelection(source: nil)
                 } label: {
                     Image(systemName: "plus")
                 }
+                .accessibilityIdentifier("tts-source-add")
             }
         }
         .sheet(isPresented: $showHelp) {
             TtsHelpSheet()
         }
-        .sheet(isPresented: $showEdit) {
+        .sheet(item: $editSelection) { selection in
             TtsEditView(
-                mode: editTarget == nil ? .create : .edit,
-                original: editTarget,
+                mode: selection.source == nil ? .create : .edit,
+                original: selection.source,
                 onSaved: {
-                    showEdit = false
+                    editSelection = nil
                     reload()
                 })
         }
@@ -149,6 +152,8 @@ struct TtsSourceManageView: View {
                 }
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("tts-source-system")
+            .accessibilityValue(useSystemTTS ? "已选择" : "未选择")
             if let current = sources.first(where: {
                 $0.id == currentSourceID
             }) {
@@ -163,12 +168,12 @@ struct TtsSourceManageView: View {
                     Spacer()
                     // '配置' L5251 域确证。
                     Button {
-                        editTarget = current
-                        showEdit = true
+                        editSelection = EditSelection(source: current)
                     } label: {
                         Text("配置")
                     }
                     .buttonStyle(.borderless)
+                    .accessibilityIdentifier("tts-source-current-edit")
                     // '试听' L5527 域确证。
                     Button {
                         testSource(current)
@@ -222,6 +227,8 @@ struct TtsSourceManageView: View {
                     .appThemeAccent()
             }
             .buttonStyle(.borderless)
+            .accessibilityIdentifier("tts-source-select-\(source.id)")
+            .accessibilityValue(currentSourceID == source.id ? "已选择" : "未选择")
             Menu {
                 Button {
                     testSource(source)
@@ -229,8 +236,7 @@ struct TtsSourceManageView: View {
                     Label("试听", systemImage: "play.circle")
                 }
                 Button {
-                    editTarget = source
-                    showEdit = true
+                    editSelection = EditSelection(source: source)
                 } label: {
                     Label("配置", systemImage: "gearshape")
                 }
@@ -255,8 +261,8 @@ struct TtsSourceManageView: View {
     // MARK: 动作域（签名域确证）
 
     private func reload() {
-        sources = TtsSourceStore.loadSources()
-        currentSourceID = TtsSourceStore.currentSourceID
+        sources = TtsSourceStore.shared.loadSources()
+        currentSourceID = TtsSourceStore.shared.currentSourceID
         useSystemTTS = currentSourceID == nil
     }
 
@@ -264,33 +270,33 @@ struct TtsSourceManageView: View {
     private func select(_ source: HttpTts) {
         currentSourceID = source.id
         useSystemTTS = false
-        TtsSourceStore.setCurrent(source.id)
+        TtsSourceStore.shared.setCurrent(source.id)
     }
 
     /// selectSystemTTS()（签名域确证）。
     private func selectSystemTTS() {
         currentSourceID = nil
         useSystemTTS = true
-        TtsSourceStore.setCurrent(nil)
+        TtsSourceStore.shared.setCurrent(nil)
     }
 
     /// testSource(_: HttpTts)（签名域确证）。
     private func testSource(_ source: HttpTts) {
-        TtsSourceStore.preview(source)
+        TtsSourceStore.shared.preview(source)
     }
 
     /// deleteSources(at: IndexSet)（签名域确证）。
     private func deleteSources(at offsets: IndexSet) {
         let targets = offsets.map { filteredSources[$0] }
         for target in targets {
-            TtsSourceStore.delete(target.id)
+            TtsSourceStore.shared.delete(target.id)
         }
         reload()
     }
 
     private func deleteAll() {
         for source in sources {
-            TtsSourceStore.delete(source.id)
+            TtsSourceStore.shared.delete(source.id)
         }
         reload()
     }
@@ -337,7 +343,7 @@ struct TtsSourceManageView: View {
     }
 
     private func finishImport(_ data: Data) {
-        let imported = TtsSourceStore.importJSON(data)
+        let imported = TtsSourceStore.shared.importJSON(data)
         statusMessage = imported > 0
             ? "已导入 \(imported) 条" : "解析失败: 格式无效"
         reload()
@@ -345,7 +351,7 @@ struct TtsSourceManageView: View {
 
     /// exportSources()（'已导出 ' L3927 域确证）。
     private func exportSources() {
-        guard let url = TtsSourceStore.exportAll() else { return }
+        guard let url = TtsSourceStore.shared.exportAll() else { return }
         statusMessage = "已导出 \(sources.count) 条"
         let activity = UIActivityViewController(
             activityItems: [url], applicationActivities: nil)
@@ -358,70 +364,72 @@ struct TtsSourceManageView: View {
     }
 }
 
-/// 朗读源存储桥（T-801-02 HttpTts 分册落地时补齐实现）。
-enum TtsSourceStore {
+/// 管理页与播放器共用仓库、偏好和缓存；可注入隔离存储复算操作链。
+@MainActor
+final class TtsSourceStore {
+    static let shared = TtsSourceStore(repository: ReaderSpeechSupport.sources,
+        preferences: ReaderSpeechSupport.preferences,
+        didChange: { ReaderSpeechSupport.sharedCoordinator.settingsDidChange() })
+    private let repository: HttpTtsSourceRepository
+    private let preferences: ReadAloudPreferences
+    private let didChange: () -> Void
 
-    static func loadSources() -> [HttpTts] {
-        let defaults = UserDefaults.standard
-        guard let data = defaults.data(forKey: "reader_tts_sources"),
-              let stored = try? JSONDecoder().decode(
-                [HttpTts].self, from: data) else {
-            return []
-        }
-        return stored
+    init(repository: HttpTtsSourceRepository, preferences: ReadAloudPreferences,
+         didChange: @escaping () -> Void = {}) {
+        self.repository = repository
+        self.preferences = preferences
+        self.didChange = didChange
     }
 
-    static var currentSourceID: Int64? {
-        let raw = UserDefaults.standard.double(
-            forKey: "reader_tts_current")
-        // double 键 → Int64 归一（Int64? 返回域，wave-16）。
-        return raw == 0 ? nil : Int64(raw)
+    func loadSources() -> [HttpTts] {
+        repository.reload()
+        preferences.reload()
+        preferences.migrateLegacySourceSelection(using: repository)
+        return repository.sources
     }
 
-    static func setCurrent(_ id: Int64?) {
-        UserDefaults.standard.set(id ?? 0, forKey: "reader_tts_current")
+    var currentSourceID: Int64? {
+        _ = loadSources()
+        return preferences.selectedHTTPSourceID
     }
 
-    static func save(_ source: HttpTts, originalID: Int64?) {
-        var all = loadSources()
-        if let originalID,
-           let index = all.firstIndex(where: { $0.id == originalID }) {
-            all[index] = source
+    func setCurrent(_ id: Int64?) {
+        _ = loadSources()
+        if let id {
+            guard repository.source(id: id) != nil else { return }
+            preferences.selectEngine(.http(sourceID: id))
         } else {
-            all.append(source)
+            preferences.selectEngine(.system(voiceIdentifier: preferences.systemVoiceIdentifier))
         }
-        persist(all)
+        didChange()
     }
 
-    static func delete(_ id: Int64) {
-        var all = loadSources()
-        all.removeAll { $0.id == id }
-        persist(all)
-        if currentSourceID == id {
+    func save(_ source: HttpTts, originalID: Int64?) throws {
+        _ = loadSources()
+        if let originalID { try repository.update(id: originalID, with: source) }
+        else { try repository.add(source) }
+        if preferences.selectedHTTPSourceID == (originalID ?? source.id) { didChange() }
+    }
+
+    func delete(_ id: Int64) {
+        _ = loadSources()
+        repository.delete(id: id)
+        if preferences.selectedHTTPSourceID == id {
             setCurrent(nil)
         }
     }
 
-    static func importJSON(_ data: Data) -> Int {
-        let decoder = JSONDecoder()
-        var count = 0
-        if let single = try? decoder.decode(HttpTts.self, from: data) {
-            save(single, originalID: nil)
-            count = 1
-        } else if let list = try? decoder.decode(
-            [HttpTts].self, from: data) {
-            var all = loadSources()
-            for source in list {
-                all.removeAll { $0.id == source.id }
-                all.append(source)
-                count += 1
-            }
-            persist(all)
-        }
+    func importJSON(_ data: Data) -> Int {
+        guard let json = String(data: data, encoding: .utf8) else { return 0 }
+        _ = loadSources()
+        let previous = preferences.selectedHTTPSourceID.flatMap { repository.source(id: $0) }
+        let count = repository.importSources(from: json)
+        let current = preferences.selectedHTTPSourceID.flatMap { repository.source(id: $0) }
+        if previous != current { didChange() }
         return count
     }
 
-    static func exportAll() -> URL? {
+    func exportAll() -> URL? {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         guard let data = try? encoder.encode(loadSources()) else {
@@ -429,18 +437,11 @@ enum TtsSourceStore {
         }
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("tts_sources.json")
-        try? data.write(to: url, options: .atomic)
-        return url
+        do { try data.write(to: url, options: .atomic); return url }
+        catch { return nil }
     }
 
-    static func preview(_ source: HttpTts) {
+    func preview(_ source: HttpTts) {
         // 试听桥（T-801-05 HttpTtsAudioPreparer 分册落地）。
-    }
-
-    private static func persist(_ sources: [HttpTts]) {
-        if let data = try? JSONEncoder().encode(sources) {
-            UserDefaults.standard.set(
-                data, forKey: "reader_tts_sources")
-        }
     }
 }

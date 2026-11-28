@@ -146,8 +146,7 @@ extension BackupService {
         to directory: URL, counts: inout [String: Int],
         incremental: Bool
     ) throws {
-        let raw = defaults.data(
-            forKey: "reader_tts_sources")
+        let raw = HttpTtsSourceRepository.storedData(defaults: defaults)
         guard let raw else { return }
         try raw.write(
             to: directory.appendingPathComponent("tts_sources.json"),
