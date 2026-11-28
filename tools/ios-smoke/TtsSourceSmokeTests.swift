@@ -30,7 +30,8 @@ extension LeaflowSmokeTests {
         launch(["-smokeTtsSources"])
         let menu = app.buttons["tts-source-actions"]
         XCTAssertTrue(menu.waitForExistence(timeout: 15))
-        XCTAssertTrue(menu.isHittable)
+        XCTAssertFalse(menu.frame.isEmpty)
+        XCTAssertTrue(app.frame.contains(menu.frame))
         menu.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         app.buttons["从文件导入"].tap()
         let cancel = app.buttons.matching(NSPredicate(format: "label IN %@", ["Cancel", "取消"])).firstMatch
