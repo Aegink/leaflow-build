@@ -75,6 +75,34 @@ enum HttpTtsRequestSampleSelfTest {
             do { _ = try await synthesizer.audioData(source: source, text: "正文", speechRate: 1) }
             catch { rejected = true }
             emit("tts_request_empty_audio_rejected", ["true"], [String(rejected)])
+            transport.payload = Data([0x49, 0x44, 0x33])
+            var contentRejected = 0
+            for type in ["text/html; charset=UTF-8", "APPLICATION/JSON"] {
+                transport.contentType = type
+                do { _ = try await synthesizer.audioData(source: source, text: "正文", speechRate: 1) }
+                catch { contentRejected += 1 }
+            }
+            emit("tts_response_default_rejects_html_json", ["2"], [String(contentRejected)])
+            transport.contentType = "application/octet-stream"
+            let binary = try await synthesizer.audioData(source: source, text: "正文", speechRate: 1)
+            emit("tts_response_default_allows_other_types", ["true"], [String(binary == transport.payload)])
+            transport.contentType = nil
+            let missingType = try await synthesizer.audioData(source: source, text: "正文", speechRate: 1)
+            emit("tts_response_missing_type_uses_default", ["true"], [String(missingType == transport.payload)])
+            source.contentType = "audio/(mpeg|wav)"
+            transport.contentType = "AUDIO/WAV; codec=pcm"
+            let matched = try await synthesizer.audioData(source: source, text: "正文", speechRate: 1)
+            emit("tts_response_regex_case_insensitive_partial", ["true"], [String(matched == transport.payload)])
+            transport.contentType = "application/json"
+            rejected = false
+            do { _ = try await synthesizer.audioData(source: source, text: "正文", speechRate: 1) }
+            catch { rejected = true }
+            emit("tts_response_regex_mismatch_rejected", ["true"], [String(rejected)])
+            source.contentType = "["
+            rejected = false
+            do { _ = try await synthesizer.audioData(source: source, text: "正文", speechRate: 1) }
+            catch { rejected = true }
+            emit("tts_response_invalid_regex_rejected", ["true"], [String(rejected)])
             emit("tts_request_setup", ["成功"], ["成功"])
         } catch { emit("tts_request_setup", ["成功"], [error.localizedDescription]) }
     }
@@ -83,10 +111,11 @@ enum HttpTtsRequestSampleSelfTest {
         var requests: [URLRequest] = []
         var status = 200
         var payload = Data([0x49, 0x44, 0x33])
+        var contentType: String? = "audio/mpeg"
         func data(for request: URLRequest) async throws -> (Data, URLResponse) {
             requests.append(request)
             return (payload, HTTPURLResponse(url: request.url!, statusCode: status,
-                httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "audio/mpeg"])!)
+                httpVersion: "HTTP/1.1", headerFields: contentType.map { ["Content-Type": $0] } ?? [:])!)
         }
     }
 

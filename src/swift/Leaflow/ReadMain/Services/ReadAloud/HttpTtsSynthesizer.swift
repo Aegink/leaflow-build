@@ -112,6 +112,19 @@ final class HttpTtsSynthesizer: HttpTtsSynthesizing {
         guard !data.isEmpty else {
             throw URLRequestError.invalidResponse
         }
+        // 0x100281ff4及原TTS指南：自定义正则不区分大小写；缺省拒绝HTML/JSON。
+        let contentType = response.value(forHTTPHeaderField: "Content-Type") ?? ""
+        if let pattern = source.contentType, !pattern.isEmpty {
+            let regex = try NSRegularExpression(pattern: pattern, options: .caseInsensitive)
+            guard regex.firstMatch(in: contentType, range: NSRange(contentType.startIndex..., in: contentType)) != nil else {
+                throw AppError.parsing("朗读响应类型不匹配：\(contentType)")
+            }
+        } else {
+            let normalized = contentType.lowercased()
+            guard !normalized.contains("text/html"), !normalized.contains("application/json") else {
+                throw AppError.parsing("朗读接口返回了非音频内容：\(contentType)")
+            }
+        }
     }
 
     /// rethrowCancellation(Error) throws（签名域确证：取消穿透）。
