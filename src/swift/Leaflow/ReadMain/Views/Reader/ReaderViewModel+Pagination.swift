@@ -223,6 +223,10 @@ extension ReaderViewModel {
             }
             try Task.checkCancellation()
             guard revision == paginationRevision else { return }
+            if chapterContents != content || settings.paginationSettingsSignature != frozen.paginationSettingsSignature {
+                requestRebuild(reason: "重排期间内容或设置更新")
+                return
+            }
             mergePages(preservePosition: preservePosition, centerChapter: currentChapterIndex, newPages: replacement)
             chapterPages = pages.filter { $0.chapterIndex == currentChapterIndex }
             needsRepagination = false
