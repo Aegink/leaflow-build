@@ -66,15 +66,23 @@ struct ChapterTitlePackagedAsset {
 /// 标题资产目录管理器（图片导入/枚举/白名单/ID 重写/URLScheme）。
 final class ChapterTitleAssetManager {
 
-    /// 资产目录（内存域，路径名待真机对照）。
+    /// 0x1001a6808：Application Support/ChapterTitleAssets。
     private let assetsDirectory: URL
     private let fileManager = FileManager.default
 
-    init() {
-        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
-        assetsDirectory = caches.appendingPathComponent("chapter_title_assets", isDirectory: true)
+    init(applicationSupportDirectory: URL? = nil, legacyCachesDirectory: URL? = nil) {
+        let support = applicationSupportDirectory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        assetsDirectory = support.appendingPathComponent("ChapterTitleAssets", isDirectory: true)
         try? fileManager.createDirectory(
             at: assetsDirectory, withIntermediateDirectories: true)
+        let caches = legacyCachesDirectory ?? FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        let legacy = caches.appendingPathComponent("chapter_title_assets")
+        for source in (try? fileManager.contentsOfDirectory(at: legacy, includingPropertiesForKeys: [.isRegularFileKey])) ?? [] {
+            let target = assetsDirectory.appendingPathComponent(source.lastPathComponent)
+            guard (try? source.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true,
+                  !fileManager.fileExists(atPath: target.path) else { continue }
+            try? fileManager.copyItem(at: source, to: target)
+        }
     }
 
     // MARK: 导入

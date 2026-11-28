@@ -66,11 +66,10 @@ extension BackupService {
     func exportThemeResources(
         to directory: URL, counts: inout [String: Int], incremental: Bool
     ) throws {
-        let themes = appSupportDir.appendingPathComponent("Themes")
-        guard fileManager.fileExists(atPath: themes.path) else { return }
+        guard let themes = existingFile([appSupportDir.appendingPathComponent("Themes"), appSupportDir.appendingPathComponent("AppThemes")]) else { return }
         try mirrorDirectory(
             from: themes,
-            to: directory.appendingPathComponent("Themes"),
+            to: directory.appendingPathComponent("themes"),
             incremental: incremental)
     }
 
@@ -78,11 +77,10 @@ extension BackupService {
     func exportReaderBackgrounds(
         to directory: URL, incremental: Bool
     ) throws {
-        let backgrounds = appSupportDir.appendingPathComponent("backgrounds")
-        guard fileManager.fileExists(atPath: backgrounds.path) else { return }
+        let backgrounds = try ReadingSettings.backgroundImagesDirectory(documents: documentsDir, legacySupport: appSupportDir)
         try mirrorDirectory(
             from: backgrounds,
-            to: directory.appendingPathComponent("backgrounds"),
+            to: directory.appendingPathComponent("reader_backgrounds"),
             incremental: incremental)
     }
 
@@ -91,11 +89,15 @@ extension BackupService {
         to directory: URL, counts: inout [String: Int],
         incremental: Bool
     ) throws {
-        let fonts = appSupportDir.appendingPathComponent("Fonts")
-        guard fileManager.fileExists(atPath: fonts.path) else { return }
-        try mirrorDirectory(
-            from: fonts, to: directory.appendingPathComponent("Fonts"),
-            incremental: incremental)
+        if let data = defaults.data(forKey: CustomFontService.fontListDefaultsKey) ?? defaults.data(forKey: "reader_custom_fonts") {
+            _ = try JSONDecoder().decode([CustomFontService.FontInfo].self, from: data)
+        }
+        let service = CustomFontService(documentsDirectory: documentsDir, applicationSupportDirectory: appSupportDir,
+                                       defaults: defaults, registerFonts: false)
+        let metadata = service.exportFontMetadataForBackup()
+        guard !service.fonts.isEmpty, let metadata else { return }
+        counts["custom_fonts"] = try service.copyFontsForBackup(to: directory.appendingPathComponent("custom_fonts"))
+        try metadata.write(to: directory.appendingPathComponent("custom_fonts_meta.json"), options: .atomic)
     }
 
     /// exportChapterTitleAssets(to:counts:)（签名域确证）。
@@ -108,7 +110,7 @@ extension BackupService {
         guard fileManager.fileExists(atPath: assets.path) else { return }
         try mirrorDirectory(
             from: assets,
-            to: directory.appendingPathComponent("ChapterTitleAssets"),
+            to: directory.appendingPathComponent("chapter_title_assets"),
             incremental: incremental)
     }
 

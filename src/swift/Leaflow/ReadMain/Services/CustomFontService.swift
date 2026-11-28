@@ -16,7 +16,7 @@
 //     'font/collection' L4011 / 'font/woff' L4019-4027 /
 //     'woff2' L4023 / CTFont 诊断 'undefined' L54 / '(null)' L65 /
 //     ', error: ' L669
-//   - 事实：字体落盘 Application Support/Fonts/CustomFonts/ +
+//   - 事实：0x100317cbc/0x100317a54确证Documents/CustomFonts +
 //     字体清单 UserDefaults JSON（loadFontList/saveFontList 域）
 // 状态: 语义级还原（不是原始源码；变量名/注释为还原者所加）
 // 置信度: high（导入/CSS/MIME 三域字符串全链确证）
@@ -24,66 +24,11 @@
 
 import UIKit
 
-/// 自定义字体服务（fontsDirectory 域确证：Application Support/Fonts/
-/// CustomFonts/，'CustomFonts' L102）。
+/// 自定义字体服务（Documents/CustomFonts，清单键importedCustomFonts）。
 /// @MainActor：currentTheme/ReadingSettings 域均为 MainActor 隔离——
 /// 消费方（设置视图）亦然（wave-16）。
 @MainActor
 final class CustomFontService {
-
-    /// 字体信息（readableName/importDisplayFileName/hasOriginalFileName/
-    /// internalDisplayName/managementDisplayName 签名域确证）。
-    struct FontInfo: Codable, Identifiable, Hashable {
-        let id: String
-        var fileName: String
-        var originalFileName: String?
-        var postScriptName: String?
-        var familyName: String?
-        var importedAt: Date
-
-        /// name 桥（ChapterTitleFontPickerView 字体选择域确证——即
-        /// fileName，wave-16 补桥）。
-        var name: String { fileName }
-
-        /// displayName 桥（readableName 归一；nil 回退 fileName）。
-        var displayName: String {
-            Self.readableName(fileName) ?? fileName
-        }
-
-        /// readableName(_:)（签名域确证：PostScript 名 → 文件名去
-        /// 扩展 → 空兜底）。
-        static func readableName(_ fileName: String) -> String? {
-            let stem = (fileName as NSString).deletingPathExtension
-            let cleaned = stem
-                .replacingOccurrences(of: "_", with: " ")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            return cleaned.isEmpty ? nil : cleaned
-        }
-
-        /// importDisplayFileName getter（签名域确证）。
-        var importDisplayFileName: String {
-            originalFileName ?? fileName
-        }
-
-        /// hasOriginalFileName getter（签名域确证）。
-        var hasOriginalFileName: Bool {
-            originalFileName != nil
-        }
-
-        /// internalDisplayName getter（签名域确证：familyName 优先）。
-        var internalDisplayName: String {
-            if let familyName, !familyName.isEmpty {
-                return familyName
-            }
-            return FontInfo.readableName(fileName)
-                ?? (fileName as NSString).deletingPathExtension
-        }
-
-        /// managementDisplayName getter（签名域确证）。
-        var managementDisplayName: String {
-            internalDisplayName
-        }
-    }
 
     /// 导入错误（errorDescription 签名域确证）。
     enum FontImportError: LocalizedError {
@@ -105,24 +50,28 @@ final class CustomFontService {
 
     static let shared = CustomFontService()
 
-    private static let fontListDefaultsKey = "reader_custom_fonts"
+    static let fontListDefaultsKey = "importedCustomFonts"
     private static let fontsSubdirectory = "CustomFonts"
 
     private(set) var fonts: [FontInfo] = []
+    private let defaults: UserDefaults
+    private let documentsDirectory: URL
+    private let supportDirectory: URL
+    private let registerFonts: Bool
 
     /// fontsDirectory getter（签名域确证）。
     var fontsDirectory: URL {
-        let base = FileManager.default.urls(
-            for: .applicationSupportDirectory, in: .userDomainMask
-        ).first!
-        return base
-            .appendingPathComponent("Fonts", isDirectory: true)
-            .appendingPathComponent(Self.fontsSubdirectory,
-                                    isDirectory: true)
+        documentsDirectory.appendingPathComponent(Self.fontsSubdirectory, isDirectory: true)
     }
 
-    init() {
+    init(documentsDirectory: URL? = nil, applicationSupportDirectory: URL? = nil,
+         defaults: UserDefaults = .standard, registerFonts: Bool = true) {
+        self.defaults = defaults
+        self.documentsDirectory = documentsDirectory ?? FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        supportDirectory = applicationSupportDirectory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        self.registerFonts = registerFonts
         loadFontList()
+        migrateLegacyFontFiles()
         registerAllFonts()
     }
 
@@ -130,6 +79,7 @@ final class CustomFontService {
 
     /// registerAllFonts()（签名域确证：closure #1/#2 CFError 计数域）。
     func registerAllFonts() {
+        guard registerFonts else { return }
         let fm = FileManager.default
         guard let files = try? fm.contentsOfDirectory(
             at: fontsDirectory, includingPropertiesForKeys: nil) else {
@@ -324,10 +274,10 @@ final class CustomFontService {
     // 签名域确证）
 
     private func loadFontList() {
-        let defaults = UserDefaults.standard
-        guard let data = defaults.data(forKey: Self.fontListDefaultsKey),
+        guard let data = defaults.data(forKey: Self.fontListDefaultsKey) ?? defaults.data(forKey: "reader_custom_fonts"),
               let stored = try? JSONDecoder().decode(
                 [FontInfo].self, from: data) else {
+            fonts = []
             return
         }
         fonts = stored
@@ -345,7 +295,6 @@ final class CustomFontService {
     }
 
     private func saveFontList() {
-        let defaults = UserDefaults.standard
         if let data = try? JSONEncoder().encode(fonts) {
             defaults.set(data, forKey: Self.fontListDefaultsKey)
         }
@@ -355,13 +304,28 @@ final class CustomFontService {
     /// （签名域确证：compact + 回读 + 重注册）。
     @discardableResult
     func reloadPersistedFonts(pruneMissingFiles: Bool) -> [FontInfo] {
+        loadFontList()
+        migrateLegacyFontFiles()
         if pruneMissingFiles {
             compactStoredFontList()
             saveFontList()
         }
-        loadFontList()
         registerAllFonts()
         return fonts
+    }
+
+    private func migrateLegacyFontFiles() {
+        let fm = FileManager.default
+        let legacy = supportDirectory.appendingPathComponent("Fonts/CustomFonts")
+        for font in fonts {
+            let destination = fontsDirectory.appendingPathComponent(font.fileName)
+            let source = legacy.appendingPathComponent(font.fileName)
+            guard !fm.fileExists(atPath: destination.path), fm.fileExists(atPath: source.path) else { continue }
+            do {
+                try fm.createDirectory(at: fontsDirectory, withIntermediateDirectories: true)
+                try fm.copyItem(at: source, to: destination)
+            } catch { continue }
+        }
     }
 
     /// resetFontReferences(_:)（签名域确证：引用主题回退 System）。
@@ -401,9 +365,7 @@ final class CustomFontService {
             let source = fontsDirectory
                 .appendingPathComponent(font.fileName)
             guard fm.fileExists(atPath: source.path) else { continue }
-            try fm.copyItem(
-                at: source,
-                to: directory.appendingPathComponent(font.fileName))
+            try Data(contentsOf: source).write(to: directory.appendingPathComponent(font.fileName), options: .atomic)
             copied += 1
         }
         return copied

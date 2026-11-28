@@ -25,6 +25,9 @@ extension BackupService {
                 }
             }
         }
+        if categories.contains(.appearance), let metadata = try readJSONPayload("custom_fonts_meta.json", from: directory) {
+            _ = try JSONDecoder().decode([CustomFontService.FontInfo].self, from: metadata)
+        }
     }
 
     func estimatedFiles(for category: SyncCategory) -> [URL] {
@@ -42,7 +45,8 @@ extension BackupService {
             return ((try? fileManager.contentsOfDirectory(at: documentsDir, includingPropertiesForKeys: nil)) ?? [])
                 .filter { $0.lastPathComponent.hasPrefix("reading_stats_") && $0.pathExtension == "json" }
         case .highlightRules: return [appSupportDir.appendingPathComponent("highlight_rules.json")]
-        case .appearance: return ["Themes", "Fonts", "backgrounds", "ChapterTitleAssets"].map { appSupportDir.appendingPathComponent($0) }
+        case .appearance: return ["Themes", "AppThemes", "ChapterTitleAssets"].map { appSupportDir.appendingPathComponent($0) }
+            + [documentsDir.appendingPathComponent("CustomFonts"), documentsDir.appendingPathComponent("ReaderBackgrounds")]
         case .localBooks: return ["Books", "local_books", "local_book_covers", "local_books_metadata.json"].map { documentsDir.appendingPathComponent($0) }
         case .readingSettings, .ttsSources: return []
         }
@@ -98,6 +102,27 @@ extension BackupService {
         if let books {
             try fileManager.createDirectory(at: documentsDir, withIntermediateDirectories: true)
             try JSONEncoder().encode(books).write(to: documentsDir.appendingPathComponent("local_books_metadata.json"), options: .atomic)
+        }
+    }
+
+    /// 0x1002c0ec8：归档名与消费方目录分别映射，字体清单必须与文件一起恢复。
+    func importAppearanceResources(from directory: URL) throws {
+        let resources: [([String], URL)] = [
+            (["themes", "Themes"], appSupportDir.appendingPathComponent("Themes")),
+            (["reader_backgrounds", "backgrounds"], documentsDir.appendingPathComponent("ReaderBackgrounds")),
+            (["chapter_title_assets", "ChapterTitleAssets"], appSupportDir.appendingPathComponent("ChapterTitleAssets")),
+            (["custom_fonts", "Fonts/CustomFonts"], documentsDir.appendingPathComponent("CustomFonts"))]
+        for (names, target) in resources {
+            if let source = existingFile(names.map { directory.appendingPathComponent($0) }) {
+                try mirrorDirectory(from: source, to: target, incremental: false)
+            }
+        }
+        if let metadata = try readJSONPayload("custom_fonts_meta.json", from: directory) {
+            let fonts = try JSONDecoder().decode([CustomFontService.FontInfo].self, from: metadata)
+            defaults.set(try JSONEncoder().encode(fonts), forKey: CustomFontService.fontListDefaultsKey)
+        }
+        if documentsOverride == nil && supportOverride == nil {
+            CustomFontService.shared.reloadPersistedFonts(pruneMissingFiles: true)
         }
     }
 }

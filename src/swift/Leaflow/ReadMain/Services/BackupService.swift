@@ -262,13 +262,7 @@ final class BackupService {
             try importJSONFile("replace_rules.json", from: directory, to: appSupportDir.appendingPathComponent("replace_rules.json"))
         }
         if categories.contains(.appearance) {
-            let themes = directory.appendingPathComponent("Themes")
-            if fileManager.fileExists(atPath: themes.path) {
-                try mirrorDirectory(
-                    from: themes,
-                    to: appSupportDir.appendingPathComponent("Themes"),
-                    incremental: false)
-            }
+            try importAppearanceResources(from: directory)
         }
         if categories.contains(.ttsSources), let data = try readJSONPayload("tts_sources.json", from: directory) {
             defaults.set(data, forKey: "reader_tts_sources")

@@ -229,26 +229,29 @@ extension ReadingSettings {
         backgroundImageName = filename
     }
 
-    /// 伪代码 0x1002123e0（L450-457）：Application Support
+    /// 伪代码 0x1002123e0（L450-457）：Documents
     ///（URLsForDirectory:9/inDomains:1 确证）+ ReaderBackgrounds 子目录；
     /// 不存在则 createDirectoryAtURL withIntermediateDirectories 创建
     ///（_convertNSErrorToError 域确证 throws）。
     static var backgroundImagesDirectory: URL {
         get throws {
-            let fileManager = FileManager.default
-            guard let base = fileManager.urls(
-                for: .applicationSupportDirectory, in: .userDomainMask).first
-            else {
-                throw CocoaError(.fileNoSuchFile)
-            }
-            let directory = base.appendingPathComponent(
-                "ReaderBackgrounds", isDirectory: true)
-            if !fileManager.fileExists(atPath: directory.path) {
-                try fileManager.createDirectory(
-                    at: directory, withIntermediateDirectories: true)
-            }
-            return directory
+            try backgroundImagesDirectory(documents: FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0],
+                legacySupport: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0])
         }
+    }
+
+    static func backgroundImagesDirectory(documents: URL, legacySupport: URL) throws -> URL {
+        let fileManager = FileManager.default
+        let directory = documents.appendingPathComponent("ReaderBackgrounds", isDirectory: true)
+        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        let legacy = legacySupport.appendingPathComponent("ReaderBackgrounds")
+        for source in (try? fileManager.contentsOfDirectory(at: legacy, includingPropertiesForKeys: [.isRegularFileKey])) ?? [] {
+            let target = directory.appendingPathComponent(source.lastPathComponent)
+            if !fileManager.fileExists(atPath: target.path), (try source.resourceValues(forKeys: [.isRegularFileKey])).isRegularFile == true {
+                try fileManager.copyItem(at: source, to: target)
+            }
+        }
+        return directory
     }
 
     /// 伪代码 0x10022282c（L1655-1660）：下划线色 hex 非空 → Color(hex:) 桥；
