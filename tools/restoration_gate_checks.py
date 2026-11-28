@@ -147,7 +147,8 @@ def dependency_symbols(texts: dict[str, str]) -> dict[str, str]:
 def source_digest(root: Path) -> str:
     digest = hashlib.sha256()
     # Windows Path 按大小写折叠排序，macOS 不折叠；统一使用相对 POSIX 路径。
-    for path in sorted(root.rglob("*.swift"), key=lambda p: p.relative_to(root).as_posix()):
+    sources = [p for p in root.rglob("*") if p.is_file() and p.suffix in {".swift", ".html"}]
+    for path in sorted(sources, key=lambda p: p.relative_to(root).as_posix()):
         digest.update(path.relative_to(root).as_posix().encode("utf-8") + b"\0")
         digest.update(path.read_bytes().replace(b"\r\n", b"\n"))
         digest.update(b"\0")

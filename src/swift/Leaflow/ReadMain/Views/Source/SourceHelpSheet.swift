@@ -105,6 +105,7 @@ struct HTMLHelpWebView: UIViewRepresentable {
         let view = WKWebView(frame: .zero, configuration: configuration)
         view.navigationDelegate = context.coordinator
         view.backgroundColor = .systemBackground
+        context.coordinator.attach(view)
         return view
     }
 
@@ -123,6 +124,9 @@ struct HTMLHelpWebView: UIViewRepresentable {
         var parent: HTMLHelpWebView?
         private var loadedURL: URL?
         private var pendingSearch: String?
+        private var appliedSearch: String?
+        private weak var webView: WKWebView?
+        private(set) var isLoaded = false
         let logPrefix: String
         @Binding var matchCount: Int
 
@@ -132,22 +136,41 @@ struct HTMLHelpWebView: UIViewRepresentable {
         }
 
         func update(htmlURL: URL?, searchText: String) {
-            load(htmlURL: htmlURL)
             pendingSearch = searchText
+            load(htmlURL: htmlURL)
             applySearchIfNeeded()
         }
 
+        func attach(_ view: WKWebView) { webView = view }
+
         /// teardown（签名确证）：移除消息处理器。
-        func teardown() {}
+        func teardown() {
+            webView?.stopLoading()
+            webView?.navigationDelegate = nil
+            webView?.configuration.userContentController.removeScriptMessageHandler(forName: "helpSearch")
+            webView = nil
+            parent = nil
+            loadedURL = nil
+            isLoaded = false
+            appliedSearch = nil
+        }
 
         /// load(htmlURL:)（签名确证）：去重装载。
         func load(htmlURL: URL?) {
             guard let url = htmlURL, url != loadedURL else { return }
             loadedURL = url
+            isLoaded = false
+            appliedSearch = nil
+            webView?.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
         }
 
         /// applySearchIfNeeded（签名确证）：didFinish 后注入搜索。
-        func applySearchIfNeeded() {}
+        func applySearchIfNeeded() {
+            guard isLoaded, let webView, let pendingSearch, appliedSearch != pendingSearch else { return }
+            appliedSearch = pendingSearch
+            let escaped = Self.escapeForJavaScriptLiteral(pendingSearch)
+            webView.evaluateJavaScript("window.qireaderHelpApplySearch('\(escaped)')")
+        }
 
         /// escapeForJavaScriptLiteral（签名确证）。
         static func escapeForJavaScriptLiteral(_ text: String) -> String {
@@ -156,13 +179,14 @@ struct HTMLHelpWebView: UIViewRepresentable {
                 .replacingOccurrences(of: "'", with: "\\'")
                 .replacingOccurrences(of: "\"", with: "\\\"")
                 .replacingOccurrences(of: "\n", with: "\\n")
+                .replacingOccurrences(of: "\r", with: "\\r")
+                .replacingOccurrences(of: "\u{2028}", with: "\\u2028")
+                .replacingOccurrences(of: "\u{2029}", with: "\\u2029")
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation?) {
-            // "elpApplySearch('" JS 注入域确证：装载完成后执行搜索。
-            guard let search = pendingSearch, !search.isEmpty else { return }
-            let escaped = Self.escapeForJavaScriptLiteral(search)
-            webView.evaluateJavaScript("window.helpApplySearch('\(escaped)')")
+            isLoaded = true
+            applySearchIfNeeded()
         }
 
         func userContentController(

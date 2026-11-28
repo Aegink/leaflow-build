@@ -98,6 +98,7 @@ struct TtsSourceManageView: View {
                 } label: {
                     Image(systemName: "questionmark.circle")
                 }
+                .accessibilityIdentifier("tts-source-help")
                 Button {
                     editSelection = EditSelection(source: nil)
                 } label: {

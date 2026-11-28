@@ -22,16 +22,20 @@ import WebKit
 struct TtsHelpSheet: View {
 
     @Environment(\.dismiss) private var dismiss
-    @State private var helpHTML: String = ""
+    @State private var matchCount = 0
     @State private var searchKeyword = ""
 
     var body: some View {
         NavigationStack {
             Group {
                 if hasHTML {
-                    HelpWebView(
-                        html: helpHTML,
-                        searchKeyword: searchKeyword)
+                    VStack(spacing: 0) {
+                        Text("匹配 \(matchCount)")
+                            .font(.caption).foregroundStyle(.secondary)
+                            .accessibilityIdentifier("tts-help-match-count")
+                        HTMLHelpWebView(htmlURL: SourceHelpRepository.htmlURL(for: .ttsHelp),
+                            searchText: searchKeywordValue, matchCount: $matchCount, logPrefix: "tts-help")
+                    }
                 } else {
                     ContentUnavailableView(
                         "TTS 帮助", systemImage: "questionmark.circle",
@@ -47,16 +51,13 @@ struct TtsHelpSheet: View {
                     }
                 }
             }
-            .searchable(text: $searchKeyword, prompt: "匹配 ")
-            .onAppear {
-                loadHelp()
-            }
+            .searchable(text: $searchKeyword, placement: .navigationBarDrawer(displayMode: .always), prompt: "匹配 ")
         }
     }
 
     /// hasHTML getter（签名域确证：非空且含标记）。
     private var hasHTML: Bool {
-        !helpHTML.isEmpty
+        SourceHelpRepository.hasHTML(for: .ttsHelp)
     }
 
     /// searchKeyword getter（'匹配 ' L994 + '页内高亮' L1018 域确证：
@@ -65,39 +66,4 @@ struct TtsHelpSheet: View {
         searchKeyword.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private func loadHelp() {
-        guard let url = Bundle.main.url(
-            forResource: "tts_help", withExtension: "html") else {
-            return
-        }
-        helpHTML = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
-    }
-}
-
-/// 帮助 WebView（页内高亮桥）。
-private struct HelpWebView: UIViewRepresentable {
-
-    let html: String
-    let searchKeyword: String
-
-    func makeUIView(context: Context) -> WKWebView {
-        let webView = WKWebView()
-        webView.loadHTMLString(html, baseURL: nil)
-        return webView
-    }
-
-    func updateUIView(_ webView: WKWebView, context: Context) {
-        // 页内高亮桥（'页内高亮' L1018 域确证）。
-        guard !searchKeyword.isEmpty else { return }
-        let script = "window.__highlightMatches(\(jsonEscape(searchKeyword)))"
-        webView.evaluateJavaScript(script, completionHandler: nil)
-    }
-
-    private func jsonEscape(_ value: String) -> String {
-        guard let data = try? JSONEncoder().encode([value]),
-              let json = String(data: data, encoding: .utf8) else {
-            return "\"\""
-        }
-        return json
-    }
 }

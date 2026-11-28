@@ -1,6 +1,30 @@
 import XCTest
 
 extension LeaflowSmokeTests {
+    func testTtsHelpLoadsAndSearches() {
+        launch(["-smokeTtsSources"])
+        let help = app.buttons["tts-source-help"]
+        XCTAssertTrue(help.waitForExistence(timeout: 15))
+        help.tap()
+        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 20))
+        XCTAssertFalse(app.staticTexts["帮助文档未随包提供"].exists)
+        let search = app.searchFields.firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 10))
+        search.tap()
+        search.typeText("setResponseBase64")
+        let count = app.staticTexts["tts-help-match-count"]
+        let positive = NSPredicate { _, _ in
+            (Int(count.label.replacingOccurrences(of: "匹配 ", with: "")) ?? 0) > 0
+        }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: positive, object: count)], timeout: 20), .completed)
+        capture("tts-help-search")
+        search.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 17))
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "匹配 0"), object: count)], timeout: 10), .completed)
+        app.buttons["关闭"].tap()
+        XCTAssertTrue(help.waitForExistence(timeout: 10))
+        passed("tts_help_document_search")
+    }
+
     func testTtsSourceFilePickerEntry() {
         launch(["-smokeTtsSources"])
         let menu = app.buttons["tts-source-actions"]

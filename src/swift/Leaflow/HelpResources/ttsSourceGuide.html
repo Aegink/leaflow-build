@@ -1,0 +1,1011 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>TTS 源编写指南</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #fcfcfd;
+      --surface: #f5f7fa;
+      --surface-strong: #eef2f6;
+      --border: rgba(15, 23, 42, 0.10);
+      --text: #17212f;
+      --muted: #5b6678;
+      --accent: #0f766e;
+      --inline-code: rgba(15, 23, 42, 0.06);
+      --search-hit: rgba(250, 204, 21, 0.36);
+      --search-ring: rgba(202, 138, 4, 0.38);
+      --table-head: rgba(15, 118, 110, 0.08);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f141c;
+        --surface: #161d28;
+        --surface-strong: #1c2532;
+        --border: rgba(255, 255, 255, 0.10);
+        --text: #ecf3fb;
+        --muted: #9eacc0;
+        --accent: #5eead4;
+        --inline-code: rgba(255, 255, 255, 0.08);
+        --search-hit: rgba(251, 191, 36, 0.28);
+        --search-ring: rgba(251, 191, 36, 0.24);
+        --table-head: rgba(94, 234, 212, 0.12);
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
+    body {
+      font: 16px/1.72 -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", sans-serif;
+      padding: 20px 18px 34px;
+      -webkit-text-size-adjust: 100%;
+      word-break: break-word;
+    }
+    #content { max-width: 960px; margin: 0 auto; }
+    h1, h2, h3, h4, h5, h6 { line-height: 1.28; margin: 1.25em 0 0.55em; font-weight: 700; }
+    h1 { font-size: 1.8rem; margin-top: 0.15em; }
+    h2 { font-size: 1.45rem; padding-bottom: 0.25em; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 1.18rem; }
+    p, ul, ol, blockquote, pre, table { margin: 0 0 1rem; }
+    ul, ol { padding-left: 1.35rem; }
+    li + li { margin-top: 0.28rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { font-weight: 700; }
+    blockquote {
+      margin-left: 0;
+      margin-right: 0;
+      padding: 0.85rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+      color: var(--muted);
+      border-radius: 0 12px 12px 0;
+    }
+    code {
+      font: 0.92em/1.5 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+      background: var(--inline-code);
+      padding: 0.12em 0.38em;
+      border-radius: 6px;
+    }
+    pre {
+      overflow-x: auto;
+      background: var(--surface-strong);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 0.95rem 1rem;
+    }
+    pre code { background: transparent; padding: 0; border-radius: 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      display: block;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--surface);
+    }
+    thead { background: var(--table-head); }
+    th, td {
+      min-width: 88px;
+      padding: 0.72rem 0.82rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: none; }
+    hr { border: none; height: 1px; background: var(--border); margin: 1.4rem 0; }
+    img { max-width: 100%; height: auto; }
+    pre, code, table { -webkit-user-select: text; user-select: text; }
+    mark.search-hit {
+      background: var(--search-hit);
+      color: inherit;
+      border-radius: 5px;
+      padding: 0 0.12em;
+      box-shadow: 0 0 0 1px var(--search-ring);
+    }
+  </style>
+</head>
+<body>
+  <main id="content"><h1>Leaflow TTS 源编写指南</h1>
+<h2>目录</h2>
+<ul>
+<li><a href="#概述">概述</a></li>
+<li><a href="#数据结构">数据结构</a></li>
+<li><a href="#url-规则">URL 规则</a></li>
+<li><a href="#loginui-配置界面">loginUi 配置界面</a></li>
+<li><a href="#loginurl-登录脚本">loginUrl 登录脚本</a></li>
+<li><a href="#logincheckjs-响应处理">loginCheckJs 响应处理</a></li>
+<li><a href="#jslib-公共函数库">jsLib 公共函数库</a></li>
+<li><a href="#websocket-朗读源">WebSocket 朗读源</a></li>
+<li><a href="#javascript-环境">JavaScript 环境</a></li>
+<li><a href="#数据持久化">数据持久化</a></li>
+<li><a href="#请求限流">请求限流</a></li>
+<li><a href="#音频格式">音频格式</a></li>
+<li><a href="#完整示例">完整示例</a></li>
+<li><a href="#调试技巧">调试技巧</a></li>
+</ul>
+<hr />
+<h2>概述</h2>
+<p>TTS 源是一个 JSON 对象（或 JSON 数组），描述如何调用在线 TTS API 将文字合成为语音。应用会逐段落发送文本到 API，下载音频并通过 AVAudioEngine 播放。</p>
+<p>支持的能力：
+- GET / POST 请求
+- 自定义请求头
+- JavaScript 动态构建 URL 和请求体
+- 配置界面（选择发音人、风格、API 密钥等）
+- 响应后处理（解析 JSON 提取 base64 音频等）
+- 自动故障转移和 API 切换
+- Cookie 持久化
+- 请求限流
+- WebSocket 文本/二进制帧收发</p>
+<hr />
+<h2>数据结构</h2>
+<pre><code class="language-json">{
+  &quot;id&quot;: 1234567890,
+  &quot;name&quot;: &quot;源名称&quot;,
+  &quot;url&quot;: &quot;TTS API 地址或 JS 规则&quot;,
+  &quot;contentType&quot;: &quot;audio/mpeg&quot;,
+  &quot;concurrentRate&quot;: &quot;1500&quot;,
+  &quot;enabledCookieJar&quot;: false,
+  &quot;loginUrl&quot;: &quot;登录/初始化 JS 脚本&quot;,
+  &quot;loginUi&quot;: &quot;配置界面 JSON&quot;,
+  &quot;loginCheckJs&quot;: &quot;响应后处理 JS&quot;,
+  &quot;header&quot;: &quot;{\&quot;Authorization\&quot;:\&quot;Bearer xxx\&quot;}&quot;,
+  &quot;jsLib&quot;: &quot;公共 JS 函数库&quot;,
+  &quot;lastUpdateTime&quot;: 1700000000000,
+  &quot;enabled&quot;: true
+}
+</code></pre>
+<h3>字段说明</h3>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>类型</th>
+<th style="text-align: center;">必填</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>Int64</td>
+<td style="text-align: center;">否</td>
+<td>唯一数字 ID。缺失时由 name 的 hash 自动生成</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>String</td>
+<td style="text-align: center;"><strong>是</strong></td>
+<td>源显示名称</td>
+</tr>
+<tr>
+<td><code>url</code></td>
+<td>String</td>
+<td style="text-align: center;"><strong>是</strong></td>
+<td>TTS 请求地址（支持 JS 规则）</td>
+</tr>
+<tr>
+<td><code>contentType</code></td>
+<td>String</td>
+<td style="text-align: center;">否</td>
+<td>响应 Content-Type 验证正则，如 <code>audio/(mpeg\|wav)</code></td>
+</tr>
+<tr>
+<td><code>concurrentRate</code></td>
+<td>String</td>
+<td style="text-align: center;">否</td>
+<td>请求限流，单位毫秒（如 <code>"1500"</code> 表示间隔 1.5 秒）</td>
+</tr>
+<tr>
+<td><code>enabledCookieJar</code></td>
+<td>Bool</td>
+<td style="text-align: center;">否</td>
+<td>是否启用 Cookie 持久化，默认 <code>false</code></td>
+</tr>
+<tr>
+<td><code>loginUrl</code></td>
+<td>String</td>
+<td style="text-align: center;">否</td>
+<td>JS 脚本，在配置界面按钮点击时执行</td>
+</tr>
+<tr>
+<td><code>loginUi</code></td>
+<td>String</td>
+<td style="text-align: center;">否</td>
+<td>配置界面定义（JSON 数组或 <code>@js:</code> 动态生成）</td>
+</tr>
+<tr>
+<td><code>loginCheckJs</code></td>
+<td>String</td>
+<td style="text-align: center;">否</td>
+<td>每次 HTTP 响应后执行的 JS，可修改/替换响应</td>
+</tr>
+<tr>
+<td><code>header</code></td>
+<td>String</td>
+<td style="text-align: center;">否</td>
+<td>JSON 格式的自定义请求头</td>
+</tr>
+<tr>
+<td><code>jsLib</code></td>
+<td>String</td>
+<td style="text-align: center;">否</td>
+<td>公共 JS 函数库，在所有 JS 执行前预加载</td>
+</tr>
+<tr>
+<td><code>lastUpdateTime</code></td>
+<td>Number</td>
+<td style="text-align: center;">否</td>
+<td>最后更新时间戳（毫秒）</td>
+</tr>
+<tr>
+<td><code>enabled</code></td>
+<td>Bool</td>
+<td style="text-align: center;">否</td>
+<td>是否启用</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>URL 规则</h2>
+<p><code>url</code> 是最核心的字段，定义如何构建 TTS 请求。</p>
+<h3>可用变量</h3>
+<table>
+<thead>
+<tr>
+<th>变量</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{{speakText}}</code></td>
+<td>待朗读的文本（在 URL 部分自动 URL 编码，在 JSON body 中自动 JSON 转义）</td>
+</tr>
+<tr>
+<td><code>{{speakSpeed}}</code></td>
+<td>语速值，整数 1-30，默认 10 为正常速度。由 <code>speechRate × 10</code> 计算</td>
+</tr>
+<tr>
+<td><code>speakText</code></td>
+<td>JS 中可用的全局变量（原始文本，不编码）</td>
+</tr>
+<tr>
+<td><code>speakSpeed</code></td>
+<td>JS 中可用的全局变量（整数）</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>语速换算</strong>：应用的 speechRate 范围 0.1~3.0，换算为 speakSpeed = Int(speechRate × 10)，即 1~30，10 为正常。
+例如 speechRate=1.5 → speakSpeed=15</p>
+</blockquote>
+<h3>方式一：简单 GET 请求</h3>
+<p>直接使用模板替换：</p>
+<pre><code>https://api.example.com/tts?text={{speakText}}&amp;speed={{speakSpeed}}&amp;voice=xiaoxiao
+</code></pre>
+<p><code>{{speakText}}</code> 自动 URL 编码，安全处理特殊字符。</p>
+<h3>方式二：POST 请求（@body 方式）</h3>
+<p>在 URL 和 body 之间使用 <code>,</code> 分隔，body 部分为 JSON 配置：</p>
+<pre><code>https://api.example.com/tts,{&quot;method&quot;:&quot;POST&quot;,&quot;body&quot;:&quot;{\&quot;text\&quot;:\&quot;{{speakText}}\&quot;,\&quot;speed\&quot;:{{speakSpeed}}}&quot;,&quot;headers&quot;:{&quot;Content-Type&quot;:&quot;application/json&quot;}}
+</code></pre>
+<p>body 中的 <code>{{speakText}}</code> 会自动 JSON 转义（处理换行、引号等）。</p>
+<h3>方式三：JavaScript 规则</h3>
+<p>使用 <code>@js:</code> 前缀编写完整的 JS 逻辑：</p>
+<pre><code class="language-javascript">@js:
+var info = source.getLoginInfoMap();
+var voice = info['voice'] || 'xiaoxiao';
+var speed = (speakSpeed - 10) * 10;  // 转换为 -90 ~ +200 范围
+var text = encodeURIComponent(speakText);
+`https://api.example.com/tts?text=${text}&amp;voice=${voice}&amp;rate=${speed}%`
+</code></pre>
+<blockquote>
+<p><strong>注意</strong>：JS 规则的最后一个表达式的值（或 <code>return</code> 值）就是最终的 URL。</p>
+</blockquote>
+<h3>JavaScript URL 中构建 POST 请求</h3>
+<p>JS 规则返回的字符串也支持 <code>,{JSON配置}</code> 格式：</p>
+<pre><code class="language-javascript">@js:
+var body = JSON.stringify({
+    text: speakText,
+    speed: speakSpeed
+});
+// 返回 URL + POST 配置
+`https://api.example.com/tts,{&quot;method&quot;:&quot;POST&quot;,&quot;body&quot;:${JSON.stringify(body)},&quot;headers&quot;:{&quot;Content-Type&quot;:&quot;application/json&quot;}}`
+</code></pre>
+<h3>URL 中的 JS 表达式</h3>
+<p>在模板占位符 <code>{{...}}</code> 中可以写 JS 表达式：</p>
+<pre><code>https://api.example.com/tts?speed={{speakSpeed * 4}}%&amp;text={{speakText}}
+</code></pre>
+<hr />
+<h2>loginUi 配置界面</h2>
+<p><code>loginUi</code> 定义一个 JSON 数组，每个元素表示一个 UI 控件。用户选择的值保存到 <code>loginInfo</code>，可在 JS 中通过 <code>source.getLoginInfoMap()</code> 访问。</p>
+<h3>支持的控件类型</h3>
+<h4>select（下拉选择）</h4>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;voice&quot;,
+  &quot;type&quot;: &quot;select&quot;,
+  &quot;viewName&quot;: &quot;'发音人：'&quot;,
+  &quot;chars&quot;: [&quot;晓晓&quot;, &quot;云溪&quot;, &quot;晓梦&quot;, &quot;云扬&quot;],
+  &quot;default&quot;: &quot;晓晓&quot;,
+  &quot;action&quot;: &quot;onVoiceChange()&quot;,
+  &quot;style&quot;: { &quot;layout_flexGrow&quot;: 1, &quot;layout_flexBasisPercent&quot;: 0.4 }
+}
+</code></pre>
+<ul>
+<li><code>name</code>：保存到 loginInfo 的 key</li>
+<li><code>chars</code>：选项列表</li>
+<li><code>default</code>：默认选中值（首次使用时自动保存）</li>
+<li><code>action</code>：选择变更时执行的 JS 函数（可选，在 loginUrl 中定义）</li>
+<li><code>viewName</code>：显示标签</li>
+</ul>
+<h4>text（文本输入）</h4>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;apiKey&quot;,
+  &quot;type&quot;: &quot;text&quot;,
+  &quot;viewName&quot;: &quot;'API Key：'&quot;,
+  &quot;chars&quot;: [&quot;请输入你的API密钥&quot;]
+}
+</code></pre>
+<ul>
+<li><code>chars[0]</code>：输入框的占位符提示文字</li>
+<li>用户输入保存到 loginInfo 的对应 key</li>
+</ul>
+<h4>toggle（切换开关）</h4>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;autoCleanCache&quot;,
+  &quot;type&quot;: &quot;toggle&quot;,
+  &quot;viewName&quot;: &quot;'自动清理缓存'&quot;,
+  &quot;chars&quot;: [&quot;✅&quot;, &quot;🔳&quot;],
+  &quot;default&quot;: &quot;✅&quot;
+}
+</code></pre>
+<ul>
+<li><code>chars[0]</code>：开启状态显示</li>
+<li><code>chars[1]</code>：关闭状态显示</li>
+<li>值在两个状态之间切换</li>
+</ul>
+<h4>button（操作按钮）</h4>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;测试接口&quot;,
+  &quot;type&quot;: &quot;button&quot;,
+  &quot;action&quot;: &quot;testApi()&quot;,
+  &quot;style&quot;: { &quot;layout_flexBasisPercent&quot;: 0.5 }
+}
+</code></pre>
+<ul>
+<li>不保存值，点击执行 <code>action</code> 中的 JS 代码</li>
+<li>JS 在 loginUrl 脚本的上下文中执行</li>
+<li>可用 <code>java.toast()</code> 显示结果</li>
+</ul>
+<h3>动态生成 loginUi</h3>
+<p>loginUi 支持 <code>@js:</code> 前缀，动态生成 JSON 字符串：</p>
+<pre><code class="language-javascript">@js:
+var voices = {&quot;晓晓&quot;:&quot;XiaoxiaoNeural&quot;,&quot;云溪&quot;:&quot;YunxiNeural&quot;};
+var voiceList = Object.keys(voices).map(k =&gt; `&quot;${k}&quot;`).join(',');
+`[
+  {&quot;name&quot;:&quot;voice&quot;,&quot;type&quot;:&quot;select&quot;,&quot;viewName&quot;:&quot;'发音人：'&quot;,&quot;chars&quot;:[${voiceList}]},
+  {&quot;name&quot;:&quot;style&quot;,&quot;type&quot;:&quot;select&quot;,&quot;chars&quot;:[&quot;无风格&quot;,&quot;欢快&quot;,&quot;严肃&quot;,&quot;温柔&quot;]},
+  {&quot;name&quot;:&quot;查看配置&quot;,&quot;type&quot;:&quot;button&quot;,&quot;action&quot;:&quot;showConfig()&quot;}
+]`
+</code></pre>
+<h3>style 布局属性</h3>
+<table>
+<thead>
+<tr>
+<th>属性</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>layout_flexGrow</code></td>
+<td>flex 增长因子（0=不扩展）</td>
+</tr>
+<tr>
+<td><code>layout_flexBasisPercent</code></td>
+<td>占行宽百分比（0~1，如 0.4 表示 40%）</td>
+</tr>
+<tr>
+<td><code>layout_wrapBefore</code></td>
+<td>是否在此控件前换行 (true/false)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>loginUrl 登录脚本</h2>
+<p><code>loginUrl</code> 是一段 JS 代码，在以下时机执行：
+1. <strong>按钮点击</strong>：loginUi 中 <code>type: "button"</code> 的 <code>action</code> 调用的函数定义在这里
+2. <strong>select/toggle 变更</strong>：带 <code>action</code> 的选择控件变更时执行</p>
+<h3>执行上下文</h3>
+<ul>
+<li><code>result</code>：当前 loginUi 中所有控件的值（对象形式 <code>{name: value, ...}</code>）</li>
+<li><code>source</code>：源对象（可读写持久化数据）</li>
+<li><code>java</code>：JS 桥接对象（网络请求、工具函数等）</li>
+<li>jsLib 中定义的所有全局变量和函数</li>
+</ul>
+<h3>典型用法</h3>
+<pre><code class="language-javascript">// 定义函数，供 loginUi 按钮调用
+function testApi() {
+    var api = result[&quot;api&quot;];
+    var res = java.ajaxTestAll([api + &quot;?test=1&quot;], 3000, true);
+    var time = res[0].callTime();
+    if (time &gt; 0) {
+        java.toast(&quot;接口正常，延迟：&quot; + time + &quot;ms&quot;);
+    } else {
+        java.toast(&quot;接口无法访问！&quot;);
+    }
+}
+
+function onVoiceChange() {
+    // 切换发音人时清理音频缓存
+    if (result[&quot;autoCleanCache&quot;] === &quot;✅&quot;) {
+        java.clearTtsCache();
+    }
+}
+</code></pre>
+<hr />
+<h2>loginCheckJs 响应处理</h2>
+<p><code>loginCheckJs</code> 在每次 HTTP 请求返回后执行，可用于：
+- 验证响应状态
+- 从 JSON 响应中提取音频数据
+- 故障转移（切换 API 重新请求）
+- 修改持久化配置</p>
+<h3>可用对象</h3>
+<h4>result（HTTP 响应对象）</h4>
+<pre><code class="language-javascript">result.code()                    // HTTP 状态码（如 200、403、500）
+result.body().string()           // 响应体字符串
+result.body().bytes()            // 响应体字符串（兼容用法）
+result.headers()                 // 响应头对象 {key: value}
+result.header('Content-Type')    // 获取单个响应头（不区分大小写）
+</code></pre>
+<h4>java 桥接对象</h4>
+<pre><code class="language-javascript">java.getResponse()               // 重新发送 HTTP 请求，返回新的 result
+java.initUrl()                   // 重新解析 URL 规则（修改 loginInfo 后调用）
+java.setResponseBase64(base64Str, contentType)  // 将 base64 解码并替换响应数据
+java.ajax(url)                   // 同步 GET 请求
+java.toast(msg)                  // 显示 Toast 提示
+java.log(msg)                    // 调试日志
+</code></pre>
+<h3>场景一：直接返回音频流</h3>
+<p>如果 API 直接返回音频二进制数据，不需要 loginCheckJs。</p>
+<h3>场景二：从 JSON 响应提取 base64 音频</h3>
+<pre><code class="language-javascript">if (result.code() == 200) {
+    var body = result.body().string();
+    var json = JSON.parse(body);
+    // 假设 API 返回 {&quot;audio&quot;: &quot;base64编码的音频数据&quot;}
+    var audioBase64 = json.audio;
+    java.setResponseBase64(audioBase64, 'audio/wav');
+}
+result
+</code></pre>
+<blockquote>
+<p><code>java.setResponseBase64(base64, contentType)</code> 会将 base64 解码为二进制数据，替换原响应。</p>
+</blockquote>
+<h3>场景三：API 故障转移</h3>
+<pre><code class="language-javascript">if (result.code() != 200) {
+    java.toast(&quot;接口失效，正在切换...&quot;);
+
+    // 获取备用 API 列表
+    var apis = [&quot;http://api1.com/tts&quot;, &quot;http://api2.com/tts&quot;];
+    var testUrls = apis.map(a =&gt; a + &quot;?t=test&amp;v=default&quot;);
+    var results = java.ajaxTestAll(testUrls, 3000, true);
+
+    // 找到延迟最低的 API
+    var bestIdx = -1, bestTime = 99999;
+    for (var i = 0; i &lt; results.length; i++) {
+        var time = results[i].callTime();
+        if (time &gt; 0 &amp;&amp; time &lt; bestTime) {
+            bestIdx = i;
+            bestTime = time;
+        }
+    }
+
+    if (bestIdx &gt;= 0) {
+        // 保存最优 API 并重试
+        var info = source.getLoginInfoMap();
+        info['api'] = apis[bestIdx];
+        source.putLoginInfo(JSON.stringify(info));
+        java.initUrl();                // 重新解析 URL（使用新的 loginInfo）
+        result = java.getResponse();   // 重新发送请求
+    }
+}
+result  // 必须返回 result 对象
+</code></pre>
+<blockquote>
+<p><strong>重要</strong>：loginCheckJs 最后一行必须返回 <code>result</code> 对象。</p>
+</blockquote>
+<hr />
+<h2>jsLib 公共函数库</h2>
+<p><code>jsLib</code> 中的代码在 loginUrl、loginCheckJs、url（JS 规则）执行之前预加载，适合放置：
+- 共享常量（发音人映射表、API 列表等）
+- 共享函数</p>
+<pre><code class="language-javascript">var voices = {
+    &quot;晓晓&quot;: &quot;zh-CN-XiaoxiaoNeural&quot;,
+    &quot;云溪&quot;: &quot;zh-CN-YunxiNeural&quot;,
+    &quot;云扬&quot;: &quot;zh-CN-YunyangNeural&quot;
+};
+
+var styles = {
+    &quot;无风格&quot;: &quot;&quot;,
+    &quot;欢快&quot;: &quot;cheerful&quot;,
+    &quot;严肃&quot;: &quot;serious&quot;,
+    &quot;温柔&quot;: &quot;gentle&quot;
+};
+
+function buildTtsUrl(text, speed, apiBase) {
+    var info = source.getLoginInfoMap();
+    var voice = voices[info['voice']] || &quot;zh-CN-XiaoxiaoNeural&quot;;
+    var style = styles[info['style']] || &quot;&quot;;
+    var rate = (speed - 10) * 10;  // speakSpeed 10=正常 → rate 0%
+    return `${apiBase}?t=${encodeURIComponent(text)}&amp;v=${voice}&amp;r=${rate}%&amp;s=${style}`;
+}
+</code></pre>
+<blockquote>
+<p><strong>注意</strong>：jsLib 中的 <code>let</code>/<code>const</code> 声明会自动转换为 <code>var</code>，避免重复声明错误。</p>
+</blockquote>
+<hr />
+<h2>WebSocket 朗读源</h2>
+<p>JavaScriptCore 本身没有浏览器的 <code>WebSocket</code> 对象。TTS 源可以在 URL 的 JS 规则中调用 <code>java.webSocket(config)</code>：原生层负责连接和帧收发，握手消息、协议状态和音频提取仍由可导入源的 <code>jsLib</code> 定义。</p>
+<pre><code class="language-javascript">// url
+@js:java.webSocket(makeSession(speakText, speakSpeed))
+
+// jsLib
+function makeSession(text, speed) {
+    return {
+        url: &quot;wss://speech.example.com/tts&quot;,
+        headers: {&quot;Authorization&quot;: &quot;Bearer token&quot;},
+        send: [JSON.stringify({text: text, speed: speed})],
+        onMessage: handleFrame,
+        connectTimeout: 12000,
+        receiveTimeout: 30000,
+        maxAudioBytes: 16777216,
+        contentType: &quot;audio/mpeg&quot;
+    };
+}
+
+function handleFrame(message, state) {
+    if (message.type === &quot;text&quot;) {
+        var value = JSON.parse(message.text);
+        if (value.error) return {error: value.error};
+        if (value.done) return {done: true};
+        return value.audio ? {audio: value.audio} : null;
+    }
+    var headerLength = message.uint16BE(0);
+    return {audio: message.base64(2 + headerLength, -1)};
+}
+</code></pre>
+<table>
+<thead><tr><th>配置字段</th><th>必填</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td><code>url</code></td><td>是</td><td><code>ws://</code> 或 <code>wss://</code> 地址</td></tr>
+<tr><td><code>headers</code></td><td>否</td><td>WebSocket 握手请求头</td></tr>
+<tr><td><code>send</code></td><td>是</td><td>初始消息数组；字符串为文本帧，<code>{type:&quot;binary&quot;,data:&quot;Base64&quot;}</code> 为二进制帧</td></tr>
+<tr><td><code>onMessage</code></td><td>是</td><td><code>jsLib</code> 函数或 JS 表达式字符串</td></tr>
+<tr><td><code>connectTimeout</code></td><td>否</td><td>建连超时，毫秒，默认 12000</td></tr>
+<tr><td><code>receiveTimeout</code></td><td>否</td><td>单帧等待超时，毫秒，默认 30000</td></tr>
+<tr><td><code>maxAudioBytes</code></td><td>否</td><td>单段音频上限，默认 16 MiB，最大 64 MiB</td></tr>
+<tr><td><code>contentType</code></td><td>否</td><td>音频类型，默认 <code>audio/mpeg</code></td></tr>
+</tbody></table>
+<p>二进制帧通过 <code>message.count</code>、<code>message.byteAt(offset)</code>、<code>message.uint16BE(offset)</code>、<code>message.utf8(offset,length)</code> 和 <code>message.base64(offset,length)</code> 按需读取，<code>length=-1</code> 表示读取到末尾。</p>
+<p><code>onMessage</code> 可返回 <code>audio</code>（Base64 音频）、<code>send</code>（后续帧）、<code>state</code>（下一帧状态）、<code>done</code> 或 <code>error</code>。返回 <code>null</code>/<code>undefined</code> 表示忽略当前帧。完整 Edge 示例见 <code>源/大声朗读.json</code>。</p>
+<hr />
+<h2>JavaScript 环境</h2>
+<h3>全局变量</h3>
+<table>
+<thead>
+<tr>
+<th>变量</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>speakText</code></td>
+<td>String</td>
+<td>待朗读文本（原始文本，不编码）</td>
+</tr>
+<tr>
+<td><code>speakSpeed</code></td>
+<td>Int</td>
+<td>语速值（1-30，10 为正常）</td>
+</tr>
+<tr>
+<td><code>result</code></td>
+<td>Object</td>
+<td>loginCheckJs 中可用，HTTP 响应对象</td>
+</tr>
+<tr>
+<td><code>source</code></td>
+<td>Object</td>
+<td>源对象，可读写持久化数据</td>
+</tr>
+<tr>
+<td><code>java</code></td>
+<td>Object</td>
+<td>JS 桥接对象，提供网络和工具方法</td>
+</tr>
+<tr>
+<td><code>cache</code></td>
+<td>Object</td>
+<td>内存缓存对象（源级作用域）</td>
+</tr>
+</tbody>
+</table>
+<h3>source 对象方法</h3>
+<pre><code class="language-javascript">// loginInfo：多字段配置存储（JSON 对象）
+source.getLoginInfo()              // 获取 loginInfo JSON 字符串
+source.getLoginInfoMap()           // 获取 loginInfo 对象 {key: value}
+source.putLoginInfo(jsonStr)       // 保存 loginInfo JSON 字符串
+
+// loginHeader：简单字符串存储（通常用于 token/key）
+source.getLoginHeader()            // 获取 loginHeader 字符串
+source.putLoginHeader(value)       // 保存 loginHeader 并自动注入到请求头
+
+// 源级变量
+source.getVariable()               // 获取源变量
+source.setVariable(value)          // 设置源变量
+source.get(key)                    // 获取持久化键值
+source.put(key, value)             // 保存持久化键值
+</code></pre>
+<blockquote>
+<p><strong>loginInfo vs loginHeader</strong>：
+- <code>loginInfo</code> 是 JSON 对象，用于存储 loginUi 收集的多个配置字段（发音人、风格、API 等）
+- <code>loginHeader</code> 是纯字符串，通过 <code>putLoginHeader()</code> 保存后会自动作为请求头注入到每次请求中
+- 如果需要注入自定义请求头（如 API Key），可以这样做：
+  <code>javascript
+  source.putLoginHeader(JSON.stringify({"api-key": "你的密钥", "Authorization": "Bearer xxx"}))</code></p>
+</blockquote>
+<h3>java 桥接方法完整列表</h3>
+<h4>网络请求</h4>
+<pre><code class="language-javascript">java.ajax(url)                              // GET 请求，返回响应体字符串
+java.ajax(url, {method, body, headers})     // 自定义请求
+java.connect(url)                           // 构建连接对象
+java.post(url, body, headers)               // POST 请求
+java.head(url, headers)                     // HEAD 请求
+java.getResponse()                          // 重新发送当前 URL 请求（loginCheckJs 中用）
+java.initUrl()                              // 重新解析 URL 规则
+java.ajaxTestAll(urls, timeoutMs, returnAll)  // 并发测试多个 URL
+java.webSocket(config)                       // 声明 WebSocket TTS 会话
+</code></pre>
+<h4>编解码</h4>
+<pre><code class="language-javascript">java.base64Encode(str)          // Base64 编码
+java.base64Decode(str)          // Base64 解码
+java.md5Encode(str)             // MD5 哈希
+java.hexEncode(str)             // 十六进制编码
+java.hexDecode(str)             // 十六进制解码
+java.encodeURI(str)             // URL 编码
+java.decodeURI(str)             // URL 解码
+</code></pre>
+<h4>响应处理</h4>
+<pre><code class="language-javascript">java.setResponseBase64(base64Str, contentType)  // base64 解码后替换响应数据
+</code></pre>
+<h4>工具</h4>
+<pre><code class="language-javascript">java.toast(msg)                 // Toast 提示
+java.longToast(msg)             // 长时间 Toast
+java.log(msg)                   // 调试日志（在调试面板可见）
+java.clearTtsCache()            // 清除当前源的音频缓存
+java.getHeaderMap()             // 获取当前请求头
+java.ruleUrl                    // 当前请求的 URL 字符串
+</code></pre>
+<h3>cache 对象</h3>
+<pre><code class="language-javascript">cache.get(key)                  // 获取缓存值（内存级，源内共享）
+cache.put(key, value)           // 保存缓存值
+cache.delete(key)               // 删除缓存值
+</code></pre>
+<hr />
+<h2>数据持久化</h2>
+<h3>存储位置（UserDefaults）</h3>
+<table>
+<thead>
+<tr>
+<th>Key 格式</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>loginInfo_httpTts_{sourceId}</code></td>
+<td>loginUi 配置值 JSON</td>
+</tr>
+<tr>
+<td><code>loginHeader_httpTts_{sourceId}</code></td>
+<td>loginHeader 字符串（自动注入请求头）</td>
+</tr>
+<tr>
+<td><code>sourceVariable_{sourceId}</code></td>
+<td>源级变量</td>
+</tr>
+<tr>
+<td><code>v_{sourceId}_{key}</code></td>
+<td>source.get/put 的键值对</td>
+</tr>
+<tr>
+<td><code>ttsCache_{sourceId}_{key}</code></td>
+<td>cache 对象值</td>
+</tr>
+</tbody>
+</table>
+<h3>首次使用自动初始化</h3>
+<p>应用首次选中 TTS 源时，会自动解析 loginUi，将 <code>select</code> 和 <code>toggle</code> 控件的 <code>default</code> 值保存到 loginInfo，确保后续使用时不为空。</p>
+<hr />
+<h2>请求限流</h2>
+<p><code>concurrentRate</code> 控制请求间隔，防止过快请求导致 API 封禁：</p>
+<pre><code class="language-json">&quot;concurrentRate&quot;: &quot;1500&quot;     // 每个请求间隔 1500ms
+&quot;concurrentRate&quot;: &quot;1/1000&quot;   // 每 1000ms 允许 1 个请求
+&quot;concurrentRate&quot;: &quot;0&quot;        // 不限流
+&quot;concurrentRate&quot;: &quot;&quot;         // 不限流
+</code></pre>
+<blockquote>
+<p>建议设置合理的限流，大多数 TTS API 建议 1000~2000ms 间隔。</p>
+</blockquote>
+<hr />
+<h2>音频格式</h2>
+<h3>contentType 验证</h3>
+<p><code>contentType</code> 是正则表达式，用于验证 HTTP 响应的 Content-Type。不匹配则视为请求失败。</p>
+<pre><code class="language-json">&quot;contentType&quot;: &quot;audio/mpeg&quot;                    // 精确匹配 MP3
+&quot;contentType&quot;: &quot;audio/(mpeg|mp3|wav|ogg)&quot;      // 匹配多种格式
+&quot;contentType&quot;: &quot;audio/.*&quot;                      // 匹配所有音频类型
+&quot;contentType&quot;: &quot;&quot;                              // 不验证（使用默认逻辑）
+</code></pre>
+<p><strong>默认行为</strong>（contentType 为空时）：
+- 拒绝 <code>text/html</code> 和 <code>application/json</code>（视为错误页面/非音频响应）
+- 接受其他所有 Content-Type</p>
+<blockquote>
+<p><strong>特殊情况</strong>：如果 API 返回 JSON（含 base64 音频），需要在 loginCheckJs 中用 <code>java.setResponseBase64()</code> 转换后，contentType 设为 <code>"audio/.*"</code> 即可。</p>
+</blockquote>
+<h3>支持的音频编码</h3>
+<p>应用使用 AVAudioEngine 解码音频，支持所有 Apple 平台原生格式：</p>
+<ul>
+<li>MP3 (audio/mpeg)</li>
+<li>WAV (audio/wav)</li>
+<li>AAC (audio/aac)</li>
+<li>FLAC (audio/flac)</li>
+<li>M4A (audio/mp4)</li>
+<li>OGG (audio/ogg)</li>
+</ul>
+<p>所有格式统一转换为 Float32 单声道 PCM 后播放。</p>
+<hr />
+<h2>完整示例</h2>
+<h3>示例一：简单 GET 请求源</h3>
+<p>最简单的 TTS 源，API 直接返回音频流：</p>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;简单TTS示例&quot;,
+  &quot;url&quot;: &quot;https://api.example.com/tts?text={{speakText}}&amp;speed={{speakSpeed}}&amp;voice=xiaoxiao&quot;,
+  &quot;contentType&quot;: &quot;audio/mpeg&quot;
+}
+</code></pre>
+<h3>示例二：带发音人选择的源</h3>
+<p>支持用户选择发音人和风格：</p>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;带配置的TTS&quot;,
+  &quot;url&quot;: &quot;@js: var info = source.getLoginInfoMap(); var voice = info['voice'] || '晓晓'; var speed = (speakSpeed - 10) * 10; `https://api.example.com/tts?text=${encodeURIComponent(speakText)}&amp;voice=${voice}&amp;rate=${speed}%`&quot;,
+  &quot;contentType&quot;: &quot;audio/mpeg&quot;,
+  &quot;concurrentRate&quot;: &quot;1500&quot;,
+  &quot;loginUi&quot;: &quot;[{\&quot;name\&quot;:\&quot;voice\&quot;,\&quot;type\&quot;:\&quot;select\&quot;,\&quot;viewName\&quot;:\&quot;'发音人：'\&quot;,\&quot;chars\&quot;:[\&quot;晓晓\&quot;,\&quot;云溪\&quot;,\&quot;云扬\&quot;],\&quot;default\&quot;:\&quot;晓晓\&quot;},{\&quot;name\&quot;:\&quot;style\&quot;,\&quot;type\&quot;:\&quot;select\&quot;,\&quot;viewName\&quot;:\&quot;'风格：'\&quot;,\&quot;chars\&quot;:[\&quot;无风格\&quot;,\&quot;欢快\&quot;,\&quot;严肃\&quot;],\&quot;default\&quot;:\&quot;无风格\&quot;}]&quot;
+}
+</code></pre>
+<h3>示例三：POST 请求 + JSON 响应提取（如 OpenAI 兼容 API）</h3>
+<p>适用于返回 JSON、音频数据在 base64 字段中的 API：</p>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;OpenAI兼容TTS&quot;,
+  &quot;url&quot;: &quot;@js: var info = source.getLoginInfoMap(); var apiKey = info['apiKey'] || ''; var voice = info['voice'] || 'default'; var text = speakText; var body = JSON.stringify({model:'tts-1',input:text,voice:voice}); source.putLoginHeader(JSON.stringify({'Authorization':'Bearer '+apiKey,'Content-Type':'application/json'})); `https://api.example.com/v1/audio/speech,{\&quot;method\&quot;:\&quot;POST\&quot;,\&quot;body\&quot;:${JSON.stringify(body)}}`&quot;,
+  &quot;contentType&quot;: &quot;audio/.*&quot;,
+  &quot;concurrentRate&quot;: &quot;1000&quot;,
+  &quot;loginUi&quot;: &quot;[{\&quot;name\&quot;:\&quot;apiKey\&quot;,\&quot;type\&quot;:\&quot;text\&quot;,\&quot;viewName\&quot;:\&quot;'API Key：'\&quot;,\&quot;chars\&quot;:[\&quot;请输入API密钥\&quot;]},{\&quot;name\&quot;:\&quot;voice\&quot;,\&quot;type\&quot;:\&quot;select\&quot;,\&quot;viewName\&quot;:\&quot;'发音人：'\&quot;,\&quot;chars\&quot;:[\&quot;alloy\&quot;,\&quot;echo\&quot;,\&quot;fable\&quot;,\&quot;onyx\&quot;,\&quot;nova\&quot;,\&quot;shimmer\&quot;],\&quot;default\&quot;:\&quot;alloy\&quot;}]&quot;,
+  &quot;loginCheckJs&quot;: &quot;if (result.code() == 200) { var ct = result.header('content-type') || ''; if (ct.indexOf('json') &gt;= 0) { var json = JSON.parse(result.body().string()); if (json.choices &amp;&amp; json.choices[0].message.audio) { java.setResponseBase64(json.choices[0].message.audio.data, 'audio/wav'); } } } result&quot;
+}
+</code></pre>
+<h3>示例四：按钮式发音人选择（思必驰风格）</h3>
+<p>使用纯按钮界面选择发音人：</p>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;按钮式TTS&quot;,
+  &quot;url&quot;: &quot;@js: eval(String(source.loginUrl)); `https://api.example.com/tts?voiceId=${voiceId}&amp;text=${java.encodeURI(speakText)}&amp;speed=1`&quot;,
+  &quot;contentType&quot;: &quot;audio/wav&quot;,
+  &quot;loginUrl&quot;: &quot;var sz = source.getLoginHeader() || '0'; sz = parseInt(sz); var data = [['甜美女声', 'voice_a'], ['磁性男声', 'voice_b'], ['可爱童声', 'voice_c']]; function set(num) { source.putLoginHeader(num); java.toast('已切换：' + data[num][0]); } function get() { java.toast('当前：' + data[sz][0]); } var voiceId = data[sz][1];&quot;,
+  &quot;loginUi&quot;: &quot;[{\&quot;name\&quot;:\&quot;显示当前发音人\&quot;,\&quot;type\&quot;:\&quot;button\&quot;,\&quot;action\&quot;:\&quot;get()\&quot;},{\&quot;name\&quot;:\&quot;甜美女声\&quot;,\&quot;type\&quot;:\&quot;button\&quot;,\&quot;action\&quot;:\&quot;set(0)\&quot;},{\&quot;name\&quot;:\&quot;磁性男声\&quot;,\&quot;type\&quot;:\&quot;button\&quot;,\&quot;action\&quot;:\&quot;set(1)\&quot;},{\&quot;name\&quot;:\&quot;可爱童声\&quot;,\&quot;type\&quot;:\&quot;button\&quot;,\&quot;action\&quot;:\&quot;set(2)\&quot;}]&quot;
+}
+</code></pre>
+<h3>示例五：带故障转移的高可用源</h3>
+<p>参考 Next 引擎的多 API 自动切换模式：</p>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;高可用TTS&quot;,
+  &quot;jsLib&quot;: &quot;var apiList = {'http://api1.com/tts':true, 'http://api2.com/tts':true, 'http://api3.com/tts':true}; function buildUrl(text, speed, api) { var info = source.getLoginInfoMap(); api = api || info['api']; var voice = info['voice'] || 'default'; return api + '?t=' + encodeURIComponent(text) + '&amp;v=' + voice + '&amp;r=' + ((speed-10)*10) + '%'; }&quot;,
+  &quot;url&quot;: &quot;@js: buildUrl(speakText, speakSpeed);&quot;,
+  &quot;contentType&quot;: &quot;audio/mpeg&quot;,
+  &quot;concurrentRate&quot;: &quot;1500&quot;,
+  &quot;loginCheckJs&quot;: &quot;if (result.code() != 200) { java.toast('接口失效，正在切换...'); var apis = Object.keys(apiList); var urls = apis.map(function(a){ return buildUrl('测试', 10, a); }); var resl = java.ajaxTestAll(urls, 3000, true); var best = -1, bestT = 99999; for (var i = 0; i &lt; resl.length; i++) { var t = resl[i].callTime(); if (t &gt; 0 &amp;&amp; t &lt; bestT) { best = i; bestT = t; } } if (best &gt;= 0) { var info = source.getLoginInfoMap(); info['api'] = apis[best]; source.putLoginInfo(JSON.stringify(info)); java.initUrl(); result = java.getResponse(); java.toast('已切换至：' + apis[best]); } } result&quot;,
+  &quot;loginUi&quot;: &quot;@js: var apiS = Object.keys(apiList).map(function(k){return '\&quot;'+k+'\&quot;'}).join(','); `[{\&quot;name\&quot;:\&quot;voice\&quot;,\&quot;type\&quot;:\&quot;select\&quot;,\&quot;viewName\&quot;:\&quot;'发音人：'\&quot;,\&quot;chars\&quot;:[\&quot;default\&quot;,\&quot;voice_a\&quot;,\&quot;voice_b\&quot;]},{\&quot;name\&quot;:\&quot;api\&quot;,\&quot;type\&quot;:\&quot;select\&quot;,\&quot;viewName\&quot;:\&quot;'接口：'\&quot;,\&quot;chars\&quot;:[${apiS}]},{\&quot;name\&quot;:\&quot;测试接口\&quot;,\&quot;type\&quot;:\&quot;button\&quot;,\&quot;action\&quot;:\&quot;testApi()\&quot;}]`&quot;,
+  &quot;loginUrl&quot;: &quot;function testApi() { var api = result['api']; var url = buildUrl('测试', 10, api); var res = java.ajaxTestAll([url], 3000, true)[0]; var time = res.callTime(); java.toast(time &gt; 0 ? '延迟：' + time + 'ms' : '无法访问'); }&quot;
+}
+</code></pre>
+<hr />
+<h2>调试技巧</h2>
+<h3>1. 使用 java.log() 输出调试信息</h3>
+<p>在 JS 代码中插入 <code>java.log()</code> 输出变量值，可在应用的 JS 控制台面板中查看：</p>
+<pre><code class="language-javascript">java.log(&quot;当前API: &quot; + source.getLoginInfoMap()['api']);
+java.log(&quot;speakSpeed: &quot; + speakSpeed);
+java.log(&quot;响应状态码: &quot; + result.code());
+java.log(&quot;响应头: &quot; + JSON.stringify(result.headers()));
+</code></pre>
+<h3>2. 使用 java.toast() 快速验证</h3>
+<p>在 loginUrl 的按钮动作中使用 toast 快速查看状态：</p>
+<pre><code class="language-javascript">function showConfig() {
+    var info = source.getLoginInfoMap();
+    java.toast(JSON.stringify(info, null, 2));
+}
+</code></pre>
+<h3>3. 在 loginCheckJs 中检查响应</h3>
+<pre><code class="language-javascript">java.log(&quot;Content-Type: &quot; + result.header('content-type'));
+java.log(&quot;Status: &quot; + result.code());
+java.log(&quot;Body前100字符: &quot; + result.body().string().substring(0, 100));
+result
+</code></pre>
+<h3>4. 常见问题排查</h3>
+<table>
+<thead>
+<tr>
+<th>现象</th>
+<th>可能原因</th>
+<th>解决方案</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>无声音输出</td>
+<td>contentType 不匹配</td>
+<td>检查 API 实际返回的 Content-Type，调整正则</td>
+</tr>
+<tr>
+<td>提示"不支持的音频格式"</td>
+<td>API 返回 HTML 错误页</td>
+<td>添加 loginCheckJs 检查 result.code()</td>
+</tr>
+<tr>
+<td>loginInfo 读取为空</td>
+<td>首次使用未设默认值</td>
+<td>在 loginUi 中设置 <code>default</code> 字段</td>
+</tr>
+<tr>
+<td>API Key 未传递</td>
+<td>请求头未正确注入</td>
+<td>使用 <code>source.putLoginHeader(JSON.stringify({...}))</code></td>
+</tr>
+<tr>
+<td>速度调节无效</td>
+<td>未使用 speakSpeed 变量</td>
+<td>在 URL 中使用 <code>{{speakSpeed}}</code> 或 JS 中读取 <code>speakSpeed</code></td>
+</tr>
+<tr>
+<td>JS 报错</td>
+<td>let/const 重复声明</td>
+<td>jsLib 中用 <code>var</code>（系统会自动转换，但最好主动使用 var）</td>
+</tr>
+<tr>
+<td>Cookie 丢失</td>
+<td>未启用 Cookie 持久化</td>
+<td>设置 <code>"enabledCookieJar": true</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>附录：执行流程图</h2>
+<pre><code>用户点击朗读
+    │
+    ▼
+按段落拆分文本
+    │
+    ▼
+┌─ 对每个段落 ──────────────────────────────┐
+│                                            │
+│  1. 加载 jsLib（如有）                      │
+│  2. 执行 url 规则                          │
+│     ├─ 替换 {{speakText}} {{speakSpeed}}   │
+│     └─ 或执行 @js: 规则                    │
+│  3. 构建 HTTP 请求                         │
+│     ├─ 注入 header                         │
+│     ├─ 注入 loginHeader                    │
+│     └─ 注入 Cookie（如启用）                │
+│  4. 发送请求 → 获得响应                    │
+│  5. 执行 loginCheckJs（如有）              │
+│     ├─ 可修改/替换响应数据                  │
+│     └─ 可重新请求（故障转移）               │
+│  6. 验证 contentType                       │
+│  7. 解码音频 → PCM → 加入播放队列          │
+│                                            │
+│  （受 concurrentRate 限流控制）              │
+│  （预加载后续 N 个段落）                    │
+│                                            │
+└────────────────────────────────────────────┘
+    │
+    ▼
+AVAudioEngine 连续播放
+高亮跟随同步
+</code></pre></main>
+  <script>
+    (() => {
+      const container = document.getElementById('content');
+      window.__qireaderOriginalHTML = container.innerHTML;
+
+      function report(count) {
+        const bridge = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.helpSearch;
+        if (bridge) bridge.postMessage(count);
+      }
+
+      function escapeRegExp(text) {
+        return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      }
+
+      function restore() {
+        container.innerHTML = window.__qireaderOriginalHTML;
+      }
+
+      window.qireaderHelpApplySearch = function(term) {
+        restore();
+        if (!term) {
+          report(0);
+          return 0;
+        }
+
+        const regex = new RegExp(escapeRegExp(term), 'gi');
+        const termLower = term.toLocaleLowerCase();
+        const walker = document.createTreeWalker(
+          container,
+          NodeFilter.SHOW_TEXT,
+          {
+            acceptNode(node) {
+              if (!node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+              const parent = node.parentElement;
+              if (!parent) return NodeFilter.FILTER_REJECT;
+              if (['SCRIPT', 'STYLE', 'MARK', 'NOSCRIPT'].includes(parent.tagName)) return NodeFilter.FILTER_REJECT;
+              return node.nodeValue.toLocaleLowerCase().includes(termLower)
+                ? NodeFilter.FILTER_ACCEPT
+                : NodeFilter.FILTER_REJECT;
+            }
+          }
+        );
+
+        const nodes = [];
+        while (walker.nextNode()) nodes.push(walker.currentNode);
+
+        let count = 0;
+        for (const textNode of nodes) {
+          const text = textNode.nodeValue;
+          regex.lastIndex = 0;
+          let match = null;
+          let lastIndex = 0;
+          const fragment = document.createDocumentFragment();
+
+          while ((match = regex.exec(text)) !== null) {
+            if (match.index > lastIndex) {
+              fragment.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+            }
+            const mark = document.createElement('mark');
+            mark.className = 'search-hit';
+            mark.textContent = match[0];
+            fragment.appendChild(mark);
+            lastIndex = match.index + match[0].length;
+            count += 1;
+            if (match[0].length === 0) regex.lastIndex += 1;
+          }
+
+          if (lastIndex < text.length) {
+            fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
+          }
+          textNode.parentNode.replaceChild(fragment, textNode);
+        }
+
+        const first = container.querySelector('mark.search-hit');
+        if (first) first.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        report(count);
+        return count;
+      };
+
+      report(0);
+    })();
+  </script>
+</body>
+</html>
