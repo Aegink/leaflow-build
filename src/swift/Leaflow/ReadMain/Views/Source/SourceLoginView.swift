@@ -126,7 +126,7 @@ struct SourceLoginView: View {
             Group {
                 if !loginModeReady {
                     ProgressView("正在加载登录配置")
-                } else if source.loginUrl == nil && loginItems.isEmpty {
+                } else if source.loginUrl == nil && loginItems.isEmpty && actionStatus == nil {
                     Text("无可配置项")
                         .appThemeText(.caption, opacity: 0.6)
                 } else if loginURL != nil {

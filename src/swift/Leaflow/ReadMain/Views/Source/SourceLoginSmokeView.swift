@@ -29,9 +29,11 @@ struct SourceLoginSmokeView: View {
         .task {
             guard !ready else { return }
             do {
+                let directory = FileManager.default.temporaryDirectory.appendingPathComponent("source-login-smoke")
+                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
                 let data = try JSONEncoder().encode([source])
                 guard await service.importSourcesAsync(from: String(decoding: data, as: UTF8.self), storageKind: .local) >= 0
-                else { throw AppError.parsing("登录样本写盘失败") }
+                else { throw AppError.parsing(service.lastImportError ?? "登录样本写盘失败") }
                 ready = true
             } catch { failure = error.localizedDescription }
         }
