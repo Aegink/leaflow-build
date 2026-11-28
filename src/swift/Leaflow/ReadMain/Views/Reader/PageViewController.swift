@@ -98,6 +98,7 @@ func readerPageContentStyleSignature(
     hasher.combine(settings.textAlignment)
     hasher.combine(settings.verticalJustify)
     hasher.combine(settings.doublePageMode)
+    hasher.combine(settings.typographyRevision)
     hasher.combine(pageMode)
     hasher.combine(UITraitCollection.current.displayScale)
     return hasher.finalize()

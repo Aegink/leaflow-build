@@ -59,17 +59,17 @@ struct LayoutWidget: Codable, Identifiable, Equatable {
                 showOnFirstPage: try values.decodeIfPresent(Bool.self, forKey: .showOnFirstPage) ?? true)
             return
         }
-        id = try values.decode(UUID.self, forKey: .id)
-        item = try values.decode(String.self, forKey: .item)
-        xPercent = try values.decode(CGFloat.self, forKey: .xPercent)
-        yPercent = try values.decode(CGFloat.self, forKey: .yPercent)
-        fontSize = try values.decode(CGFloat.self, forKey: .fontSize)
-        opacity = try values.decode(CGFloat.self, forKey: .opacity)
-        customColorHex = try values.decodeIfPresent(String.self, forKey: .customColorHex)
-        customText = try values.decodeIfPresent(String.self, forKey: .customText)
-        customDateFormat = try values.decodeIfPresent(String.self, forKey: .customDateFormat)
-        pageScope = try values.decode(WidgetPageScope.self, forKey: .pageScope)
-        textAlignment = try values.decodeIfPresent(WidgetTextAlignment.self, forKey: .textAlignment) ?? .leading
+        self.init(id: try values.decode(UUID.self, forKey: .id),
+            item: try values.decode(String.self, forKey: .item),
+            xPercent: try values.decode(CGFloat.self, forKey: .xPercent),
+            yPercent: try values.decode(CGFloat.self, forKey: .yPercent),
+            fontSize: try values.decode(CGFloat.self, forKey: .fontSize),
+            opacity: try values.decode(CGFloat.self, forKey: .opacity),
+            customColorHex: try values.decodeIfPresent(String.self, forKey: .customColorHex),
+            customText: try values.decodeIfPresent(String.self, forKey: .customText),
+            customDateFormat: try values.decodeIfPresent(String.self, forKey: .customDateFormat),
+            pageScope: try values.decode(WidgetPageScope.self, forKey: .pageScope),
+            textAlignment: try values.decodeIfPresent(WidgetTextAlignment.self, forKey: .textAlignment) ?? .leading)
     }
 
     func encode(to encoder: Encoder) throws {

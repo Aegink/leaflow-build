@@ -113,7 +113,7 @@ struct ReaderContentSurface: View {
                 bookName: viewModel.bookName,
                 totalChapters: viewModel.totalChapters,
                 speechHighlight: viewModel.speechHighlight,
-                colorVersion: viewModel.colorVersion,
+                colorVersion: viewModel.colorVersion &+ settings.typographyRevision,
                 isRebuildPending: viewModel.isRebuildPending,
                 pageMode: settings.pageMode,
                 isDoublePageActive: isDoublePageActive,
