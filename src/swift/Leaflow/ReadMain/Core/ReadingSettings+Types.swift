@@ -63,6 +63,16 @@ enum ReaderBottomToolbarStyle: String, CaseIterable, Codable {
     case full = "chatInput"
 
     var id: String { rawValue }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let raw = try container.decode(String.self)
+        switch raw {
+        case "classic", "minimal": self = .minimal
+        case "chatInput", "full": self = .full
+        default: throw DecodingError.dataCorruptedError(in: container, debugDescription: "未知阅读工具栏样式")
+        }
+    }
 }
 
 /// 屏幕常亮选项（伪代码 0x1002130c0，L120-140）。

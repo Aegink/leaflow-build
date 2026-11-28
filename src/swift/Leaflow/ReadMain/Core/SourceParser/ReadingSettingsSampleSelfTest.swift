@@ -105,10 +105,11 @@ enum ReadingSettingsSampleSelfTest {
             emit("settings_legacy_rebuilt_backup_migration", ["21.0", "4.0", "chatInput", "tenMinutes", "center"],
                 [String(describing: existing.fontSize), String(describing: existing.lineSpacing), existing.bottomToolbarStyle.rawValue, existing.screenAwake.rawValue,
                  ReadingSettings.alignmentName(existing.textAlignment)])
-            let badTypes = Data(#"{"fontSize":true,"textIndent":2.5,"verticalJustify":"true","chapterTitleConfig":"%%%","readerBottomToolbarStyle":"unknown","unrelated":"bad"}"#.utf8)
+            let badTypes = Data(#"{"fontSize":true,"textIndent":2.5,"textAlignment":true,"verticalJustify":"true","chapterTitleConfig":"%%%","readerBottomToolbarStyle":"unknown","unrelated":"bad"}"#.utf8)
             try restore.importReadingSettings(from: badTypes)
-            emit("settings_invalid_members_preserve_existing", ["21.0", "0", "chatInput", "31.0"],
-                [String(describing: existing.fontSize), String(describing: existing.textIndent), existing.bottomToolbarStyle.rawValue, String(describing: existing.chapterTitleConfigLight?.fontSize ?? 0)])
+            emit("settings_invalid_members_preserve_existing", ["21.0", "0", "chatInput", "31.0", "center"],
+                [String(describing: existing.fontSize), String(describing: existing.textIndent), existing.bottomToolbarStyle.rawValue,
+                 String(describing: existing.chapterTitleConfigLight?.fontSize ?? 0), ReadingSettings.alignmentName(existing.textAlignment)])
             var rejected = false
             do { try restore.importReadingSettings(from: Data("[]".utf8)) } catch { rejected = true }
             emit("settings_invalid_top_level_rejected", ["true", "21.0"], [String(describing: rejected), String(describing: existing.fontSize)])
@@ -143,6 +144,9 @@ enum ReadingSettingsSampleSelfTest {
             existing.save()
             let afterUnchangedSave = try JSONSerialization.jsonObject(with: ReadingSettingsBackup.export(from: targetDefaults)) as! NSDictionary
             emit("settings_untouched_original_blobs_preserved", ["true"], [String(describing: afterUnchangedSave.isEqual(expected))])
+            let legacyToolbar = try JSONDecoder().decode(ReaderBottomToolbarStyle.self, from: Data("\"full\"".utf8))
+            emit("settings_legacy_theme_toolbar_decode", ["chatInput", "\"chatInput\""],
+                [legacyToolbar.rawValue, String(decoding: try JSONEncoder().encode(legacyToolbar), as: UTF8.self)])
         } catch { emit("settings_archive_real_reader_values", ["通过"], [error.localizedDescription]) }
     }
 }

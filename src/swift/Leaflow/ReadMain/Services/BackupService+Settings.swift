@@ -35,15 +35,16 @@ enum ReadingSettingsBackup {
         guard var values = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw AppError.parsing("阅读设置备份必须是JSON对象")
         }
+        let originalInput = values
         // 旧重建包导出的reader_*格式只在读取时迁移，不再输出该格式。
         for (old, canonical) in legacyKeys where values[canonical] == nil { values[canonical] = values[old] }
-        if let alignment = values["textAlignment"] as? Int {
+        if originalInput["textAlignment"] == nil, let alignment = number(originalInput["reader_text_alignment"]).flatMap({ Int(exactly: $0.doubleValue) }) {
             values["textAlignment"] = [0: "left", 1: "center", 2: "right", 3: "justified", 4: "natural"][alignment]
         }
-        if let mode = values["reader_bottom_toolbar"] as? String, values["readerBottomToolbarStyle"] as? String == mode {
+        if originalInput["readerBottomToolbarStyle"] == nil, let mode = values["reader_bottom_toolbar"] as? String {
             values["readerBottomToolbarStyle"] = ["minimal": "classic", "full": "chatInput"][mode] ?? mode
         }
-        if let awake = values["reader_screen_awake"] as? String, values["screenAwakeOption"] as? String == awake {
+        if originalInput["screenAwakeOption"] == nil, let awake = values["reader_screen_awake"] as? String {
             values["screenAwakeOption"] = ["timed": "tenMinutes", "alwaysOn": "never"][awake] ?? awake
         }
         if values["chapterTitleConfig"] == nil,

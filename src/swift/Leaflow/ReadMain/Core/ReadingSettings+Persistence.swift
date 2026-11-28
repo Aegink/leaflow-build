@@ -100,6 +100,11 @@ extension ReadingSettings {
         paragraphCommentBrowser = browser == "halfScreen" || browser == "inline" ? .inline : .modal
         persistedValues = persistentValues()
         invalidateTypographyCaches()
+        compiledRulesCache = nil
+        compiledLayoutRulesBySignature.removeAll()
+        cachedBackgroundImage = nil
+        cachedBackgroundFilename = nil
+        cachedLayout = nil
     }
 
     private func persistentValues() -> [String: Any] {
@@ -173,6 +178,8 @@ extension ReadingSettings {
             settings.pendingSaveTask = nil
             settings.hasPendingSave = false
             settings.loadPersistentValues()
+            settings.needsRepagination = true
+            settings.typographyRevision += 1
         }
     }
 
