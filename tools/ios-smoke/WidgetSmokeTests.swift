@@ -17,7 +17,8 @@ extension LeaflowSmokeTests {
         edit.tap()
         let add = app.buttons["reader-widget-add"]
         XCTAssertTrue(add.waitForExistence(timeout: 15))
-        add.tap()
+        XCTAssertTrue(add.isHittable)
+        add.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         let text = app.textFields["reader-widget-custom-text"]
         XCTAssertTrue(text.waitForExistence(timeout: 10))
         app.buttons["reader-widget-item-bookName"].tap()

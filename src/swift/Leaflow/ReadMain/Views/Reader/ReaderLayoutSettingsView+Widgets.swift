@@ -13,18 +13,18 @@ struct ReaderWidgetEditingModifier: ViewModifier {
     @State private var isEditing = false
 
     func body(content: Content) -> some View {
-        content
-            .allowsHitTesting(!isEditing)
-            .overlay {
-                if isEditing {
-                    WidgetEditOverlay(settings: $settings, bookName: bookName, chapterTitle: chapterTitle) {
-                        settings.save()
-                        settings.typographyRevision += 1
-                        isEditing = false
-                    }
+        ZStack {
+            content.allowsHitTesting(!isEditing)
+            if isEditing {
+                WidgetEditOverlay(settings: $settings, bookName: bookName, chapterTitle: chapterTitle) {
+                    settings.save()
+                    settings.typographyRevision += 1
+                    isEditing = false
                 }
+                .allowsHitTesting(true)
             }
-            .onReceive(NotificationCenter.default.publisher(for: .readerEnterWidgetEditMode)) { _ in isEditing = true }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .readerEnterWidgetEditMode)) { _ in isEditing = true }
     }
 }
 

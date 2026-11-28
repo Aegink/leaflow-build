@@ -62,7 +62,7 @@ enum HttpTtsRequestSampleSelfTest {
             emit("tts_request_invalid_url_no_send", [String(before)], [String(transport.requests.count)])
             source.url = "https://sample.invalid/audio"
             source.enabledCookieJar = false
-            _ = try await synthesizer.audioData(source: source, text: "正文", speechRate: .nan)
+            _ = try await synthesizer.audioData(source: source, text: "正文", speechRate: 1)
             emit("tts_request_disabled_cookie_jar", ["false"], [String(transport.requests.last!.httpShouldHandleCookies)])
             transport.status = 500
             var rejected = false
