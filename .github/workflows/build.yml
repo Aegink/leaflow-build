@@ -53,7 +53,15 @@ jobs:
           APP=$(find ~/Library/Developer/Xcode/DerivedData \
             -path "*Debug-iphonesimulator/Leaflow.app" -maxdepth 6 | head -1)
           xcrun simctl install "$UDID" "$APP" 2>&1 | tee -a selftest-result.txt
-          xcrun simctl launch --console --terminate-running-process \
+          python3 -u tools/tts_ws_fixture.py --port-file tts-ws-port.txt > tts-ws-fixture.log 2>&1 &
+          TTS_WS_PID=$!
+          trap 'kill "$TTS_WS_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if [ -s tts-ws-port.txt ]; then break; fi
+            sleep 1
+          done
+          if [ ! -s tts-ws-port.txt ]; then exit 1; fi
+          SIMCTL_CHILD_T1602_WS_PORT=$(cat tts-ws-port.txt) xcrun simctl launch --console --terminate-running-process \
             "$UDID" com.leaflow.app -selfTestRules > selftest.log 2>&1
           # 进程异常退出时 stdout 可丢；自测逐行写入 Documents/selftest.txt。
           DATA=$(xcrun simctl get_app_container "$UDID" com.leaflow.app data 2>/dev/null || true)
@@ -306,6 +314,7 @@ jobs:
             selftest-result.txt
             selftest.log
             selftest-diagnostics.txt
+            tts-ws-fixture.log
             ipa-result.txt
             sim-screenshot.png
             sim-settings.png
