@@ -15,9 +15,19 @@ enum HelpResourceSelfTest {
         let config = WKWebViewConfiguration()
         config.userContentController.add(coordinator, name: "helpSearch")
         let view = WKWebView(frame: CGRect(x: 0, y: 0, width: 390, height: 600), configuration: config)
+        let window = UIWindow(frame: view.frame)
+        let host = UIViewController()
+        window.rootViewController = host
+        host.view.addSubview(view)
+        window.isHidden = false
         coordinator.attach(view)
         view.navigationDelegate = coordinator
-        defer { coordinator.teardown() }
+        defer {
+            coordinator.teardown()
+            view.removeFromSuperview()
+            window.isHidden = true
+            window.rootViewController = nil
+        }
         coordinator.update(htmlURL: url, searchText: "")
         for _ in 0..<300 {
             if coordinator.isLoaded { break }
