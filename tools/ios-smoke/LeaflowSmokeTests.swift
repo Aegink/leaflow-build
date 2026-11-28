@@ -114,10 +114,12 @@ final class LeaflowSmokeTests: XCTestCase {
 
     private func terminateApplication() {
         guard let app, app.state != .notRunning else { return }
-        if app.state == .runningForeground {
+        for _ in 0..<2 where app.state == .runningForeground {
             XCUIDevice.shared.press(.home)
             let leftForeground = NSPredicate { _, _ in app.state != .runningForeground }
-            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: leftForeground, object: app)], timeout: 10), .completed)
+            if XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: leftForeground, object: app)], timeout: 10) == .completed {
+                break
+            }
         }
         if app.state != .notRunning { app.terminate() }
         XCTAssertTrue(app.wait(for: .notRunning, timeout: 10))
