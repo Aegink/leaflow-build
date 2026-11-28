@@ -14,6 +14,7 @@ struct SourceLoginSmokeView: View {
         @js:function login(){ result.put('status','登录:' + result.get('account')); source.putLoginInfo(result); }
         function apply(){ result.put('status','按钮:' + result.get('account')); source.putLoginInfo(result); }
         """
+        source.loginUi = "@js:JSON.stringify(" + (source.loginUi ?? "[]") + ")"
         return source
     }
     var body: some View {

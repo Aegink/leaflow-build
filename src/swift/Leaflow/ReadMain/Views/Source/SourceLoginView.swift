@@ -104,6 +104,7 @@ struct SourceLoginView: View {
     @State var actionStatus: String?
     @State var resolvedViewNames: [String: String] = [:]
     @State var viewNameResolutionTask: Task<Void, Never>?
+    @State var loginInitializationStarted = false
     @Environment(\.dismiss) var dismiss
 
     init(source: BookSource, book: Book?, chapter: Chapter?) {
@@ -123,7 +124,9 @@ struct SourceLoginView: View {
         // body（签名域）：导航壳 + 双模内容。
         NavigationStack {
             Group {
-                if source.loginUrl == nil && loginItems.isEmpty {
+                if !loginModeReady {
+                    ProgressView("正在加载登录配置")
+                } else if source.loginUrl == nil && loginItems.isEmpty {
                     Text("无可配置项")
                         .appThemeText(.caption, opacity: 0.6)
                 } else if loginURL != nil {
@@ -182,7 +185,8 @@ struct SourceLoginView: View {
 
     /// initLogin（签名确证）：按 loginUrl/loginUi 建立模式。
     func initLogin() {
-        guard !loginModeReady else { return }
+        guard !loginInitializationStarted else { return }
+        loginInitializationStarted = true
         setupLoginMode()
     }
 
@@ -190,11 +194,14 @@ struct SourceLoginView: View {
     func setupLoginMode() {
         let raw = source.loginUrl ?? ""
         loginURL = resolveLoginUrl(raw)
-        loginItems = LoginService.decodeLoginUiItems(
-            from: source.loginUi) ?? []
-        loginValues = LoginService.resolvedLoginInfo(source: source, items: loginItems)
-        loginModeReady = true
-        refreshResolvedViewNames(items: loginItems, force: true)
+        Task {
+            let parsed = await LoginService.parseLoginUi(source: source, book: book, chapter: chapter)
+            loginItems = parsed.items
+            actionStatus = parsed.error
+            loginValues = LoginService.resolvedLoginInfo(source: source, items: loginItems)
+            loginModeReady = true
+            refreshResolvedViewNames(items: loginItems, force: true)
+        }
     }
 
     /// resolveLoginUrl（签名确证；'无效的登录 URL' 域确证）。

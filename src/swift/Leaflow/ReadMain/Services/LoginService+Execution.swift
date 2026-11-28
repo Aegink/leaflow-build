@@ -27,11 +27,13 @@ extension LoginService {
         installLoginSourceBridge(into: analyzer, source: source, defaults: defaults)
         let context = analyzer.jsContextHandle()
         if let book, let data = try? JSONEncoder().encode(book),
-           let object = try? JSONSerialization.jsonObject(with: data) {
+           var object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
+            object["name"] = book.name
             context.setObject(object, forKeyedSubscript: "book" as NSString)
         }
         if let chapter, let data = try? JSONEncoder().encode(chapter),
-           let object = try? JSONSerialization.jsonObject(with: data) {
+           var object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
+            object["name"] = chapter.name
             context.setObject(object, forKeyedSubscript: "chapter" as NSString)
         }
         context.setObject(analyzer.baseUrl, forKeyedSubscript: "baseUrl" as NSString)

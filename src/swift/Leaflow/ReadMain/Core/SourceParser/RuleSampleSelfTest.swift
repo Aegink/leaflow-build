@@ -130,6 +130,7 @@ enum RuleSampleSelfTest {
             LoginModelSampleSelfTest.run(emit: emit)
             LoginActionSampleSelfTest.run(emit: emit)
             LoginHeaderSampleSelfTest.run(emit: emit)
+            LoginUISampleSelfTest.run(emit: emit)
             emitRaw("SELFTEST_END")
             exit(0)
         }
