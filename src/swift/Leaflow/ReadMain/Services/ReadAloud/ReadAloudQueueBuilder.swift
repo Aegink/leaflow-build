@@ -42,6 +42,37 @@ struct ReadAloudQueueSnapshot {
         }
         return []
     }
+
+    /// 重排按章内UTF-16锚恢复；目标段落落在新页中部时不重读页首。
+    func segments(preserving anchor: ReadAloudAnchor) -> [ReadAloudSegment] {
+        guard anchor.location.chapterIndex == chapterIndex else { return [] }
+        for (segmentIndex, segment) in segments.enumerated() {
+            for (anchorIndex, candidate) in segment.anchors.enumerated() {
+                let matches: Bool
+                if anchor.isChapterTitle {
+                    matches = candidate.isChapterTitle
+                } else if let range = anchor.rangeInChapter, let target = candidate.rangeInChapter {
+                    matches = !candidate.isChapterTitle && NSLocationInRange(range.location, target)
+                } else {
+                    matches = candidate.location == anchor.location && !candidate.isChapterTitle
+                }
+                guard matches else { continue }
+                var result = Array(segments[segmentIndex...])
+                result[0].playbackStartAnchorIndex = anchorIndex
+                if let range = anchor.rangeInChapter, let target = candidate.rangeInChapter, !anchor.isChapterTitle {
+                    let delta = max(0, range.location - target.location)
+                    var start = candidate
+                    start.startUTF16Offset += delta
+                    start.rangeInPage.location += delta
+                    start.rangeInPage.length = max(0, start.rangeInPage.length - delta)
+                    start.rangeInChapter = NSRange(location: range.location, length: max(0, NSMaxRange(target) - range.location))
+                    result[0].anchors[anchorIndex] = start
+                }
+                return result
+            }
+        }
+        return segments(startingAt: anchor.location)
+    }
 }
 
 /// 朗读队列构建器（build/buildOffMain 签名域确证）。

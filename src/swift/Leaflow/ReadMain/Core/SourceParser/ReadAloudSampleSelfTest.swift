@@ -166,6 +166,45 @@ enum ReadAloudSampleSelfTest {
         await settle()
         emit("readaloud_acquire_after_stop", ["0", "1", "true"],
             [String(delayedFactory.drivers.count), String(delayedPlayback.releaseCount), String(delayed.state == .idle)])
+
+        let reflowOwner = SampleOwner()
+        reflowOwner.reflowPages = [page(chapter: 0, index: 0, text: "甲甲\n乙乙\n丙丙")]
+        let reflowFactory = SampleDriverFactory()
+        let reflow = ReadAloudCoordinator(factory: reflowFactory, preferences: preferences,
+            audioPlayback: SamplePlayback(), errorPresenter: errors,
+            buildQueue: { ReadAloudQueueBuilder.build(from: $0, includeChapterTitle: true) })
+        reflow.start(owner: reflowOwner)
+        await until { reflowFactory.drivers.count == 1 && reflow.isSpeaking }
+        let original = reflowFactory.drivers[0]
+        let reading = original.segments[0].anchors.first { $0.rangeInChapter?.location == 6 }!
+        original.onEvent?(.anchorChanged(segmentIndex: 0, anchor: reading))
+        await settle()
+        reflowOwner.reflowPages = [page(chapter: 0, index: 0, text: "甲甲\n"),
+            page(chapter: 0, index: 1, text: "乙乙\n丙丙", start: 3)]
+        await reflow.paginationDidChange(owner: reflowOwner)
+        await until { reflowFactory.drivers.count == 2 && reflow.isSpeaking }
+        let restored = reflowFactory.drivers[1]
+        emit("readaloud_reflow_preserves_paragraph", ["1", "丙丙\n", "6"],
+            [String(reflowOwner.readAloudCurrentPageIndex), restored.segments.first?.playbackText ?? "",
+             String(restored.segments.first?.firstPlaybackAnchor?.rangeInChapter?.location ?? -1)])
+        reflow.pause()
+        await reflow.paginationDidChange(owner: reflowOwner)
+        await until { reflowFactory.drivers.count == 3 && reflow.isPaused }
+        emit("readaloud_reflow_keeps_paused", ["true", "丙丙\n"],
+            [String(reflow.isPaused), reflowFactory.drivers.last?.segments.first?.playbackText ?? ""])
+        await reflow.paginationDidChange(owner: stranger)
+        await settle()
+        emit("readaloud_reflow_rejects_foreign_owner", ["3", "true"],
+            [String(reflowFactory.drivers.count), String(reflow.owns(reflowOwner))])
+        let joined = ReadAloudQueueSnapshot(chapterIndex: 0, segments: ReadAloudQueueBuilder.build(
+            from: [page(chapter: 0, index: 0, text: "甲乙丙丁")], includeChapterTitle: false))
+        let middle = ReadAloudAnchor(location: .init(pageIndex: 1, chapterIndex: 0),
+            rangeInPage: NSRange(location: 0, length: 2), rangeInChapter: NSRange(location: 2, length: 2),
+            startUTF16Offset: 0, isChapterTitle: false)
+        emit("readaloud_reflow_restarts_inside_new_fragment", ["丙丁\n", "2"],
+            [joined.segments(preserving: middle).first?.playbackText ?? "",
+             String(joined.segments(preserving: middle).first?.firstPlaybackAnchor?.rangeInPage.location ?? -1)])
+        reflow.stop()
     }
 
     static func range(_ range: NSRange) -> String { "\(range.location):\(range.length)" }
@@ -203,10 +242,12 @@ private final class SampleSpeechOutput: SystemSpeechOutput {
     var chapter = 0
     var saveCount = 0
     var finishCount = 0
-    var readAloudPages: [PageData] { [ReadAloudSampleSelfTest.page(chapter: chapter, index: 0, text: "固定正文")] }
-    var readAloudCurrentPageIndex: Int { 0 }
+    var reflowPages: [PageData]?
+    var pageIndex = 0
+    var readAloudPages: [PageData] { reflowPages ?? [ReadAloudSampleSelfTest.page(chapter: chapter, index: 0, text: "固定正文")] }
+    var readAloudCurrentPageIndex: Int { pageIndex }
     var readAloudMetadata: ReadAloudMetadata { .init(bookName: "固定书籍", chapterName: "第\(chapter)章", author: "测试作者") }
-    func readAloudShow(location: ReadAloudLocation) { chapter = location.chapterIndex }
+    func readAloudShow(location: ReadAloudLocation) { chapter = location.chapterIndex; pageIndex = location.pageIndex }
     func readAloudSaveProgress() { saveCount += 1 }
     func readAloudSessionDidFinish() { finishCount += 1 }
     func readAloudAdvanceChapter() async -> ReadAloudChapterAdvanceResult { await readAloudChangeChapter(by: 1) }
@@ -220,7 +261,8 @@ private final class SampleSpeechOutput: SystemSpeechOutput {
 private final class SampleDriver: ReadAloudDriver {
     var onEvent: ((ReadAloudDriverEvent) -> Void)?
     var resumeCount = 0
-    func start(segments: [ReadAloudSegment]) { onEvent?(.started(segmentIndex: 0)) }
+    var segments: [ReadAloudSegment] = []
+    func start(segments: [ReadAloudSegment]) { self.segments = segments; onEvent?(.started(segmentIndex: 0)) }
     func seek(segments: [ReadAloudSegment]) { start(segments: segments) }
     func pause() {}
     func resume() { resumeCount += 1 }

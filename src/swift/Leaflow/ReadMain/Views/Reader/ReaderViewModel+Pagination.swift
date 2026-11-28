@@ -235,7 +235,7 @@ extension ReaderViewModel {
             needsRepagination = false
             hasError = false
             settings.typographyRevision &+= 1
-            if readAloudCoordinator.owns(self) { syncSpeechForPageChange(to: currentPageIndex) }
+            await readAloudCoordinator.paginationDidChange(owner: self)
             settings.save()
             if currentBook != nil { saveProgress() }
             Logger.log("阅读重排完成：\(reason)，页数=\(pages.count)", level: .info)

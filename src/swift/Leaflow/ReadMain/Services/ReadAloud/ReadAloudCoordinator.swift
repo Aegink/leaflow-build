@@ -145,14 +145,12 @@ final class ReadAloudCoordinator: ObservableObject {
         guard owns(candidate), state.isActive else { return }
         let paused = isPaused
         // 重排后页号可能变化，先按章内 UTF-16 位置重新定位属主当前页。
-        if let anchor = currentAnchor, let range = anchor.rangeInChapter,
-           let page = candidate.readAloudPages.first(where: {
-               $0.chapterIndex == anchor.location.chapterIndex
-                   && $0.contentRangeInChapter.map { NSLocationInRange(range.location, $0) } == true
-           }) {
-            candidate.readAloudShow(location: .init(pageIndex: page.pageIndex, chapterIndex: page.chapterIndex))
+        let relocated = currentAnchor.flatMap { ReadAloudAnchorResolver.resolve($0, in: candidate.readAloudPages) }
+        if let relocated {
+            currentAnchor = relocated
+            candidate.readAloudShow(location: relocated.location)
         }
-        startFromCurrentPage(paused: paused)
+        startFromCurrentPage(paused: paused, preserving: relocated)
     }
 
     func seekToCurrentPage(owner candidate: ReadAloudSessionOwner) {
@@ -170,9 +168,9 @@ final class ReadAloudCoordinator: ObservableObject {
         startFromCurrentPage(paused: isPaused)
     }
 
-    private func startFromCurrentPage(paused: Bool = false) {
+    private func startFromCurrentPage(paused: Bool = false, preserving anchor: ReadAloudAnchor? = nil) {
         beginTransition(to: .preparing, delayNanoseconds: 0) { [weak self] token in
-            await self?.prepareCurrentPageAndStart(transitionGeneration: token, paused: paused)
+            await self?.prepareCurrentPageAndStart(transitionGeneration: token, paused: paused, preserving: anchor)
         }
     }
 
@@ -221,7 +219,8 @@ final class ReadAloudCoordinator: ObservableObject {
         lease = acquired
     }
 
-    private func prepareCurrentPageAndStart(transitionGeneration token: Int, paused: Bool = false) async {
+    private func prepareCurrentPageAndStart(transitionGeneration token: Int, paused: Bool = false,
+                                            preserving anchor: ReadAloudAnchor? = nil) async {
         guard let owner, isCurrentGeneration(token) else { return }
         let allPages = owner.readAloudPages
         let index = owner.readAloudCurrentPageIndex
@@ -231,8 +230,12 @@ final class ReadAloudCoordinator: ObservableObject {
         let segments = await buildQueue(pages)
         guard isCurrentGeneration(token), owns(owner), !Task.isCancelled else { return }
         queueSnapshot = .init(chapterIndex: page.chapterIndex, segments: segments)
-        segmentQueue = queueSnapshot?.segments(startingAt: .init(
-            pageIndex: page.pageIndex, chapterIndex: page.chapterIndex)) ?? []
+        if let anchor {
+            segmentQueue = queueSnapshot?.segments(preserving: anchor) ?? []
+        } else {
+            segmentQueue = queueSnapshot?.segments(startingAt: .init(
+                pageIndex: page.pageIndex, chapterIndex: page.chapterIndex)) ?? []
+        }
         guard !segmentQueue.isEmpty else { fail("当前章节没有可朗读正文"); return }
         do {
             try await acquireAudioPlayback(for: token)
