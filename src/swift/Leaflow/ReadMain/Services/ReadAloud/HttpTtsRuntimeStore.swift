@@ -16,9 +16,8 @@
 //     setLoginHeaderMap(_:...) / setLoginInfo(_:sourceID:) /
 //     setLoginInfoMap(_:...) / setSourceVariable(_:sourceID:) /
 //     setValue(_:for:sourceID:) / value(for:sourceID:)
-//   - 事实：键命名域（cache_<sourceID>_<key> / loginHeader_<sourceID> /
-//     loginInfo_<sourceID> / sourceVariable_<sourceID>，infoMap_<key>
-//     域交叉 ExploreInfoMapStore）+ UserDefaults 落盘
+//   - 0x10026cb08/0x10026d104/0x10026d170及0x10026d20c确证原版键，
+//     value与cache分域；旧重建键仅在缺失时迁入。
 // 状态: 语义级还原（不是原始源码；变量名/注释为还原者所加）
 // 置信度: high（十七签名域确证）
 // 还原: 2026-11-20
@@ -37,12 +36,13 @@ final class HttpTtsRuntimeStore {
 
     /// loginInfo(sourceID:)（0x 域 L9-11 确证）。
     func loginInfo(sourceID: Int64) -> String? {
-        defaults.string(forKey: Self.loginInfoKey(sourceID))
+        read(Self.loginInfoKey(sourceID), legacy: "tts_login_info_\(sourceID)")
     }
 
     /// setLoginInfo(_:sourceID:)（签名域确证）。
     func setLoginInfo(_ value: String?, sourceID: Int64) {
         set(value, forKey: Self.loginInfoKey(sourceID))
+        defaults.removeObject(forKey: "tts_login_info_\(sourceID)")
     }
 
     /// loginInfoMap(sourceID:)（签名域确证：JSON map 解码）。
@@ -59,12 +59,13 @@ final class HttpTtsRuntimeStore {
 
     /// loginHeader(sourceID:)（loginHeaderKey 域确证）。
     func loginHeader(sourceID: Int64) -> String? {
-        defaults.string(forKey: Self.loginHeaderKey(sourceID))
+        read(Self.loginHeaderKey(sourceID), legacy: "tts_login_header_\(sourceID)")
     }
 
     /// setLoginHeader(_:sourceID:)（签名域确证）。
     func setLoginHeader(_ value: String?, sourceID: Int64) {
         set(value, forKey: Self.loginHeaderKey(sourceID))
+        defaults.removeObject(forKey: "tts_login_header_\(sourceID)")
     }
 
     /// setLoginHeaderMap(_:)（签名域确证）。
@@ -78,29 +79,49 @@ final class HttpTtsRuntimeStore {
 
     /// sourceVariable(sourceID:)（0x 域 L109-111 确证）。
     func sourceVariable(sourceID: Int64) -> String? {
-        defaults.string(forKey: Self.sourceVariableKey(sourceID))
+        read(Self.sourceVariableKey(sourceID), legacy: "tts_source_variable_\(sourceID)")
     }
 
     /// setSourceVariable(_:sourceID:)（签名域确证）。
     func setSourceVariable(_ value: String?, sourceID: Int64) {
         set(value, forKey: Self.sourceVariableKey(sourceID))
+        defaults.removeObject(forKey: "tts_source_variable_\(sourceID)")
     }
 
     /// value(for:sourceID:)（签名域确证：cache_<sourceID>_<key> 键）。
     func value(for key: String, sourceID: Int64) -> String? {
-        defaults.string(forKey: cacheKey(key, sourceID: sourceID))
+        migrateLegacyValue(key, sourceID: sourceID)
+        return defaults.string(forKey: "v_httpTts_\(sourceID)_\(key)")
     }
 
     /// setValue(_:for:sourceID:)（签名域确证）。
     func setValue(_ value: String?, for key: String, sourceID: Int64) {
-        set(value, forKey: cacheKey(key, sourceID: sourceID))
+        migrateLegacyValue(key, sourceID: sourceID)
+        set(value, forKey: "v_httpTts_\(sourceID)_\(key)")
     }
 
     /// setCacheValue(_:for:sourceID:)（签名域确证：value 别名）。
     func setCacheValue(
         _ value: String?, for key: String, sourceID: Int64
     ) {
-        setValue(value, for: key, sourceID: sourceID)
+        migrateLegacyValue(key, sourceID: sourceID)
+        set(value, forKey: cacheKey(key, sourceID: sourceID))
+    }
+
+    func cacheValue(for key: String, sourceID: Int64) -> String? {
+        migrateLegacyValue(key, sourceID: sourceID)
+        return defaults.string(forKey: cacheKey(key, sourceID: sourceID))
+    }
+
+    /// 旧版误把两域合并，迁移先补缺失域，之后分别更新或清除。
+    private func migrateLegacyValue(_ key: String, sourceID: Int64) {
+        let legacy = "tts_cache_\(sourceID)_\(key)"
+        guard let value = defaults.string(forKey: legacy) else { return }
+        for target in ["v_httpTts_\(sourceID)_\(key)", cacheKey(key, sourceID: sourceID)]
+            where defaults.object(forKey: target) == nil {
+            defaults.set(value, forKey: target)
+        }
+        defaults.removeObject(forKey: legacy)
     }
 
     // MARK: 键域（cacheKey/loginHeaderKey/loginInfoKey/sourceVariableKey
@@ -108,28 +129,35 @@ final class HttpTtsRuntimeStore {
 
     /// cacheKey(_:sourceID:)（签名域确证）。
     func cacheKey(_ key: String, sourceID: Int64) -> String {
-        "tts_cache_\(sourceID)_\(key)"
+        "ttsCache_\(sourceID)_\(key)"
     }
 
     /// loginHeaderKey(Int64)（签名域确证）。
     static func loginHeaderKey(_ sourceID: Int64) -> String {
-        "tts_login_header_\(sourceID)"
+        "loginHeader_httpTts_\(sourceID)"
     }
 
     /// loginInfoKey(Int64)（签名域确证）。
     static func loginInfoKey(_ sourceID: Int64) -> String {
-        "tts_login_info_\(sourceID)"
+        "loginInfo_httpTts_\(sourceID)"
     }
 
     /// sourceVariableKey(Int64)（0x 域 L494 确证）。
     static func sourceVariableKey(_ sourceID: Int64) -> String {
-        "tts_source_variable_\(sourceID)"
+        "sourceVariable_httpTts_\(sourceID)"
     }
 
     // MARK: 内部域（set/decodeMap/setMap 签名域确证）
 
     private func set(_ value: String?, forKey key: String) {
         defaults.set(value, forKey: key)
+    }
+
+    private func read(_ key: String, legacy: String) -> String? {
+        if let value = defaults.string(forKey: key) { return value }
+        guard let value = defaults.string(forKey: legacy) else { return nil }
+        defaults.set(value, forKey: key)
+        return value
     }
 
     /// decodeMap(String?)（签名域确证：JSON map 解码域）。
@@ -160,27 +188,34 @@ extension HttpTtsRuntimeStore {
 
     /// 伪代码 0x1000f27f4（L32-34）：登录头映射读取。
     func loginHeaderMap(sourceID: Int64) -> [String: String] {
-        loginInfoMap(sourceID: sourceID)
+        decodeMap(loginHeader(sourceID: sourceID))
     }
 
     /// 伪代码 0x10026d320（L68-71）：认证清除（登录信息 + 头域）。
     func clearAuthentication(sourceID: Int64) {
         setLoginInfo(nil, sourceID: sourceID)
-        setLoginInfoMap([:], sourceID: sourceID)
         setLoginHeader(nil, sourceID: sourceID)
-        setLoginHeaderMap([:], sourceID: sourceID)
+    }
+
+    /// 0x10026d320实际块：认证、变量及该源value/cache前缀清除，保留其他源。
+    func clearAll(sourceID: Int64) {
+        clearAuthentication(sourceID: sourceID)
+        setSourceVariable(nil, sourceID: sourceID)
+        let prefixes = ["v_httpTts_\(sourceID)_", "ttsCache_\(sourceID)_", "tts_cache_\(sourceID)_"]
+        for key in defaults.dictionaryRepresentation().keys where prefixes.contains(where: { key.hasPrefix($0) }) {
+            defaults.removeObject(forKey: key)
+        }
     }
 
     /// 伪代码 0x10026cb74（L73-85）：全量清除——已知源注册表遍历域
     ///（UserDefaults 键前缀扫描域）。
     func clearAll() {
-        let knownKey = "httptts_known_source_ids"
-        let ids = (UserDefaults.standard.array(forKey: knownKey) as? [Int64])
-            ?? []
-        for id in ids {
-            clearAuthentication(sourceID: id)
+        let prefixes = ["loginInfo_httpTts_", "loginHeader_httpTts_", "sourceVariable_httpTts_",
+            "v_httpTts_", "ttsCache_", "tts_login_info_", "tts_login_header_", "tts_source_variable_", "tts_cache_"]
+        for key in defaults.dictionaryRepresentation().keys where prefixes.contains(where: { key.hasPrefix($0) }) {
+            defaults.removeObject(forKey: key)
         }
-        UserDefaults.standard.removeObject(forKey: knownKey)
+        defaults.removeObject(forKey: "httptts_known_source_ids")
     }
 
 }

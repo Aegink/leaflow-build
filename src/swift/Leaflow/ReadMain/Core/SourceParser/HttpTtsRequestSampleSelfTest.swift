@@ -7,6 +7,7 @@ enum HttpTtsRequestSampleSelfTest {
         guard let defaults = UserDefaults(suiteName: suite) else { return }
         defer { defaults.removePersistentDomain(forName: suite) }
         let store = HttpTtsRuntimeStore(defaults: defaults)
+        checkStore(store, defaults: defaults, emit: emit)
         let transport = RequestTransport()
         let synthesizer = HttpTtsSynthesizer(transport: transport,
             webSocketTransport: TtsWebSocketTransportStub(), runtimeStore: store)
@@ -87,5 +88,46 @@ enum HttpTtsRequestSampleSelfTest {
             return (payload, HTTPURLResponse(url: request.url!, statusCode: status,
                 httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "audio/mpeg"])!)
         }
+    }
+
+    private static func checkStore(_ store: HttpTtsRuntimeStore, defaults: UserDefaults,
+                                    emit: (String, [String], [String]) -> Void) {
+        defaults.set(#"{"account":"original"}"#, forKey: "loginInfo_httpTts_21")
+        defaults.set(#"{"Cookie":"original-cookie"}"#, forKey: "loginHeader_httpTts_21")
+        defaults.set("original-variable", forKey: "sourceVariable_httpTts_21")
+        emit("tts_store_original_keys", ["original", "original-cookie", "original-variable"],
+            [store.loginInfoMap(sourceID: 21)["account"] ?? "", store.loginHeaderMap(sourceID: 21)["Cookie"] ?? "",
+             store.sourceVariable(sourceID: 21) ?? ""])
+        store.setValue("value", for: "same", sourceID: 21)
+        store.setCacheValue("cache", for: "same", sourceID: 21)
+        emit("tts_store_value_cache_separate", ["value", "cache", "value", "cache"],
+            [store.value(for: "same", sourceID: 21) ?? "", store.cacheValue(for: "same", sourceID: 21) ?? "",
+             defaults.string(forKey: "v_httpTts_21_same") ?? "", defaults.string(forKey: "ttsCache_21_same") ?? ""])
+        defaults.set("legacy", forKey: "tts_login_info_22")
+        emit("tts_store_legacy_migration", ["legacy", "legacy"],
+            [store.loginInfo(sourceID: 22) ?? "", defaults.string(forKey: "loginInfo_httpTts_22") ?? ""])
+        defaults.set("new", forKey: "loginInfo_httpTts_22")
+        emit("tts_store_original_wins", ["new"], [store.loginInfo(sourceID: 22) ?? ""])
+        store.clearAuthentication(sourceID: 21)
+        emit("tts_store_clear_auth_preserves_variables", ["true", "true", "original-variable", "value"],
+            [String(store.loginInfo(sourceID: 21) == nil), String(store.loginHeader(sourceID: 21) == nil),
+             store.sourceVariable(sourceID: 21) ?? "", store.value(for: "same", sourceID: 21) ?? ""])
+        store.setValue("other", for: "same", sourceID: 210)
+        store.clearAll(sourceID: 21)
+        emit("tts_store_clear_source_boundary", ["true", "true", "true", "other"],
+            [String(store.sourceVariable(sourceID: 21) == nil), String(store.value(for: "same", sourceID: 21) == nil),
+             String(store.cacheValue(for: "same", sourceID: 21) == nil), store.value(for: "same", sourceID: 210) ?? ""])
+        store.clearAuthentication(sourceID: 22)
+        emit("tts_store_removed_legacy_not_resurrected", ["true", "true"],
+            [String(store.loginInfo(sourceID: 22) == nil), String(defaults.object(forKey: "tts_login_info_22") == nil)])
+        defaults.set("keep", forKey: "unrelated")
+        defaults.set("shared-legacy", forKey: "tts_cache_23_old")
+        store.setValue(nil, for: "old", sourceID: 23)
+        emit("tts_store_split_legacy_value_cache", ["true", "shared-legacy", "true"],
+            [String(store.value(for: "old", sourceID: 23) == nil), store.cacheValue(for: "old", sourceID: 23) ?? "",
+             String(defaults.object(forKey: "tts_cache_23_old") == nil)])
+        store.clearAll()
+        emit("tts_store_clear_all_scoped", ["true", "keep"],
+            [String(store.value(for: "same", sourceID: 210) == nil), defaults.string(forKey: "unrelated") ?? ""])
     }
 }
