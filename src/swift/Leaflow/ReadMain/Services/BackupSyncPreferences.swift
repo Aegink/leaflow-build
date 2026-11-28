@@ -32,7 +32,7 @@ final class BackupSyncPreferences {
     }
 
     /// init（签名域确证）。
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = BackupSyncPreferences.runtimeDefaults) {
         self.defaults = defaults
         if let saved = defaults.stringArray(forKey: Self.selectedKey) {
             let known = defaults.stringArray(forKey: Self.knownKey) ?? saved
@@ -43,6 +43,12 @@ final class BackupSyncPreferences {
         } else { selectedCategories = SyncCategory.defaults }
         persist()
         persistKnownCategories()
+    }
+
+    // 冒烟启动参数仅使用独立偏好域，不能改写用户同步分类。
+    static var runtimeDefaults: UserDefaults {
+        guard ProcessInfo.processInfo.arguments.contains("-smokeBackupSettings") else { return .standard }
+        return UserDefaults(suiteName: "t1602-backup-settings-ui")!
     }
 
     /// isEnabled(SyncCategory)（签名域确证：缺省全开域）。

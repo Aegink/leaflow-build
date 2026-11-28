@@ -65,11 +65,40 @@ extension LeaflowSmokeTests {
             XCTAssertEqual(control.value as? String, "0")
         }
         capture("backup-empty-selection-cold")
-        for _ in 0..<4 {
-            if app.switches["sync-category-bookshelf"].isHittable { break }
-            app.swipeDown()
-        }
-        for category in categories { toggle(category, to: category != "localBooks") }
         passed("backup_category_persistence")
+    }
+
+    func testBackupCategoryRestoreDefaults() {
+        executionTimeAllowance = 300
+        launch(["-smokeBackupSettings", "-smokeBackupEmptySelection"])
+        let content = app.buttons["backup-sync-categories"]
+        if !content.isHittable { app.swipeUp() }
+        XCTAssertTrue(content.waitForExistence(timeout: 15))
+        content.tap()
+        XCTAssertTrue(app.navigationBars["同步内容"].waitForExistence(timeout: 10))
+        let categories = ["bookshelf", "bookmarks", "readingStats", "config", "chapterRules", "replaceRules",
+                          "ttsSources", "readingSettings", "highlightRules", "appearance", "localBooks"]
+        for category in categories {
+            let control = app.switches["sync-category-" + category]
+            for _ in 0..<4 {
+                if control.isHittable { break }
+                app.swipeUp()
+            }
+            XCTAssertTrue(control.isHittable)
+            XCTAssertEqual(control.value as? String, "0")
+            guard category != "localBooks" else { continue }
+            let row = control.frame
+            let actual = app.switches.allElementsBoundByIndex.first {
+                let frame = $0.frame
+                return frame.width > 0 && frame.width < 80
+                    && row.contains(CGPoint(x: frame.midX, y: frame.midY)) && $0.isHittable
+            }
+            XCTAssertNotNil(actual)
+            actual?.tap()
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "value == %@", "1"), object: control)], timeout: 5), .completed)
+        }
+        capture("backup-default-categories-restored")
+        passed("backup_category_restore_defaults")
     }
 }

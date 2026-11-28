@@ -114,6 +114,11 @@ struct LeaflowApp: App {
                     ExploreReadingSmokeView()
                 } else if ProcessInfo.processInfo.arguments.contains("-smokeBackupSettings") {
                     NavigationStack { BackupView() }
+                        .onAppear {
+                            if ProcessInfo.processInfo.arguments.contains("-smokeBackupEmptySelection") {
+                                BackupSyncPreferences().setSelectedCategories([])
+                            }
+                        }
                 } else if ProcessInfo.processInfo.arguments.contains("-smokeReadingSettings") {
                     ReadingSettingsSmokeView()
                 } else if ProcessInfo.processInfo.arguments.contains("-smokeLocalBookImport")
