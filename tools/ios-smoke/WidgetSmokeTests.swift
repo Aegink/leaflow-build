@@ -20,6 +20,10 @@ extension LeaflowSmokeTests {
         add.tap()
         let text = app.textFields["reader-widget-custom-text"]
         XCTAssertTrue(text.waitForExistence(timeout: 10))
+        app.buttons["reader-widget-item-bookName"].tap()
+        XCTAssertFalse(text.exists)
+        app.buttons["reader-widget-item-customText"].tap()
+        XCTAssertTrue(text.waitForExistence(timeout: 10))
         text.tap()
         text.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (text.value as? String ?? "").count) + "fixed-widget")
         app.buttons["reader-widget-panel-done"].tap()

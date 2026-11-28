@@ -14,6 +14,7 @@ enum ReaderDisplayItem: String, CaseIterable {
     case chapterTitle
     case bookName
     case progress
+    case customText
 
     /// 展示项名称（DisplayItemGrid 域引用；档位文案推断——枚举本体
     /// 计数器桩/空串默认域，真机核清项）。
@@ -26,6 +27,7 @@ enum ReaderDisplayItem: String, CaseIterable {
         case .chapterTitle: return "章节名"
         case .bookName: return "书名"
         case .progress: return "进度"
+        case .customText: return "自定义文本"
         }
     }
 
@@ -61,6 +63,8 @@ enum ReaderDisplayItem: String, CaseIterable {
         case .progress:
             return context.totalPages > 0
                 ? "\(context.currentPageIndex + 1)/\(context.totalPages)" : ""
+        case .customText:
+            return ""
         }
     }
 }

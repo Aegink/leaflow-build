@@ -124,18 +124,20 @@ struct LayoutSettingsSection: View {
 /// 显示条目栅格（伪代码 0x1007a3180，L133-149）。
 /// body 拆分为单分组子视图（类型检查超时消解，wave-63）。
 struct DisplayItemGrid: View {
+    @Binding var selection: ReaderDisplayItem
     var groups: [(String, [ReaderDisplayItem])]
 
     var body: some View {
         // ForEach [(String, [ReaderDisplayItem])]（L134-148 确证）。
         ForEach(groups, id: \.0) { title, items in
-            DisplayItemGridGroup(title: title, items: items)
+            DisplayItemGridGroup(selection: $selection, title: title, items: items)
         }
     }
 }
 
 /// 单分组栅格（DisplayItemGrid.body L133-149 域搬移）。
 private struct DisplayItemGridGroup: View {
+    @Binding var selection: ReaderDisplayItem
     let title: String
     let items: [ReaderDisplayItem]
 
@@ -146,12 +148,17 @@ private struct DisplayItemGridGroup: View {
                 .font(.system(size: 14, weight: .regular))
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 84))], spacing: 12) {
                 ForEach(Array(items.enumerated()), id: \.offset) { _, item in
-                    Text(item.displayName)
+                    Button { selection = item } label: {
+                        Text(item.displayName)
                         .font(.readerUI(.body))
-                        .frame(height: 40)
+                        .frame(minHeight: 44)
                         .frame(maxWidth: .infinity)
-                        .background(Color.secondary.opacity(0.12))
+                        .background((selection == item ? Color.accentColor : Color.secondary).opacity(0.12))
                         .cornerRadius(8)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(selection == item ? [.isSelected] : [])
+                    .accessibilityIdentifier("reader-widget-item-" + item.rawValue)
                 }
             }
         }

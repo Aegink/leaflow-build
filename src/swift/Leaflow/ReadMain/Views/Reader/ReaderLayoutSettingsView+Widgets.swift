@@ -108,13 +108,11 @@ private struct WidgetEditPanel: View {
         NavigationStack {
             Form {
                 Section("内容") {
-                    Picker("显示项目", selection: $widget.item) {
-                        Text("自定义文本").tag("customText")
-                        Text("书名").tag("bookName")
-                        Text("章节名").tag("chapterTitle")
-                        Text("时间").tag("currentTime")
-                        Text("页码").tag("pageProgress")
-                    }
+                    DisplayItemGrid(selection: Binding(
+                        get: { ReaderDisplayItem(rawValue: widget.type) ?? .customText },
+                        set: { item in
+                            widget.item = ["time": "currentTime", "progress": "pageProgress"][item.rawValue] ?? item.rawValue
+                        }), groups: [("内容", [.customText, .bookName, .chapterTitle]), ("阅读", [.time, .progress])])
                     if widget.item == "customText" {
                         TextField("自定义文本", text: Binding(get: { widget.customText ?? "" }, set: { widget.customText = $0 }))
                             .accessibilityIdentifier("reader-widget-custom-text")
