@@ -50,7 +50,12 @@ final class HttpTtsSynthesizer: HttpTtsSynthesizing {
     func audioData(
         source: HttpTts, text: String, speechRate: Float
     ) async throws -> Data {
-        let speed = speechRate.isFinite ? Int(max(min(speechRate, 10), 1)) : 1
+        // 0x10027d68c/0x100285f34：倍率乘10后FCVTZS向零取整。
+        let scaled = speechRate * 10
+        guard scaled.isFinite, scaled > Float(Int.min), scaled < Float(Int.max) else {
+            throw AppError.parsing("朗读语速不是有效数值")
+        }
+        let speed = Int(scaled)
         return try await requestAudio(
             source: source, text: text, speed: speed)
     }

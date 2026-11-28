@@ -18,7 +18,7 @@ enum HttpTtsLoginCheckSelfTest {
             source.loginCheckJs = "source.put('response',[result.code(),result.body().bytes(),result.headers('X-FiXeD'),result.message(),speakText,speakSpeed,java.getHeaderMap()['X-Request']].join('|'));java.setResponseBase64('QUJD');result"
             source.header = #"{"X-Request":"request"}"#
             let defaultFormat = try await synth.audioData(source: source, text: "正文", speechRate: 3)
-            emit("tts_logincheck_response_context", ["ABC", "200|{\"audio\":\"AAEC/w==\"}|fixed||正文|3|request"],
+            emit("tts_logincheck_response_context", ["ABC", "200|{\"audio\":\"AAEC/w==\"}|fixed||正文|30|request"],
                 [String(decoding: defaultFormat, as: UTF8.self), store.value(for: "response", sourceID: 70) ?? ""])
             source.jsLib = "function extractAudio(r){return JSON.parse(r.body().string()).audio;}"
             source.loginCheckJs = "java.setResponseBase64(extractAudio(result),'audio/mpeg');result"

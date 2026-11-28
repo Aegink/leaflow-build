@@ -16,14 +16,14 @@ enum HttpTtsRequestSampleSelfTest {
         do {
             let data = try await synthesizer.audioData(source: source, text: "正文&问号?", speechRate: 3)
             let query = URLComponents(url: transport.requests.last!.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
-            emit("tts_request_text_speed", ["正文&问号?", "3", "true"],
+            emit("tts_request_text_speed", ["正文&问号?", "30", "true"],
                 [query.first { $0.name == "text" }?.value ?? "", query.first { $0.name == "speed" }?.value ?? "",
                  String(data == Data([0x49, 0x44, 0x33]))])
             source.url = #"https://sample.invalid/audio, {"method":"POST","body":{"text":"{{speakText}}","speed":{{speakSpeed}}},"headers":{"X-Mode":"rule"}}"#
             _ = try await synthesizer.audioData(source: source, text: "固定正文", speechRate: 2)
             let post = transport.requests.last!
             let body = try JSONSerialization.jsonObject(with: post.httpBody!) as? [String: Any]
-            emit("tts_request_json_post", ["POST", "/audio", "固定正文", "2", "rule"],
+            emit("tts_request_json_post", ["POST", "/audio", "固定正文", "20", "rule"],
                 [post.httpMethod ?? "", post.url?.path ?? "", body?["text"] as? String ?? "",
                  String((body?["speed"] as? NSNumber)?.intValue ?? -1), post.value(forHTTPHeaderField: "X-Mode") ?? ""])
             source.header = #"{"X-Login":"base","User-Agent":"FixedAgent"}"#
@@ -38,7 +38,7 @@ enum HttpTtsRequestSampleSelfTest {
             source.header = "@js:({'X-Source':source.name})"
             _ = try await synthesizer.audioData(source: source, text: "脚本正文", speechRate: 4)
             let scriptQuery = URLComponents(url: transport.requests.last!.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
-            emit("tts_request_script_library_context", ["脚本正文-library", "4", "固定HTTP朗读"],
+            emit("tts_request_script_library_context", ["脚本正文-library", "40", "固定HTTP朗读"],
                 [scriptQuery.first { $0.name == "text" }?.value ?? "", scriptQuery.first { $0.name == "speed" }?.value ?? "",
                  transport.requests.last!.value(forHTTPHeaderField: "X-Source") ?? ""])
             source.jsLib = nil
@@ -103,6 +103,24 @@ enum HttpTtsRequestSampleSelfTest {
             do { _ = try await synthesizer.audioData(source: source, text: "正文", speechRate: 1) }
             catch { rejected = true }
             emit("tts_response_invalid_regex_rejected", ["true"], [String(rejected)])
+            source.contentType = nil
+            source.url = "https://sample.invalid/audio?speed={{speakSpeed}}"
+            transport.contentType = "audio/mpeg"
+            var speeds: [String] = []
+            for rate: Float in [0.5, 1, 1.59, 3] {
+                _ = try await synthesizer.audioData(source: source, text: "正文", speechRate: rate)
+                let items = URLComponents(url: transport.requests.last!.url!, resolvingAgainstBaseURL: false)?.queryItems
+                speeds.append(items?.first { $0.name == "speed" }?.value ?? "")
+            }
+            emit("tts_request_original_speed_scale", ["5", "10", "15", "30"], speeds)
+            let beforeInvalidRate = transport.requests.count
+            var invalidRates = 0
+            for rate: Float in [.nan, .infinity, .greatestFiniteMagnitude] {
+                do { _ = try await synthesizer.audioData(source: source, text: "正文", speechRate: rate) }
+                catch { invalidRates += 1 }
+            }
+            emit("tts_request_invalid_rate_no_send", ["3", "true"],
+                [String(invalidRates), String(transport.requests.count == beforeInvalidRate)])
             emit("tts_request_setup", ["成功"], ["成功"])
         } catch { emit("tts_request_setup", ["成功"], [error.localizedDescription]) }
     }
