@@ -120,6 +120,29 @@ enum ReadingSettingsSampleSelfTest {
             unimplementedMode.paragraphSpacing = 10
             unimplementedMode.save()
             emit("settings_unknown_mode_survives_unrelated_save", ["horizontalScroll"], [defaults.string(forKey: "pageMode") ?? ""])
+            let allFields = Data(#"""
+            {"fontSize":23,"fontFamily":"FixedFont","isBold":true,"fontWeight":0.5,"lineSpacing":11,"paragraphSpacing":7,
+             "leftPageMargin":12,"rightPageMargin":16,"textIndent":2,"letterSpacing":0.5,"textAlignment":"justified",
+             "verticalJustify":true,"paragraphSeparatorLines":2,"textUnderlineEnabled":true,"textUnderlineThicknessPt":1.5,
+             "textUnderlineOffsetPt":-2,"textUnderlinePattern":"dot","textUnderlineMode":"textOnly","textUnderlineUsesTextColor":false,
+             "textUnderlineColorHex":"#123456","textColor":"#222222","backgroundColor":"#EEEEEE","backgroundImage":"sample.jpg",
+             "pageMode":"horizontalScroll","fullScreenTap":true,"isSimplifiedChinese":false,"brightness":0.4,
+             "screenAwakeOption":"thirtyMinutes","showStatusBar":false,"readerBottomToolbarStyle":"chatInput","searchThreadCount":8,
+             "searchByGroup":true,"exactSearch":false,"searchMaxPages":5,"chapterPreloadCount":3,"showReviewButton":true,
+             "showStatisticsTab":false,"paragraphCommentBrowserDefaultPresentation":"halfScreen","paragraphCommentBrowserEdgeSwipeDismissEnabled":true,
+             "mangaReadingMode":"webtoon","useRemoteBackend":false,"remoteBackendURL":"https://sample.invalid","remoteUsername":"fixed",
+             "chapterTitleConfig":"e30=","chapterTitleCustomPresets":"W10=","layoutWidgetsV2":"W10=","widgetUseCustomFont":true,
+             "readerUIFollowAppFont":false,"layoutTemplate":"compact","topInsetExtra":6,"bottomInsetExtra":10,"customReaderThemes":"W10=",
+             "builtInReaderThemeOverrides":"e30=","currentReaderThemeId":"light-id","readerDarkModePairId":"dark-id",
+             "readerLightModeThemeId":"light-id","readerAutoDarkMode":true}
+            """#.utf8)
+            try restore.importReadingSettings(from: allFields)
+            let complete = try JSONSerialization.jsonObject(with: ReadingSettingsBackup.export(from: targetDefaults)) as! NSDictionary
+            let expected = try JSONSerialization.jsonObject(with: allFields) as! NSDictionary
+            emit("settings_all_original_keys_roundtrip", ["57", "true"], [String(complete.count), String(complete.isEqual(expected))])
+            existing.save()
+            let afterUnchangedSave = try JSONSerialization.jsonObject(with: ReadingSettingsBackup.export(from: targetDefaults)) as! NSDictionary
+            emit("settings_untouched_original_blobs_preserved", ["true"], [String(afterUnchangedSave.isEqual(expected))])
         } catch { emit("settings_archive_real_reader_values", ["通过"], [error.localizedDescription]) }
     }
 }

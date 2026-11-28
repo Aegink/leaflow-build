@@ -103,7 +103,9 @@ extension ReadingSettings {
     }
 
     private func persistentValues() -> [String: Any] {
-        guard let data = try? JSONEncoder().encode(self),
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        guard let data = try? encoder.encode(self),
               let encoded = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [:] }
         var values: [String: Any] = [:]
         for key in CodingKeys.allCases {
@@ -117,7 +119,7 @@ extension ReadingSettings {
         values["textUnderlinePattern"] = textUnderlineDashed ? "dash" : "solid"
         values["textUnderlineUsesTextColor"] = textUnderlineColorHex.isEmpty
         values["paragraphCommentBrowserDefaultPresentation"] = paragraphCommentBrowser == .inline ? "halfScreen" : "fullScreen"
-        values["chapterTitleConfig"] = try? JSONEncoder().encode(TitlePair(light: chapterTitleConfigLight, dark: chapterTitleConfigDark))
+        values["chapterTitleConfig"] = try? encoder.encode(TitlePair(light: chapterTitleConfigLight, dark: chapterTitleConfigDark))
         return values
     }
 

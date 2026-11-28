@@ -77,8 +77,7 @@ final class ReadingSettings: Codable {
     var needsRepagination = false
 
     /// 字重原始值（sub_100213AB0 读取域；UIFont.Weight 阈值链消费）。
-    /// 非持久化域；持久化投影 isBold（flushPendingSave
-    /// setBool(UIFontWeightMedium ≤ weight) 确证）。
+    /// 原版保存fontWeight，并以UIFontWeightMedium阈值投影isBold。
     var fontWeight: UIFont.Weight = .regular {
         didSet {
             invalidateTypographyCaches()
