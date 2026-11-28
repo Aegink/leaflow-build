@@ -61,12 +61,12 @@ struct HttpTtsLoginConfigurationEvaluator {
         let raw = expression.trimmingCharacters(in: .whitespacesAndNewlines)
         let isScript = raw.hasPrefix("@js:") || (raw.hasPrefix("<js>") && raw.hasSuffix("</js>"))
         if !isScript {
+            guard !Self.hasArrayTrailingComma(raw) else { throw AppError.parsing("朗读配置数组不能包含尾逗号") }
             if let data = raw.data(using: .utf8),
                let value = try? JSONSerialization.jsonObject(with: data),
                let json = LegadoJSONLiteral.jsonString(from: value) { return json }
             // 0x10026779c显式拒绝顶层数组尾逗号，不沿用通用解析器的自动修复。
-            guard !LegadoJSONLiteral.hasTopLevelArrayTrailingComma(raw),
-                  let value = LegadoJSONLiteral.parse(raw), let json = LegadoJSONLiteral.jsonString(from: value) else {
+            guard let value = LegadoJSONLiteral.parse(raw), let json = LegadoJSONLiteral.jsonString(from: value) else {
                 throw AppError.parsing("朗读配置不是有效JSON")
             }
             return json
@@ -74,17 +74,42 @@ struct HttpTtsLoginConfigurationEvaluator {
         let analyzer = try configuredAnalyzer(for: source)
         defer { analyzer.releaseOwnedJSContext() }
         let context = analyzer.jsContextHandle()
-        context.exceptionHandler = { _, _ in }
+        var scriptError: String?
+        context.exceptionHandler = { _, error in scriptError = error?.toString() ?? "脚本异常" }
         if let library = source.jsLib, !library.isEmpty {
             context.evaluateScript(library)
-            guard context.exception == nil else { throw AppError.parsing("朗读配置脚本库执行失败") }
+            guard scriptError == nil, context.exception == nil else { throw AppError.parsing("朗读配置脚本库执行失败") }
         }
         let result = context.evaluateScript(AnalyzeUrl.processJsPrefix(raw))
-        guard context.exception == nil, let result, !result.isUndefined, !result.isNull,
+        guard scriptError == nil, context.exception == nil, let result, !result.isUndefined, !result.isNull,
               let output = result.toString(), !output.isEmpty, output != "undefined" else {
             throw AppError.parsing("朗读配置脚本未返回有效内容")
         }
         return output
+    }
+
+    private static func hasArrayTrailingComma(_ text: String) -> Bool {
+        guard text.first == "[", text.last == "]" else { return false }
+        var quote: Character?
+        var escaped = false
+        var depth = 0
+        var previous: Character?
+        for character in text {
+            if let activeQuote = quote {
+                if escaped { escaped = false }
+                else if character == "\\" { escaped = true }
+                else if character == activeQuote { quote = nil; previous = character }
+                continue
+            }
+            if character == "\"" || character == "'" { quote = character; continue }
+            if character == "[" || character == "{" { depth += 1 }
+            if character == "]" || character == "}" {
+                if character == "]" && depth == 1 { return previous == "," }
+                depth -= 1
+            }
+            if !character.isWhitespace { previous = character }
+        }
+        return false
     }
 
     /// prepareDefaultsIfNeeded(for:store:)（签名域确证：默认键预置）。

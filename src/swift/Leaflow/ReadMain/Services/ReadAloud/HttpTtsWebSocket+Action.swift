@@ -14,7 +14,8 @@ struct HttpTtsWebSocketAction {
                          source: HttpTts, text: String, speed: Int,
                          runtimeStore: HttpTtsRuntimeStore? = nil) throws -> HttpTtsWebSocketAction {
         guard let context = JSContext() else { throw HttpTtsWebSocketError.scriptFailed("无法创建脚本上下文") }
-        context.exceptionHandler = { _, _ in }
+        var scriptError: String?
+        context.exceptionHandler = { _, error in scriptError = error?.toString() ?? "脚本异常" }
         context.setObject(text, forKeyedSubscript: "speakText" as NSString)
         context.setObject(speed, forKeyedSubscript: "speakSpeed" as NSString)
         context.setObject(["speakText": text, "speakSpeed": speed] as [String: Any], forKeyedSubscript: "java" as NSString)
@@ -25,7 +26,7 @@ struct HttpTtsWebSocketAction {
         }
         if let library = source.jsLib, !library.isEmpty {
             context.evaluateScript(library)
-            if let error = context.exception { throw HttpTtsWebSocketError.scriptFailed(error.toString()) }
+            if let error = scriptError ?? context.exception?.toString() { throw HttpTtsWebSocketError.scriptFailed(error) }
         }
         let message = JSValue(newObjectIn: context)!
         message.setValue(frame.messageType, forProperty: "type")
@@ -46,7 +47,7 @@ struct HttpTtsWebSocketAction {
         context.setObject(state, forKeyedSubscript: "webSocketState" as NSString)
         context.exception = nil
         let value = context.evaluateScript(script)
-        if let error = context.exception { throw HttpTtsWebSocketError.scriptFailed(error.toString()) }
+        if let error = scriptError ?? context.exception?.toString() { throw HttpTtsWebSocketError.scriptFailed(error) }
         guard let value, !value.isNull, !value.isUndefined else {
             return .init(audio: nil, messages: [], done: false, errorMessage: nil, stateJSON: stateJSON)
         }

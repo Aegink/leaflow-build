@@ -52,6 +52,14 @@ enum HttpTtsRequestSampleSelfTest {
             do { _ = try await synthesizer.audioData(source: source, text: "正文", speechRate: 1) }
             catch { }
             emit("tts_request_script_failure_no_send", [String(before)], [String(transport.requests.count)])
+            source.url = "https://sample.invalid/audio"
+            source.jsLib = "throw Error('有效URL前脚本库失败')"
+            var libraryRejected = false
+            do { _ = try await synthesizer.audioData(source: source, text: "正文", speechRate: 1) }
+            catch { libraryRejected = true }
+            emit("tts_request_library_failure_valid_url_no_send", ["true", String(before)],
+                [String(libraryRejected), String(transport.requests.count)])
+            source.jsLib = nil
             source.url = #"https://sample.invalid/audio,{"method":broken}"#
             do { _ = try await synthesizer.audioData(source: source, text: "正文", speechRate: 1) }
             catch { }

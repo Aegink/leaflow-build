@@ -59,6 +59,16 @@ enum HttpTtsWebSocketSampleSelfTest {
             do { _ = try HttpTtsWebSocketAction.evaluate(frame: frame, script: "({audio:'!'})", stateJSON: nil,
                 source: source, text: "", speed: 1) } catch { badScript = true }
             emit("tts_ws_invalid_audio_rejected", ["true"], [String(badScript)])
+            var thrownAction = false
+            do { _ = try HttpTtsWebSocketAction.evaluate(frame: frame, script: "throw Error('固定帧异常')", stateJSON: nil,
+                source: source, text: "", speed: 1) } catch { thrownAction = true }
+            emit("tts_ws_throwing_action_rejected_immediately", ["true"], [String(thrownAction)])
+            var librarySource = source
+            librarySource.jsLib = "throw Error('固定库异常')"
+            var thrownLibrary = false
+            do { _ = try HttpTtsWebSocketAction.evaluate(frame: frame, script: "({audio:'QUJD',done:true})", stateJSON: nil,
+                source: librarySource, text: "", speed: 1) } catch { thrownLibrary = true }
+            emit("tts_ws_throwing_library_rejects_valid_action", ["true"], [String(thrownLibrary)])
             func rejectedAction(_ script: String, limit: Int = 100) async -> [String] {
                 let connection = SocketTransport(frames: [frame])
                 let synthesizer = HttpTtsSynthesizer(transport: ForbiddenHTTP(), webSocketTransport: connection, runtimeStore: store)

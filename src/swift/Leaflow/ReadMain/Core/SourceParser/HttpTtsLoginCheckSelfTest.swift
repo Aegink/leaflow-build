@@ -53,6 +53,20 @@ enum HttpTtsLoginCheckSelfTest {
             let unchanged = try await synth.audioData(source: source, text: "正文", speechRate: 1)
             emit("tts_logincheck_original_binary_and_context_isolation", ["AP+AAg==", "undefined"],
                 [unchanged.base64EncodedString(), store.value(for: "isolated", sourceID: 70) ?? ""])
+            source.loginCheckJs = "throw Error('音频响应也必须拒绝')"
+            var exceptionText = ""
+            do { _ = try await synth.audioData(source: source, text: "正文", speechRate: 1) }
+            catch { exceptionText = error.localizedDescription }
+            emit("tts_logincheck_valid_audio_script_exception_rejected", ["true"],
+                [String(exceptionText.contains("音频响应也必须拒绝"))])
+            source.loginCheckJs = "result"
+            source.jsLib = "if(typeof result!=='undefined'){throw Error('响应库失败');}"
+            exceptionText = ""
+            do { _ = try await synth.audioData(source: source, text: "正文", speechRate: 1) }
+            catch { exceptionText = error.localizedDescription }
+            emit("tts_logincheck_valid_audio_library_exception_rejected", ["true"],
+                [String(exceptionText.contains("响应库失败"))])
+            source.jsLib = nil
             source.loginCheckJs = "java.setResponseBase64('QUJD','text/html'); result"
             rejected = false
             do { _ = try await synth.audioData(source: source, text: "正文", speechRate: 1) } catch { rejected = true }

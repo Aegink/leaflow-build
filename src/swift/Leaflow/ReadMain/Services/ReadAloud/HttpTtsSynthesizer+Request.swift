@@ -21,6 +21,8 @@ extension HttpTtsSynthesizer {
         defer { analyzer.releaseOwnedJSContext() }
         let context = analyzer.jsContext()
         context.exception = nil
+        var scriptError: String?
+        context.exceptionHandler = { _, error in scriptError = error?.toString() ?? "脚本异常" }
         context.setObject(text, forKeyedSubscript: "speakText" as NSString)
         context.setObject(speed, forKeyedSubscript: "speakSpeed" as NSString)
         context.objectForKeyedSubscript("java")?.setValue(text, forProperty: "speakText")
@@ -38,7 +40,7 @@ extension HttpTtsSynthesizer {
         context.objectForKeyedSubscript("java")?.setValue(configure, forProperty: "webSocket")
         if let library = source.jsLib, !library.isEmpty {
             context.evaluateScript(library)
-            guard context.exception == nil else { throw AppError.parsing("朗读源脚本库执行失败") }
+            guard scriptError == nil, context.exception == nil else { throw AppError.parsing("朗读源脚本库执行失败") }
         }
         var sourceHeaders: [String: String] = [:]
         if let header = source.header, !header.isEmpty {
@@ -46,7 +48,7 @@ extension HttpTtsSynthesizer {
             if header.lowercased().hasPrefix("@js:") || header.lowercased().hasPrefix("<js>") {
                 context.exception = nil
                 let value = context.evaluateScript(AnalyzeUrl.processJsPrefix(header))
-                guard context.exception == nil else { throw AppError.parsing("朗读请求头脚本执行失败") }
+                guard scriptError == nil, context.exception == nil else { throw AppError.parsing("朗读请求头脚本执行失败") }
                 if let map = value?.toDictionary() as? [String: String] {
                     sourceHeaders = map
                     raw = ""
@@ -65,6 +67,7 @@ extension HttpTtsSynthesizer {
         analyzer.headers = sourceHeaders
         analyzer.ruleUrl = source.url
         analyzer.parseUrl()
+        if let scriptError { throw AppError.parsing("朗读请求脚本执行失败：\(scriptError)") }
         if let webSocketError { throw webSocketError }
         if let webSocket {
             analyzer.url = webSocket.url.absoluteString

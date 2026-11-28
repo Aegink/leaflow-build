@@ -16,7 +16,8 @@ extension LoginCheckExecutor {
                            send: @escaping (URLRequest) throws -> (Data, HTTPURLResponse) = sendTTSRequest
     ) throws -> TTSCheckJsResult? {
         guard let context = JSContext() else { throw AppError.parsing("无法创建朗读响应脚本上下文") }
-        context.exceptionHandler = { _, _ in }
+        var scriptError: String?
+        context.exceptionHandler = { _, error in scriptError = error?.toString() ?? "脚本异常" }
         JsBridgeTemplates.registerHttpTtsSourceBridge(in: context, source: source, runtimeStore: runtimeStore,
             mergePersistedLoginHeader: true, includeRemovalHooks: false)
         let java = JSValue(newObjectIn: context)!
@@ -90,14 +91,14 @@ extension LoginCheckExecutor {
         """)
         if let library = source.jsLib, !library.isEmpty {
             context.evaluateScript(library)
-            if let error = context.exception { throw AppError.parsing("朗读响应脚本库失败：\(error.toString() ?? "")") }
+            if let error = scriptError ?? context.exception?.toString() { throw AppError.parsing("朗读响应脚本库失败：\(error)") }
         }
         context.exception = nil
         let script = JSScriptCompatibility.sanitizeJavaScriptForCompatibility(
             AnalyzeUrl.processJsPrefix(checkJs), convertLegadoTemplates: true)
         context.evaluateScript(script)
         if let requestError { throw requestError }
-        if let error = context.exception { throw AppError.parsing("朗读响应脚本失败：\(error.toString() ?? "")") }
+        if let error = scriptError ?? context.exception?.toString() { throw AppError.parsing("朗读响应脚本失败：\(error)") }
         return replacement
     }
 
