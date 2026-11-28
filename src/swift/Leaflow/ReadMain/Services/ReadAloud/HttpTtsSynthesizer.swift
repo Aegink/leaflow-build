@@ -79,7 +79,7 @@ final class HttpTtsSynthesizer: HttpTtsSynthesizing {
         var audio = data
         var finalResponse = httpResponse
         if let checkJs = source.loginCheckJs, !checkJs.isEmpty {
-            if let replacement = try checkLogin(checkJs: checkJs, source: source,
+            if let replacement = try await checkLogin(checkJs: checkJs, source: source,
                 response: httpResponse, data: data, request: request, text: text, speed: speed) {
                 audio = replacement.data
                 finalResponse = replacement.httpResponse ?? httpResponse
@@ -95,9 +95,18 @@ final class HttpTtsSynthesizer: HttpTtsSynthesizing {
     private func checkLogin(
         checkJs: String, source: HttpTts, response: HTTPURLResponse, data: Data,
         request: URLRequest, text: String, speed: Int
-    ) throws -> LoginCheckExecutor.TTSCheckJsResult? {
-        try LoginCheckExecutor.executeTTS(checkJs: checkJs, source: source, response: response,
-            responseData: data, request: request, runtimeStore: runtimeStore, speakText: text, speakSpeed: speed)
+    ) async throws -> LoginCheckExecutor.TTSCheckJsResult? {
+        let store = runtimeStore
+        let work = Task.detached {
+            try Task.checkCancellation()
+            let result = try LoginCheckExecutor.executeTTS(checkJs: checkJs, source: source, response: response,
+                responseData: data, request: request, runtimeStore: store, speakText: text, speakSpeed: speed)
+            try Task.checkCancellation()
+            return result
+        }
+        return try await withTaskCancellationHandler {
+            try await work.value
+        } onCancel: { work.cancel() }
     }
 
     /// validate(data:response:source:)（签名域确证：载荷校验域）。

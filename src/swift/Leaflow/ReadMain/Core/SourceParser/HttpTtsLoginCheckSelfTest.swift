@@ -57,8 +57,63 @@ enum HttpTtsLoginCheckSelfTest {
             rejected = false
             do { _ = try await synth.audioData(source: source, text: "正文", speechRate: 1) } catch { rejected = true }
             emit("tts_logincheck_replacement_type_still_validated", ["true"], [String(rejected)])
+            try verifyRetry(store: store, emit: emit)
+            try await verifyRealRetry(store: store, emit: emit)
             emit("tts_logincheck_setup", ["成功"], ["成功"])
         } catch { emit("tts_logincheck_setup", ["成功"], [error.localizedDescription]) }
+    }
+
+    private static func verifyRetry(store: HttpTtsRuntimeStore, emit: (String, [String], [String]) -> Void) throws {
+        let source = HttpTts(numericId: 71, name: "重试源",
+            url: "@js:'https://sample.invalid/'+(source.get('path')||'old')+'?text='+encodeURIComponent(speakText)")
+        let request = try HttpTtsSynthesizer.makeRequest(source: source, text: "重试正文", speed: 2, store: store)
+        let response = HTTPURLResponse(url: request.url!, statusCode: 403, httpVersion: "HTTP/1.1",
+            headerFields: ["Content-Type": "text/html"])!
+        var requests: [URLRequest] = []
+        let retry = try LoginCheckExecutor.executeTTS(checkJs:
+            "source.put('path','new');source.putLoginHeader('{\"X-Login\":\"new\"}');java.initUrl();result=java.getResponse();source.put('retry-status',String(result.code()));result",
+            source: source, response: response, responseData: Data("denied".utf8), request: request,
+            runtimeStore: store, speakText: "重试正文", speakSpeed: 2, send: { request in
+                requests.append(request)
+                return (Data([1, 2, 3]), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1",
+                    headerFields: ["Content-Type": "audio/wav"])!)
+            })
+        emit("tts_logincheck_retry_reparses_persisted_configuration", ["1", "/new", "new", "200", "AQID"],
+            [String(requests.count), requests.first?.url?.path ?? "", requests.first?.value(forHTTPHeaderField: "X-Login") ?? "",
+             store.value(for: "retry-status", sourceID: 71) ?? "", retry?.data.base64EncodedString() ?? ""])
+        let query = requests.first?.url.flatMap { URLComponents(url: $0, resolvingAgainstBaseURL: false)?.queryItems }
+        emit("tts_logincheck_retry_preserves_speak_text", ["重试正文"], [query?.first { $0.name == "text" }?.value ?? ""])
+        var failed = false
+        do {
+            _ = try LoginCheckExecutor.executeTTS(checkJs: "java.getResponse();result", source: source,
+                response: response, responseData: Data(), request: request, runtimeStore: store,
+                speakText: "", speakSpeed: 1, send: { _ in throw URLError(.notConnectedToInternet) })
+        } catch { failed = true }
+        emit("tts_logincheck_retry_network_error_not_swallowed", ["true"], [String(failed)])
+        let chained = try LoginCheckExecutor.executeTTS(checkJs:
+            "result=java.getResponse();java.setResponseBase64(JSON.parse(result.body().string()).audio,'audio/wav');result",
+            source: source, response: response, responseData: Data(), request: request, runtimeStore: store,
+            speakText: "", speakSpeed: 1, send: { request in
+                (Data(#"{"audio":"QUJD"}"#.utf8), HTTPURLResponse(url: request.url!, statusCode: 200,
+                    httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!)
+            })
+        emit("tts_logincheck_retry_then_base64_replacement", ["ABC", "audio/wav"],
+            [String(decoding: chained?.data ?? Data(), as: UTF8.self), chained?.httpResponse?.value(forHTTPHeaderField: "Content-Type") ?? ""])
+    }
+
+    private static func verifyRealRetry(store: HttpTtsRuntimeStore, emit: (String, [String], [String]) -> Void) async throws {
+        guard let raw = ProcessInfo.processInfo.environment["T1602_WS_PORT"], let port = Int(raw), (1...65535).contains(port) else {
+            throw AppError.parsing("缺少重试回环端口")
+        }
+        let source = HttpTts(numericId: 72, name: "真实重试", url: "http://127.0.0.1:\(port)/preview.wav",
+            contentType: "audio/.*", header: #"{"X-T1602":"fixed"}"#,
+            loginCheckJs: "if(result.code()===403){java.initUrl();result=java.getResponse();}result")
+        let initial = LoginCheckTransport()
+        initial.status = 403
+        let synth = HttpTtsSynthesizer(transport: initial, webSocketTransport: URLSessionHttpTtsWebSocketTransport(), runtimeStore: store)
+        let audio = try await synth.audioData(source: source, text: "固定正文", speechRate: 1)
+        emit("tts_logincheck_real_http_retry_returns_wav", ["1", "RIFF", "4844"],
+            [String(initial.count), String(decoding: audio.prefix(4), as: UTF8.self), String(audio.count)])
     }
 }
 

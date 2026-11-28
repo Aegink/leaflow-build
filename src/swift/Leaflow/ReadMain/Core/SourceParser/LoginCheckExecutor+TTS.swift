@@ -12,7 +12,9 @@ extension LoginCheckExecutor {
 
     static func executeTTS(checkJs: String, source: HttpTts, response: HTTPURLResponse,
                            responseData: Data, request: URLRequest, runtimeStore: HttpTtsRuntimeStore,
-                           speakText: String, speakSpeed: Int) throws -> TTSCheckJsResult? {
+                           speakText: String, speakSpeed: Int,
+                           send: @escaping (URLRequest) throws -> (Data, HTTPURLResponse) = sendTTSRequest
+    ) throws -> TTSCheckJsResult? {
         guard let context = JSContext() else { throw AppError.parsing("无法创建朗读响应脚本上下文") }
         context.exceptionHandler = { _, _ in }
         JsBridgeTemplates.registerHttpTtsSourceBridge(in: context, source: source, runtimeStore: runtimeStore,
@@ -40,6 +42,25 @@ extension LoginCheckExecutor {
                 httpVersion: "HTTP/1.1", headerFields: ["Content-Type": type]))
         }
         java.setValue(setResponse, forProperty: "setResponseBase64")
+        // 原指南与0x10015e170/15e460：重解析后重新发送，最终结果沿用新的响应。
+        var currentRequest = request
+        var requestError: Error?
+        let initURL: @convention(block) () -> Void = {
+            do {
+                currentRequest = try HttpTtsSynthesizer.makeRequest(source: source, text: speakText,
+                    speed: speakSpeed, store: runtimeStore)
+            } catch { requestError = error }
+        }
+        let getResponse: @convention(block) () -> [String: Any] = {
+            guard requestError == nil else { return [:] }
+            do {
+                let (data, response) = try send(currentRequest)
+                replacement = TTSCheckJsResult(data: data, httpResponse: response)
+                return responseFields(data: data, response: response)
+            } catch { requestError = error; return [:] }
+        }
+        java.setValue(initURL, forProperty: "initUrl")
+        context.setObject(getResponse, forKeyedSubscript: "_ttsGetResponse" as NSString)
         var responseHeaders: [String: String] = [:]
         for (key, value) in response.allHeaderFields {
             let name = String(describing: key), text = String(describing: value)
@@ -50,8 +71,8 @@ extension LoginCheckExecutor {
         context.setObject(String(data: responseData, encoding: .utf8) ?? "", forKeyedSubscript: "_rBody" as NSString)
         context.setObject(responseHeaders, forKeyedSubscript: "_rHeaders" as NSString)
         context.evaluateScript("""
-        var result = {
-            _code: _rCode, _body: _rBody, _headers: _rHeaders,
+        function __ttsWrapResponse(fields) { return {
+            _code: fields.code, _body: fields.body, _headers: fields.headers || {},
             code: function() { return this._code; },
             body: function() {
                 var body = this._body;
@@ -63,7 +84,9 @@ extension LoginCheckExecutor {
             },
             header: function(name) { return this.headers(name); },
             message: function() { return ''; }
-        };
+        }; }
+        var result = __ttsWrapResponse({code:_rCode,body:_rBody,headers:_rHeaders});
+        java.getResponse = function() { return __ttsWrapResponse(_ttsGetResponse()); };
         """)
         if let library = source.jsLib, !library.isEmpty {
             context.evaluateScript(library)
@@ -73,7 +96,26 @@ extension LoginCheckExecutor {
         let script = JSScriptCompatibility.sanitizeJavaScriptForCompatibility(
             AnalyzeUrl.processJsPrefix(checkJs), convertLegadoTemplates: true)
         context.evaluateScript(script)
+        if let requestError { throw requestError }
         if let error = context.exception { throw AppError.parsing("朗读响应脚本失败：\(error.toString() ?? "")") }
         return replacement
+    }
+
+    private static func responseFields(data: Data, response: HTTPURLResponse) -> [String: Any] {
+        var headers: [String: String] = [:]
+        for (key, value) in response.allHeaderFields {
+            let name = String(describing: key)
+            headers[name] = String(describing: value)
+            headers[name.lowercased()] = String(describing: value)
+        }
+        return ["code": response.statusCode, "body": String(data: data, encoding: .utf8) ?? "", "headers": headers]
+    }
+
+    static func sendTTSRequest(_ request: URLRequest) throws -> (Data, HTTPURLResponse) {
+        let result = SyncHTTPClient.execute(request: request, policy: .reloadIgnoringCache)
+        guard let url = request.url, result.code > 0,
+              let response = HTTPURLResponse(url: url, statusCode: result.code,
+                httpVersion: "HTTP/1.1", headerFields: result.headers) else { throw URLRequestError.invalidResponse }
+        return (result.body, response)
     }
 }
