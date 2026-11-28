@@ -76,30 +76,28 @@ final class HttpTtsSynthesizer: HttpTtsSynthesizing {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw URLRequestError.invalidResponse
         }
-        try validate(
-            data: data, response: httpResponse, source: source)
-        // 登录检查域（checkLogin checkJs 域确证）。
+        var audio = data
+        var finalResponse = httpResponse
         if let checkJs = source.loginCheckJs, !checkJs.isEmpty {
-            let bodyString = String(data: data, encoding: .utf8) ?? ""
-            try checkLogin(
-                checkJs: checkJs, source: source,
-                statusCode: httpResponse.statusCode,
-                bodyString: bodyString,
-                responseHeaders: httpResponse.allHeaderFields)
+            if let replacement = try checkLogin(checkJs: checkJs, source: source,
+                response: httpResponse, data: data, request: request, text: text, speed: speed) {
+                audio = replacement.data
+                finalResponse = replacement.httpResponse ?? httpResponse
+            }
         }
-        return data
+        try Task.checkCancellation()
+        try validate(data: audio, response: finalResponse, source: source)
+        return audio
     }
 
     /// checkLogin(checkJs:source:statusCode:bodyString:headers:)
     /// （签名域确证：JS 登录检查桥）。
     private func checkLogin(
-        checkJs: String, source: HttpTts, statusCode: Int,
-        bodyString: String, responseHeaders: [AnyHashable: Any]
-    ) throws {
-        // loginCheckJs 域还原桥（JS 引擎判定域）。
-        guard statusCode != 401, statusCode != 403 else {
-            throw URLRequestError.requiresLogin
-        }
+        checkJs: String, source: HttpTts, response: HTTPURLResponse, data: Data,
+        request: URLRequest, text: String, speed: Int
+    ) throws -> LoginCheckExecutor.TTSCheckJsResult? {
+        try LoginCheckExecutor.executeTTS(checkJs: checkJs, source: source, response: response,
+            responseData: data, request: request, runtimeStore: runtimeStore, speakText: text, speakSpeed: speed)
     }
 
     /// validate(data:response:source:)（签名域确证：载荷校验域）。
