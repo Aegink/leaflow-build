@@ -142,6 +142,7 @@ struct ReaderSettingsView: View {
                     Text(option.title).tag(option)
                 }
             }
+            .onChange(of: settings.screenAwake) { _, _ in settings.save() }
             Toggle(
                 "音量键翻页",
                 isOn: $settings.volumeButtonPageTurnEnabled)

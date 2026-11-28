@@ -67,7 +67,11 @@ final class ReadingSettings: Codable {
     var pageMode: PageMode = .horizontal
     var fontName: String = "System"
     var bottomToolbarStyle: ReaderBottomToolbarStyle = .minimal
-    var screenAwake: ScreenAwakeOption = .system
+    var screenAwake: ScreenAwakeOption = .system {
+        didSet {
+            if screenAwake != oldValue, screenAwakeApplicationActive { applyScreenAwakeSetting() }
+        }
+    }
     var searchMode: SearchMode = .all
     var exploreRanking: ExploreSectionRankingMode = .defaultOrder
     var exploreCacheTTL: ExploreCacheTTLOption = .thirtyMinutes
@@ -188,6 +192,11 @@ final class ReadingSettings: Codable {
 
     @ObservationIgnored var persistenceDefaults: UserDefaults = .standard
     @ObservationIgnored var persistedValues: [String: Any]?
+    @ObservationIgnored var screenAwakeExpirationTask: Task<Void, Never>?
+    @ObservationIgnored var screenAwakeApplicationActive = false
+    @ObservationIgnored var screenAwakeGeneration = 0
+    @ObservationIgnored var setScreenIdleTimerDisabled: (Bool) -> Void = { UIApplication.shared.isIdleTimerDisabled = $0 }
+    @ObservationIgnored var waitForScreenAwakeExpiration: (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
     var cachedLayout: ReaderLayoutResult?
 
     init(defaults: UserDefaults = .standard) {

@@ -146,6 +146,9 @@ extension ReadingSettings {
         hasPendingSave = false
         pendingSaveTask?.cancel()
         pendingSaveTask = nil
+        if persistenceDefaults === UserDefaults.standard {
+            Self.synchronizeScreenAwakePreference()
+        }
     }
 
     func schedulePendingSave(after interval: TimeInterval = 0.5) {

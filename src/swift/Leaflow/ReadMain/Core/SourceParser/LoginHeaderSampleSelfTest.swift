@@ -57,6 +57,11 @@ enum LoginHeaderSampleSelfTest {
             baseUrl: source.bookSourceUrl, source: source)
         emit("login_header_reaches_request", ["base", "request=fixed"],
             [request.headers["X-Source"] ?? "", request.headers["Cookie"] ?? ""])
+        let analyzer = AnalyzeRule(source: source, parent: nil, isolatedJavaScript: true)
+        defer { analyzer.releaseOwnedJSContext() }
+        analyzer.setContent("固定正文", baseUrl: source.bookSourceUrl)
+        emit("login_header_reaches_rule_source_bridge", ["request=fixed"],
+            [analyzer.getString(rule: "@js:source.getLoginHeaderMap().Cookie", isUrl: false) ?? ""])
         let cookies = [
             HTTPCookie(properties: [.domain: ".example.invalid", .path: "/", .name: "valid", .value: "yes"])!,
             HTTPCookie(properties: [.domain: "other.invalid", .path: "/", .name: "wrong", .value: "no"])!,

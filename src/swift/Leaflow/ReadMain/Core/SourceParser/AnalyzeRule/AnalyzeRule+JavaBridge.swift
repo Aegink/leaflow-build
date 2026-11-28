@@ -109,6 +109,11 @@ extension AnalyzeRule {
         JsBridgeTemplates.registerUtilBridge(in: context)
         setupJavaObject()
         registerJavaBridgeMethods()
+        if let source {
+            LoginService.installLoginSourceBridge(into: self, source: source, defaults: .standard)
+        } else {
+            context.setObject(JSValue(undefinedIn: context), forKeyedSubscript: "source" as NSString)
+        }
     }
 
     /// 伪代码 0x1000272d8（L498-613）：java 对象装配——java 键域方法表

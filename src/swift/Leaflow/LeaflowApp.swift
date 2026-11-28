@@ -131,6 +131,15 @@ struct LeaflowApp: App {
                 }
             }
             .environmentObject(bookService)
+            .onChange(of: scenePhase, initial: true) { _, phase in
+                guard !ProcessInfo.processInfo.arguments.contains("-selfTestRules") else { return }
+                if phase == .active {
+                    ReadingSettings.synchronizeScreenAwakePreference()
+                    ReadingSettings.screenAwakeRuntime.refreshScreenAwakeSettingForActiveApp()
+                } else {
+                    ReadingSettings.screenAwakeRuntime.suspendScreenAwakeSettingForInactiveApp()
+                }
+            }
         }
     }
 

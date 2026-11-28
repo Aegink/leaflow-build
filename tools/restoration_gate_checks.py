@@ -63,7 +63,7 @@ SWIFT_SOURCE_PARTS = {
     "ReadMain/Core/ReadingSettings.swift": ["ReadMain/Core/ReadingSettings+Background.swift",
         "ReadMain/Core/ReadingSettings+Types.swift", "ReadMain/Core/ReadingSettings+Codable.swift",
         "ReadMain/Core/ReadingSettings+Rendering.swift", "ReadMain/Core/ReadingSettings+Layout.swift",
-        "ReadMain/Core/ReadingSettings+Persistence.swift"],
+        "ReadMain/Core/ReadingSettings+Persistence.swift", "ReadMain/Core/ReadingSettings+ScreenAwake.swift"],
     "ReadMain/Core/SourceParser/LocalSourceParser.swift": ["ReadMain/Core/SourceParser/LocalSourceParser+Reviews.swift"],
     "ReadMain/Views/Reader/ReaderViewModifiers.swift": ["ReadMain/Views/Reader/ReaderSelectionPresentations.swift",
                                                         "ReadMain/Views/Reader/ReaderReviewPresentation.swift"],
