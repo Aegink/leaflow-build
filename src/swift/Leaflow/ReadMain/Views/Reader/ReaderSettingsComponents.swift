@@ -107,7 +107,7 @@ struct FontPickerView: View {
                 .accessibilityIdentifier("reader-font-import")
             }
         }
-        .searchable(text: $searchText, prompt: "搜索字体")
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索字体")
         .navigationTitle("选择字体")
         .sheet(isPresented: $showFileImporter) {
             CopiedFilePicker(allowedContentTypes: [.font], allowsMultipleSelection: false) { urls in
