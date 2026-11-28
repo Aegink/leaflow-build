@@ -12,13 +12,13 @@ extension SourceLoginView {
         guard item.action?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else { return }
         fieldActionScheduler.schedule(key: item.name, debounced: debounced) {
             guard loginValues[item.name] == values[item.name] else { return }
-            executeLoginUiAction(for: item, values: loginValues)
+            executeLoginUiAction(for: item, values: loginValues, fieldAction: true)
         }
     }
 
     /// executeLoginUiAction(for:values:)（签名确证）。
     func executeLoginUiAction(
-        for item: LoginUiItem, values: [String: String]
+        for item: LoginUiItem, values: [String: String], fieldAction: Bool = false
     ) {
         let merged = mergedLoginActionValues(from: values)
         loginValues = merged
@@ -32,21 +32,26 @@ extension SourceLoginView {
             showRemoteBrowser = true
             return
         }
-        runLoginAction(action)
+        runLoginAction(action, fieldAction: fieldAction)
     }
 
-    func runLoginAction(_ action: String?) {
+    func runLoginAction(_ action: String?, fieldAction: Bool = false) {
         guard !isExecuting else { return }
         fieldActionScheduler.cancelAll()
         let values = loginValues
         isExecuting = true
+        isFieldActionExecuting = fieldAction
         actionStatus = nil
         Task {
             let result = await LoginService.runLocalAction(source: source, action: action,
                 formData: values, book: book, chapter: chapter)
-            loginValues = result.values
+            var updated = result.values
+            // 后台字段动作执行期间的新输入优先，不能被旧快照回填覆盖。
+            for (key, value) in loginValues where values[key] != value { updated[key] = value }
+            loginValues = updated
             actionStatus = result.success ? (action == nil ? "登录成功" : "动作执行成功") : result.message
             isExecuting = false
+            isFieldActionExecuting = false
         }
     }
 

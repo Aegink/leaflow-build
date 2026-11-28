@@ -101,6 +101,7 @@ struct SourceLoginView: View {
     @State var showRemoteBrowser = false
     @State var actionURL: URL?
     @State var isExecuting = false
+    @State var isFieldActionExecuting = false
     @State var actionStatus: String?
     @State var resolvedViewNames: [String: String] = [:]
     @State var viewNameResolutionTask: Task<Void, Never>?
@@ -157,7 +158,7 @@ struct SourceLoginView: View {
             .onReceive(NotificationCenter.default.publisher(for: LoginService.dataUpdatedNotification)) { notification in
                 guard notification.userInfo?["sourceStateKey"] as? String == source.stateKey else { return }
                 if let data = notification.userInfo?["data"] as? [String: Any] {
-                    applyLoginUiDataUpdate(data.mapValues { $0 is NSNull ? nil : String(describing: $0) })
+                    if !isExecuting { applyLoginUiDataUpdate(data.mapValues { $0 is NSNull ? nil : String(describing: $0) }) }
                 } else {
                     loginValues = LoginService.resolvedLoginInfo(source: source, items: loginItems)
                 }
@@ -329,7 +330,7 @@ struct SourceLoginView: View {
                 .textContentType(.password)
                 .textFieldStyle(.roundedBorder)
                 .frame(minHeight: 44)
-                .disabled(isExecuting)
+                .disabled(isExecuting && !isFieldActionExecuting)
                 .accessibilityIdentifier("source-login-field-\(item.name)")
         case "select":
             Picker(resolvedViewName(for: item), selection: binding(for: item)) {
@@ -339,7 +340,7 @@ struct SourceLoginView: View {
             }
             .pickerStyle(.menu)
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            .disabled(isExecuting)
+            .disabled(isExecuting && !isFieldActionExecuting)
             .accessibilityIdentifier("source-login-field-\(item.name)")
         case "checkbox", "toggle":
             Button {
@@ -352,7 +353,7 @@ struct SourceLoginView: View {
             }
             .buttonStyle(.plain)
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            .disabled(isExecuting)
+            .disabled(isExecuting && !isFieldActionExecuting)
             .accessibilityIdentifier("source-login-field-\(item.name)")
         default:
             TextField(
@@ -361,7 +362,7 @@ struct SourceLoginView: View {
                 .frame(minHeight: 44)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
-                .disabled(isExecuting)
+                .disabled(isExecuting && !isFieldActionExecuting)
                 .accessibilityIdentifier("source-login-field-\(item.name)")
         }
     }
@@ -376,6 +377,7 @@ struct SourceLoginView: View {
     /// binding(for: LoginUiItem)（签名确证）。
     func binding(for item: LoginUiItem) -> Binding<String> {
         Binding(get: { currentValue(for: item) }, set: { value in
+            guard value != currentValue(for: item) else { return }
             loginValues[item.name] = value
             flushEditedLoginInfo()
             scheduleFieldAction(for: item, values: loginValues,
