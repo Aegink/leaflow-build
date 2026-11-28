@@ -39,6 +39,7 @@ struct TtsSourceManageView: View {
         let source: HttpTts?
     }
     @State private var editSelection: EditSelection?
+    @State private var configSource: HttpTts?
     @State private var showNetworkImport = false
     @State private var importURLString = ""
     @State private var statusMessage = ""
@@ -110,6 +111,7 @@ struct TtsSourceManageView: View {
         .sheet(isPresented: $showHelp) {
             TtsHelpSheet()
         }
+        .sheet(item: $configSource) { source in TtsSourceConfigSheet(source: source) }
         .fileImporter(isPresented: $showFileImport, allowedContentTypes: [.json, .plainText]) { result in
             switch result {
             case .success(let url): importFromFile(url)
@@ -190,7 +192,7 @@ struct TtsSourceManageView: View {
                     Button {
                         editSelection = EditSelection(source: current)
                     } label: {
-                        Text("配置")
+                        Text("编辑")
                     }
                     .buttonStyle(.borderless)
                     .accessibilityIdentifier("tts-source-current-edit")
@@ -256,14 +258,16 @@ struct TtsSourceManageView: View {
                     Label("试听", systemImage: "play.circle")
                 }
                 Button {
-                    editSelection = EditSelection(source: source)
+                    configSource = source
                 } label: {
                     Label("配置", systemImage: "gearshape")
                 }
+                Button("编辑") { editSelection = EditSelection(source: source) }
             } label: {
                 Image(systemName: "ellipsis.circle")
                     .foregroundStyle(.secondary)
             }
+            .accessibilityIdentifier("tts-source-row-actions-\(source.id)")
         }
     }
 

@@ -1,6 +1,35 @@
 import XCTest
 
 extension LeaflowSmokeTests {
+    func testTtsConfigurationActionAndColdPersistence() {
+        executionTimeAllowance = 300
+        func openConfig(_ arguments: [String]) {
+            launch(arguments)
+            let actions = app.buttons["tts-source-row-actions-1602005"]
+            XCTAssertTrue(actions.waitForExistence(timeout: 15))
+            actions.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            app.buttons["配置"].tap()
+            XCTAssertTrue(app.textFields["tts-config-text-account"].waitForExistence(timeout: 15))
+        }
+        openConfig(["-smokeTtsSources", "-smokeTtsSourcesReset", "-smokeTtsConfigSeed"])
+        let account = app.textFields["tts-config-text-account"]
+        account.tap()
+        account.typeText("fixed")
+        app.buttons["tts-config-action-apply"].tap()
+        let status = app.textFields["tts-config-text-status"]
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == %@", "fixed-saved"), object: status)], timeout: 15), .completed)
+        XCTAssertEqual(app.staticTexts["tts-config-result"].label, "配置已执行")
+        capture("tts-configuration-action")
+        app.buttons["保存"].tap()
+        openConfig(["-smokeTtsSources"])
+        XCTAssertEqual(account.value as? String, "fixed")
+        XCTAssertEqual(status.value as? String, "fixed-saved")
+        capture("tts-configuration-cold")
+        app.buttons["关闭"].tap()
+        passed("tts_configuration_action_persistence")
+    }
+
     func testTtsHelpLoadsAndSearches() {
         launch(["-smokeTtsSources"])
         let help = app.buttons["tts-source-help"]

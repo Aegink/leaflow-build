@@ -88,6 +88,10 @@ enum ReaderSpeechSupport {
     static let preferences = ReadAloudPreferences(defaults: defaults)
     static let sources: HttpTtsSourceRepository = {
         let repository = HttpTtsSourceRepository(defaults: defaults, runtimeStore: runtimeStore)
+        if ProcessInfo.processInfo.arguments.contains("-smokeTtsConfigSeed"),
+           repository.source(id: HttpTtsConfigurationActionSelfTest.fixture.id) == nil {
+            try? repository.add(HttpTtsConfigurationActionSelfTest.fixture)
+        }
         preferences.migrateLegacySourceSelection(using: repository)
         return repository
     }()
