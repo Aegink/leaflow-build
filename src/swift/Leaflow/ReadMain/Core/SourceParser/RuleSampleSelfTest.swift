@@ -128,6 +128,7 @@ enum RuleSampleSelfTest {
             await ReadingSettingsSampleSelfTest.run(emit: emit)
             await AppearanceBackupSampleSelfTest.run(emit: emit)
             LoginModelSampleSelfTest.run(emit: emit)
+            LoginActionSampleSelfTest.run(emit: emit)
             emitRaw("SELFTEST_END")
             exit(0)
         }

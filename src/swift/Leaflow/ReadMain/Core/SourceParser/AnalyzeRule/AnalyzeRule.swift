@@ -107,9 +107,14 @@ final class AnalyzeRule {
     }
 
     /// 伪代码 0x1000113fc（L1544-1557）。
-    init(source: BookSource?, parent: AnalyzeRule?) {
+    init(source: BookSource?, parent: AnalyzeRule?, isolatedJavaScript: Bool = false) {
         self.source = source
         self.parent = parent
+        // 登录脚本不能从复用上下文继承其他书源的函数、表单或凭据。
+        if isolatedJavaScript {
+            ownedJSContext = JSContext()
+            if let ownedJSContext { Self.setupJSContextBase(ownedJSContext) }
+        }
         if let parent {
             baseUrl = parent.baseUrl
             book = parent.book

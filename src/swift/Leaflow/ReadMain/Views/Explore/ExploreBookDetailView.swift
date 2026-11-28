@@ -99,6 +99,7 @@ struct BookDetailView: View {
     @State var isLoadingChapters = false
     @State var isRefreshingInfo = false
     @State var showVariableEditor = false
+    @State var showSourceLogin = false
     @State var showBookVariableEditor = false
     @State var sourceVariableText: String = ""
     @State var bookVariableText: String = ""
@@ -274,6 +275,11 @@ struct BookDetailView: View {
         }
         .sheet(isPresented: $showVariableEditor) {
             variableEditorSheet
+        }
+        .sheet(isPresented: $showSourceLogin) {
+            if let source = sourceStateSource {
+                SourceLoginView(source: source, book: displayBook, chapter: nil)
+            }
         }
         .sheet(isPresented: $showBookVariableEditor) {
             bookVariableEditorSheet

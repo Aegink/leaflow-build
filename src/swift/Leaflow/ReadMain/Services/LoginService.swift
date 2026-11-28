@@ -125,23 +125,41 @@ enum LoginService {
 
     /// 伪代码 0x10034bd74（L659-671）：登录信息表。
     static func loginInfoMap(
-        source: BookSource, persistDefaults: Bool
+        source: BookSource, persistDefaults: Bool, defaults: UserDefaults = .standard
     ) -> [String: String] {
-        let persisted = UserDefaults.standard.dictionary(
-            withValuesOfType: String.self,
-            forKey: loginInfoDefaultsCacheKey(source: source)) as? [String: String]
-        var map = persisted ?? loginInfoDefaults(source: source)
-        if persistDefaults {
-            UserDefaults.standard.set(map, forKey: loginInfoDefaultsCacheKey(source: source))
+        let key = loginInfoStateKey(source: source)
+        if let stored = parseLoginInfoMap(from: defaults.string(forKey: key)) { return stored }
+        // 只补迁旧重建保存值，不删除旧键，也不覆盖已存在的原状态。
+        if defaults.object(forKey: key) == nil,
+           let legacy = defaults.dictionary(forKey: loginInfoDefaultsCacheKey(source: source)) as? [String: String] {
+            if persistDefaults { persistLoginInfo(legacy, source: source, defaults: defaults) }
+            return legacy
         }
+        let map = loginInfoDefaults(source: source)
+        if persistDefaults && !map.isEmpty { persistLoginInfo(map, source: source, defaults: defaults) }
         return map
+    }
+
+    /// 0x10034bd74 / 0x10035bce4：BookSource 状态域的 loginInfo_ JSON。
+    static func loginInfoStateKey(source: BookSource) -> String {
+        "\(source.stateKey).loginInfo_"
+    }
+
+    @discardableResult
+    static func persistLoginInfo(
+        _ values: [String: String], source: BookSource, defaults: UserDefaults = .standard
+    ) -> Bool {
+        guard let data = try? JSONEncoder().encode(values),
+              let json = String(data: data, encoding: .utf8) else { return false }
+        defaults.set(json, forKey: loginInfoStateKey(source: source))
+        return parseLoginInfoMap(from: defaults.string(forKey: loginInfoStateKey(source: source))) == values
     }
 
     /// 伪代码 0x10035229c（L643-653）：默认值（LoginUiItem defaultValue 域）。
     static func loginInfoDefaults(source: BookSource) -> [String: String] {
         guard let uiJson = source.loginUi else { return [:] }
         guard let items = decodeLoginUiItems(from: uiJson) else { return [:] }
-        return resolvedLoginInfo(source: source, items: items)
+        return Dictionary(items.map { ($0.name, $0.resolvedDefaultValue) }, uniquingKeysWith: { _, last in last })
     }
 
     /// 伪代码 0x100351524（L655-657）：JSON 串 → 表。
@@ -152,12 +170,17 @@ enum LoginService {
 
     /// 伪代码 0x100352444（L673-685）：解析后的登录信息。
     static func resolvedLoginInfo(
-        source: BookSource, items: [LoginUiItem]?
+        source: BookSource, items: [LoginUiItem]?, defaults: UserDefaults = .standard
     ) -> [String: String] {
-        guard let items else { return [:] }
-        var map: [String: String] = [:]
+        let items = items ?? decodeLoginUiItems(from: source.loginUi) ?? []
+        var map = Dictionary(items.map { ($0.name, $0.resolvedDefaultValue) }, uniquingKeysWith: { _, last in last })
+        map.merge(loginInfoMap(source: source, persistDefaults: false, defaults: defaults)) { _, stored in stored }
+        // 0x100352444：select/toggle 的空存值回退默认；普通输入的空值必须保留。
         for item in items {
-            map[item.name] = item.resolvedDefaultValue
+            let kind = item.type?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if (kind == "select" || kind == "toggle"), map[item.name]?.isEmpty != false {
+                map[item.name] = item.resolvedDefaultValue
+            }
         }
         return map
     }
@@ -194,12 +217,14 @@ enum LoginService {
 
     /// 伪代码 0x100351d08（L1239-1248）：登录 JS。
     static func getLoginJs(source: BookSource) -> String? {
-        source.loginUrl
-    }
-
-    /// 伪代码 0x10034f814（L361-381）：规则引擎配置（AnalyzeRule 域消费）。
-    static func configuredAnalyzeRule(source: BookSource) -> String? {
-        source.loginUrl
+        guard let raw = source.loginUrl else { return nil }
+        if raw.hasPrefix("@js:") { return String(raw.dropFirst(4)) }
+        if raw.hasPrefix("<js>") {
+            let start = raw.index(raw.startIndex, offsetBy: 4)
+            guard let end = raw.lastIndex(of: "<"), end >= start else { return nil }
+            return String(raw[start..<end])
+        }
+        return raw
     }
 
     /// 伪代码 0x1003501d4（L383-450）：登录 UI 回调注入（JS 域确证）。
@@ -209,12 +234,6 @@ enum LoginService {
         // JS 回调域（T-201 消费）。
     }
 
-    /// 伪代码 0x1003518a8（L475-575）：登录结果注入。
-    static func injectLoginResultObject(
-        _ map: [String: String], source: BookSource
-    ) {
-        // JS 结果对象注入域（T-201 消费）。
-    }
 }
 
 // MARK: - T-1401-13/15 逐域补齐（登录域）
@@ -222,22 +241,15 @@ enum LoginService {
 extension LoginService {
 
     /// 伪代码 0x100354730（L859-881）：登录执行（登录规则域）。
-    func login(source: BookSource, formData: [String: String]) async -> Bool {
-        guard let rule = source.loginUrl, !rule.isEmpty else { return true }
-        Logger.log(
-            "[login] source=\(source.bookSourceName) fields=\(formData.count)",
-            level: .verbose)
-        return await executeButtonAction(source: source, action: rule, formData: formData)
+    static func login(source: BookSource, formData: [String: String]) async -> Bool {
+        await runLocalAction(source: source, action: nil, formData: formData).success
     }
 
     /// 伪代码 0x100355144（L946-1014）：按钮动作执行（loginUrl/js 域）。
-    func executeButtonAction(
+    static func executeButtonAction(
         source: BookSource, action: String, formData: [String: String]
     ) async -> Bool {
-        guard !action.isEmpty else { return true }
-        let executor = LoginCheckExecutor(
-            analyzer: AnalyzeRule.sharedInstance())
-        return executor.execute(action)
+        await runLocalAction(source: source, action: action, formData: formData).success
     }
 
     /// 伪代码 0x100356184（L1071-1083）：登录主机保存（loginHostStorage

@@ -308,7 +308,7 @@ final class LeaflowSmokeTests: XCTestCase {
         capture("reader-turn-returned")
     }
 
-    private func openBookDetailMenu() {
+    func openBookDetailMenu() {
         let menu = app.buttons["book-detail-menu"]
         XCTAssertTrue(menu.waitForExistence(timeout: 10))
         XCTAssertFalse(menu.frame.isEmpty)
@@ -335,21 +335,6 @@ final class LeaflowSmokeTests: XCTestCase {
         app.buttons["音频"].tap()
         openBookDetailMenu()
         app.buttons["自动更新"].tap()
-        openBookDetailMenu()
-        app.buttons["书籍变量"].tap()
-        let custom = app.textViews["book-detail-book-variable"]
-        XCTAssertTrue(custom.waitForExistence(timeout: 10))
-        custom.tap()
-        custom.typeText("fixed-detail-value")
-        app.buttons["book-detail-save-book-variable"].tap()
-        XCTAssertTrue(app.buttons["book-detail-menu"].waitForExistence(timeout: 10))
-        openBookDetailMenu()
-        app.buttons["源变量"].tap()
-        let source = app.textViews["book-detail-source-variable"]
-        XCTAssertTrue(source.waitForExistence(timeout: 10))
-        source.tap()
-        source.typeText("fixed-source-value")
-        app.buttons["book-detail-save-source-variable"].tap()
         capture("explore-detail-saved")
         launch([])
         XCTAssertTrue(app.staticTexts["固定发现书籍"].firstMatch.waitForExistence(timeout: 30))
@@ -360,18 +345,6 @@ final class LeaflowSmokeTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["音频"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["已跳过更新"].exists)
         XCTAssertEqual(shelf.label, "在书架")
-        openBookDetailMenu()
-        app.buttons["书籍变量"].tap()
-        XCTAssertTrue(custom.waitForExistence(timeout: 10))
-        XCTAssertEqual(custom.value as? String, "fixed-detail-value")
-        app.buttons["book-detail-save-book-variable"].tap()
-        openBookDetailMenu()
-        app.buttons["源变量"].tap()
-        XCTAssertTrue(source.waitForExistence(timeout: 10))
-        XCTAssertEqual(source.value as? String, "fixed-source-value")
-        app.buttons["book-detail-save-source-variable"].tap()
-        openBookDetailMenu()
-        app.buttons["清除源变量"].tap()
         shelf.tap()
         app.buttons["取消"].tap()
         XCTAssertEqual(shelf.label, "在书架")

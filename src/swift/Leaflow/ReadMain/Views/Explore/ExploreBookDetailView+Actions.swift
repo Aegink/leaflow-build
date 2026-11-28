@@ -10,10 +10,12 @@ extension BookDetailView {
         Menu {
             // "配置登录" L3546。
             Button {
-                // TODO(T-401-06): SourceLoginView 接入（source:sourceStateSource）。
+                showSourceLogin = true
             } label: {
                 Label("配置登录", systemImage: "person.badge.key")
             }
+            .disabled(sourceStateSource == nil)
+            .accessibilityIdentifier("book-detail-login")
             // "源变量" L3597。
             Button {
                 sourceVariableText = currentSourceVariable()

@@ -15,6 +15,7 @@ struct LoginUiItem: Codable, Identifiable, Hashable {
     // 旧重建页面仍消费label/values，原版chars保留空位。
     var label: String?
     var values: [String]? { chars?.compactMap { $0 } }
+    // TODO(T-1602): 原版身份生成仍需取证，不能把字段解码视为整个模型还原。
     var id: String { name + "/" + (type ?? "") + "/" + (viewName ?? "") }
 
     var resolvedDefaultValue: String {
@@ -25,13 +26,10 @@ struct LoginUiItem: Codable, Identifiable, Hashable {
     }
 
     var literalViewName: String? {
-        switch (type ?? "").lowercased() {
-        case "button": return "button"
-        case "text": return "text"
-        case "password": return "password"
-        case "checkbox": return "checkbox"
-        default: return nil
-        }
+        // 0x10034d158 / 0x10035c2fc：只有两端单引号的文本是字面值。
+        guard let text = viewName?.trimmingCharacters(in: .whitespacesAndNewlines),
+              text.count >= 2, text.first == "'", text.last == "'" else { return nil }
+        return String(text.dropFirst().dropLast())
     }
 
     enum CodingKeys: String, CodingKey {
