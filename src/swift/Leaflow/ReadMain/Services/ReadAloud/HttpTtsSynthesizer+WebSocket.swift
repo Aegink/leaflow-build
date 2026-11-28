@@ -16,7 +16,7 @@ extension HttpTtsSynthesizer {
                 try Task.checkCancellation()
                 let frame = try await receive(from: connection, timeoutMilliseconds: configuration.receiveTimeoutMilliseconds)
                 let action = try HttpTtsWebSocketAction.evaluate(frame: frame, script: configuration.onMessageScript,
-                    stateJSON: stateJSON, source: source, text: text, speed: speed)
+                    stateJSON: stateJSON, source: source, text: text, speed: speed, runtimeStore: runtimeStore)
                 if let error = action.errorMessage, !error.isEmpty { throw HttpTtsWebSocketError.sourceReported(error) }
                 if let chunk = action.audio {
                     guard chunk.count <= configuration.maximumAudioBytes - audio.count else {

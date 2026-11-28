@@ -111,6 +111,7 @@ enum RuleSampleSelfTest {
             HttpTtsAudioCacheSampleSelfTest.run(emit: emit)
             HttpTtsRepositorySampleSelfTest.run(emit: emit)
             await HttpTtsPreviewSampleSelfTest.run(emit: emit)
+            HttpTtsSourceBridgeSelfTest.run(emit: emit)
             await TtsPlayerSampleSelfTest.run(emit: emit)
             BookshelfActionSampleSelfTest.run(emit: emit)
             await SourceImportSampleSelfTest.run(emit: emit)

@@ -31,7 +31,7 @@ final class HttpTtsSynthesizer: HttpTtsSynthesizing {
 
     private let transport: HttpTtsTransporting
     let webSocketTransport: HttpTtsWebSocketTransporting
-    private let runtimeStore: HttpTtsRuntimeStore
+    let runtimeStore: HttpTtsRuntimeStore
     private let rateLimiterRegistry = HttpTtsRateLimiterRegistry.shared
 
     /// init(transport:webSocketTransport:runtimeStore:)（签名域确证）。

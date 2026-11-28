@@ -24,15 +24,7 @@ extension HttpTtsSynthesizer {
         context.setObject(speed, forKeyedSubscript: "speakSpeed" as NSString)
         context.objectForKeyedSubscript("java")?.setValue(text, forProperty: "speakText")
         context.objectForKeyedSubscript("java")?.setValue(speed, forProperty: "speakSpeed")
-        let sourceObject = JSValue(newObjectIn: context)!
-        sourceObject.setValue(source.id, forProperty: "id")
-        sourceObject.setValue(source.name, forProperty: "name")
-        sourceObject.setValue(source.url, forProperty: "url")
-        let loginInfo: @convention(block) () -> String = { store.loginInfo(sourceID: source.id) ?? "" }
-        let loginMap: @convention(block) () -> [String: String] = { store.loginInfoMap(sourceID: source.id) }
-        sourceObject.setValue(loginInfo, forProperty: "getLoginInfo")
-        sourceObject.setValue(loginMap, forProperty: "getLoginInfoMap")
-        context.setObject(sourceObject, forKeyedSubscript: "source" as NSString)
+        JsBridgeTemplates.registerHttpTtsSourceBridge(in: context, source: source, runtimeStore: store)
         var webSocket: HttpTtsWebSocketConfiguration?
         var webSocketError: Error?
         let configure: @convention(block) (JSValue) -> String = { value in

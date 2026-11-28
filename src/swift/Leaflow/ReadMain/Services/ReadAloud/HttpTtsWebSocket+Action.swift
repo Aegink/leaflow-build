@@ -11,13 +11,18 @@ struct HttpTtsWebSocketAction {
     let stateJSON: String?
 
     static func evaluate(frame: HttpTtsWebSocketFrame, script: String, stateJSON: String?,
-                         source: HttpTts, text: String, speed: Int) throws -> HttpTtsWebSocketAction {
+                         source: HttpTts, text: String, speed: Int,
+                         runtimeStore: HttpTtsRuntimeStore? = nil) throws -> HttpTtsWebSocketAction {
         guard let context = JSContext() else { throw HttpTtsWebSocketError.scriptFailed("无法创建脚本上下文") }
         context.exceptionHandler = { _, _ in }
         context.setObject(text, forKeyedSubscript: "speakText" as NSString)
         context.setObject(speed, forKeyedSubscript: "speakSpeed" as NSString)
         context.setObject(["speakText": text, "speakSpeed": speed] as [String: Any], forKeyedSubscript: "java" as NSString)
-        context.setObject(["id": source.id, "name": source.name] as [String: Any], forKeyedSubscript: "source" as NSString)
+        if let runtimeStore {
+            JsBridgeTemplates.registerHttpTtsSourceBridge(in: context, source: source, runtimeStore: runtimeStore)
+        } else {
+            context.setObject(["id": source.id, "name": source.name] as [String: Any], forKeyedSubscript: "source" as NSString)
+        }
         if let library = source.jsLib, !library.isEmpty {
             context.evaluateScript(library)
             if let error = context.exception { throw HttpTtsWebSocketError.scriptFailed(error.toString()) }
