@@ -41,5 +41,20 @@ enum LoginUISampleSelfTest {
         source.loginUi = nil
         parsed = LoginService.parseLoginUiItems(source: source, defaults: defaults)
         emit("login_ui_absent_configuration", ["true", "true"], [String(parsed.items.isEmpty), String(parsed.error == nil)])
+        source.loginUrl = "@js:function login(){java.upLoginData({account:'桥更新',remove:null,flag:true,count:3});}"
+        let action = LoginService.evaluateLocalAction(source: source, action: nil,
+            formData: ["account": "旧值", "remove": "删除", "keep": "保留"], defaults: defaults)
+        emit("login_callback_updates_persisted_form", ["true", "桥更新", "保留", "true", "true", "3"],
+            [String(action.success), action.values["account"] ?? "", action.values["keep"] ?? "",
+             String(action.values["remove"] == nil), action.values["flag"] ?? "", action.values["count"] ?? ""])
+        let empty = LoginService.evaluateLocalAction(source: source, action: "java.upLoginData(null)",
+            formData: ["keep": "未清空"], defaults: defaults)
+        emit("login_callback_null_preserves_form", ["true", "未清空"], [String(empty.success), empty.values["keep"] ?? ""])
+        let reload = LoginService.evaluateLocalAction(source: source,
+            action: "java.reLoginView(true);java.refreshExplore();", formData: ["keep": "刷新不丢"], defaults: defaults)
+        emit("login_callback_reload_methods_execute", ["true", "刷新不丢"], [String(reload.success), reload.values["keep"] ?? ""])
+        let second = BookSource(bookSourceUrl: source.bookSourceUrl + "/other", bookSourceName: "另一书源")
+        emit("login_callback_source_state_isolation", ["true"],
+            [String(LoginService.loginInfoMap(source: second, persistDefaults: false, defaults: defaults).isEmpty)])
     }
 }

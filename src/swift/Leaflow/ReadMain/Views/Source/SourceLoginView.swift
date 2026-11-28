@@ -153,6 +153,18 @@ struct SourceLoginView: View {
             }
             .onDisappear { flushEditedLoginInfo(); viewNameResolutionTask?.cancel() }
             .onChange(of: loginValues) { _, _ in refreshResolvedViewNames(items: loginItems, force: false) }
+            .onReceive(NotificationCenter.default.publisher(for: LoginService.dataUpdatedNotification)) { notification in
+                guard notification.userInfo?["sourceStateKey"] as? String == source.stateKey else { return }
+                if let data = notification.userInfo?["data"] as? [String: Any] {
+                    applyLoginUiDataUpdate(data.mapValues { $0 is NSNull ? nil : String(describing: $0) })
+                } else {
+                    loginValues = LoginService.resolvedLoginInfo(source: source, items: loginItems)
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: LoginService.reloadRequestedNotification)) { notification in
+                guard notification.userInfo?["sourceStateKey"] as? String == source.stateKey else { return }
+                setupLoginMode()
+            }
             .interactiveDismissDisabled(isExecuting)
             .sheet(isPresented: $showRemoteBrowser) {
                 if let url = actionURL {

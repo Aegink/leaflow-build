@@ -149,6 +149,7 @@ extension LoginService {
         };
         source.removeLoginHeader = function() { _sourceRemoveLoginHeader(); };
         """)
+        installLoginUiCallbacks(into: analyzer, source: source, defaults: defaults)
     }
 
     /// 0x1003515b4 / 0x101265500：原版 result Map 方法，不可枚举，保持 JSON 只含数据。

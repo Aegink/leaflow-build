@@ -12,7 +12,7 @@ struct SourceLoginSmokeView: View {
         source.loginUi = #"[{"name":"account","type":"text","placeholder":"账号"},{"name":"status","type":"text","placeholder":"状态"},{"name":"apply","type":"button","viewName":"'执行:' + result.get('account')","action":"apply()"},{"name":"fail","type":"button","viewName":"'失败按钮'","action":"throw new Error('固定失败')"}]"#
         source.loginUrl = """
         @js:function login(){ result.put('status','登录:' + result.get('account')); source.putLoginInfo(result); }
-        function apply(){ result.put('status','按钮:' + result.get('account')); source.putLoginInfo(result); }
+        function apply(){ java.upLoginData({status:'按钮:' + result.get('account')}); }
         """
         source.loginUi = "@js:JSON.stringify(" + (source.loginUi ?? "[]") + ")"
         return source

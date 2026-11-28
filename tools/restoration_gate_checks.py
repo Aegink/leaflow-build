@@ -25,7 +25,7 @@ SWIFT_SOURCE_PARTS = {
         "ReadMain/Views/Source/SourceLoginView+RemoteBrowser.swift"],
     "ReadMain/Services/LoginService.swift": ["ReadMain/Services/LoginService+Models.swift",
         "ReadMain/Services/LoginService+Execution.swift", "ReadMain/Services/LoginService+ViewNames.swift",
-        "ReadMain/Services/LoginService+UIParsing.swift"],
+        "ReadMain/Services/LoginService+UIParsing.swift", "ReadMain/Services/LoginService+Callbacks.swift"],
     "ReadMain/Services/CustomFontService.swift": ["ReadMain/Services/CustomFontService+Metadata.swift"],
     "ReadMain/Core/ReaderLayoutConfig.swift": [
         "ReadMain/Core/ReaderLayoutConfig+Configuration.swift",

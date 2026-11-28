@@ -226,13 +226,6 @@ enum LoginService {
         return raw
     }
 
-    /// 伪代码 0x1003501d4（L383-450）：登录 UI 回调注入（JS 域确证）。
-    static func installLoginUiCallbacks(
-        into analyzer: AnyObject
-    ) {
-        // JS 回调域（T-201 消费）。
-    }
-
 }
 
 // MARK: - T-1401-13/15 逐域补齐（登录域）
