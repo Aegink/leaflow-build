@@ -91,6 +91,7 @@ final class ReaderViewModel {
     var isLoadingPage = false
     var hasError = false
     var menuVisible = false
+    var menuToggleHandler: (() -> Void)?
     private(set) var speechHighlight = ReaderSpeechHighlight.none
     private(set) var colorVersion = 0
     var isRebuildPending = false
@@ -203,6 +204,7 @@ final class ReaderViewModel {
     // MARK: 事件入口（Surface 调用方确证）
 
     func handleTap() {
+        if let menuToggleHandler { menuToggleHandler(); return }
         menuVisible.toggle()
     }
 

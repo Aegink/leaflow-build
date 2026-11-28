@@ -82,6 +82,17 @@ struct ReaderView: View {
                     settingsInitialTab: settingsInitialTab,
                     viewModel: viewModel))
         }
+        .overlay {
+            ReaderMenuOverlay(showMenu: Binding(
+                get: { viewModel.menuVisible || showTopMoreActions },
+                set: { viewModel.menuVisible = $0 }), onDismissRequest: {
+                    viewModel.menuVisible = false
+                    showTopMoreActions = false
+                    showQuickSettings = false
+                    showSpacingSettings = false
+                    showTtsQuickSettings = false
+                }, topBar: EmptyView(), bottomBar: EmptyView())
+        }
         .overlay(alignment: .top) {
             if showTopMoreActions {
                 ReaderTopMoreActionsPanel(

@@ -32,6 +32,12 @@ extension LeaflowSmokeTests {
         app.buttons["reader-spacing-back"].tap()
         XCTAssertTrue(spacing.waitForExistence(timeout: 10))
         capture("reader-spacing-repaginated")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4)).tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"), object: settings)], timeout: 10), .completed)
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4)).tap()
+        XCTAssertTrue(settings.waitForExistence(timeout: 10))
+        XCTAssertFalse(spacing.exists)
         launch(arguments)
         XCTAssertTrue(count.waitForExistence(timeout: 20))
         XCTAssertEqual(app.staticTexts["repagination-font-size"].label, saved)

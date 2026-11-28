@@ -70,5 +70,12 @@ enum ReaderRepaginationSampleSelfTest {
             newMeta: ReaderPaginator.buildChapterPageMeta(from: pages), oldMeta: [:], reason: "固定范围")
         emit("chapter_snapshot_target_clamps", ["2", "1"],
             [String(store.renderSnapshot.currentPageIndex), String(store.renderSnapshot.currentChapterIndex)])
+        var localMenu = false
+        vm.menuToggleHandler = { localMenu.toggle() }
+        vm.handleTap()
+        let opened = localMenu
+        vm.handleTap()
+        emit("reader_local_menu_callback", ["true", "false", "false"],
+            [String(opened), String(localMenu), String(vm.menuVisible)])
     }
 }

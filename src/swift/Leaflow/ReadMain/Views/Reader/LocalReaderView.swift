@@ -81,9 +81,10 @@ struct LocalReaderView: View {
                             await vm.loadBook()
                         }
                 }
-                if menuVisible {
-                    menuOverlay
-                }
+                ReaderMenuOverlay(showMenu: $menuVisible, onDismissRequest: {
+                    menuVisible = false
+                    showTtsQuickSettings = false
+                }, topBar: menuOverlay, bottomBar: EmptyView())
             }
         }
         .sheet(isPresented: $showSearch) {
@@ -229,6 +230,7 @@ struct LocalReaderView: View {
         adapter.paginationSafeAreaInsets = vm.paginationSafeAreaInsets
         adapter.settings = settings
         adapter.pageCommitHandler = { [weak vm] commit in vm?.commitPageTurn(commit) }
+        adapter.menuToggleHandler = { menuVisible.toggle() }
     }
 
     /// 章节滑条（_chapterSliderValue 初始化确证）。
