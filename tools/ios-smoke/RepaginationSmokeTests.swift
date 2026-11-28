@@ -13,7 +13,8 @@ extension LeaflowSmokeTests {
         let before = Int(count.label) ?? 0
         let body = app.textViews.firstMatch
         XCTAssertTrue(body.waitForExistence(timeout: 15))
-        body.tap()
+        // 章标题也暴露为TextView，点击屏幕正文中央，避免FirstMatch命中标题或内嵌附件。
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         let settings = app.buttons["reader-toolbar-设置"]
         XCTAssertTrue(settings.waitForExistence(timeout: 10))
         settings.tap()
