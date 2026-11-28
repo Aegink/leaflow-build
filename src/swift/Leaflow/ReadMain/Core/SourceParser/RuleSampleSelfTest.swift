@@ -108,6 +108,7 @@ enum RuleSampleSelfTest {
             await HttpTtsRequestSampleSelfTest.run(emit: emit)
             await HttpTtsWebSocketSampleSelfTest.run(emit: emit)
             await HttpTtsWebSocketTransportSelfTest.run(emit: emit)
+            HttpTtsAudioCacheSampleSelfTest.run(emit: emit)
             await TtsPlayerSampleSelfTest.run(emit: emit)
             BookshelfActionSampleSelfTest.run(emit: emit)
             await SourceImportSampleSelfTest.run(emit: emit)
