@@ -75,6 +75,15 @@
 import UIKit
 import SwiftUI
 
+/// SwiftUI异步更新可能从后台进入Representable；UIKit更新必须显式切回主线程。
+nonisolated func performReaderUIUpdate(_ update: @escaping @MainActor () -> Void) {
+    if Thread.isMainThread {
+        MainActor.assumeIsolated { update() }
+    } else {
+        DispatchQueue.main.async { update() }
+    }
+}
+
 // MARK: - 顶层工具函数
 
 /// 页面内容样式签名（伪代码 0x10076a280，L7-35；displayScale/traitCollection 参与）。
@@ -145,6 +154,7 @@ final class ReaderPageViewController: UIPageViewController {
 
 /// 阅读页容器：按 ReaderPageControllerRoute 分发到
 /// HorizontalPagingViewController / UIPageViewController（卷页）双路径。
+@MainActor
 struct PageViewController: UIViewControllerRepresentable {
     var pages: [PageData]
     var currentPageIndex: Int
@@ -221,6 +231,10 @@ struct PageViewController: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
+        performReaderUIUpdate { applyViewControllerUpdate(uiViewController, context: context) }
+    }
+
+    private func applyViewControllerUpdate(_ uiViewController: UIViewController, context: Context) {
         context.coordinator.parent = self
         // 伪代码 0x10076b808（L267-277）：按路由分发更新。
         switch readerPageControllerRoute(for: pageMode) {

@@ -188,6 +188,21 @@ enum ReaderPageTurnSampleSelfTest {
         controller.view.frame = CGRect(x: 0, y: 0, width: 400, height: 600)
         controller.additionalSafeAreaInsets = UIEdgeInsets(top: 100, left: 0, bottom: 20, right: 0)
         controller.transitionStyle = .none
+        var synchronousMainUpdate = false
+        performReaderUIUpdate { synchronousMainUpdate = Thread.isMainThread }
+        emit("turn_ui_main_update_synchronous", ["true"], [String(synchronousMainUpdate)])
+        let deliveredOnMain: Bool = await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                performReaderUIUpdate {
+                    controller.apply(pages: pages, committedIndex: 1, settings: settings, bookName: "后台更新样本",
+                        totalChapters: 2, speechHighlight: .none, isDoublePageActive: false)
+                    continuation.resume(returning: Thread.isMainThread)
+                }
+            }
+        }
+        emit("turn_ui_background_update_reaches_main", ["true", "1", "固定翻页正文乙"],
+            [String(deliveredOnMain), String(controller.currentIndex),
+             (controller.children.first as? PageContentViewController)?.contentTextView.text ?? ""])
         controller.apply(pages: pages, committedIndex: 1, settings: settings, bookName: "翻页样本",
             totalChapters: 2, speechHighlight: .none, isDoublePageActive: false)
         var commits: [ReaderPageCommit] = []
