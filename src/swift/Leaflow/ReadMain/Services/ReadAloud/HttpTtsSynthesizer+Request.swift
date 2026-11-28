@@ -16,6 +16,7 @@ extension HttpTtsSynthesizer {
 
     static func prepareRequest(source: HttpTts, text: String, speed: Int,
                                store: HttpTtsRuntimeStore) throws -> PreparedRequest {
+        try HttpTtsLoginConfigurationEvaluator(store: store).prepareDefaultsIfNeeded(for: source, store: store)
         let analyzer = AnalyzeUrl(ruleUrl: "", key: nil, page: 1, baseUrl: "", isolatedJavaScript: true)
         defer { analyzer.releaseOwnedJSContext() }
         let context = analyzer.jsContext()

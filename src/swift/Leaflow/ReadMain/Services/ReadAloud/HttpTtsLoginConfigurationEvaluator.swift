@@ -18,6 +18,7 @@
 // 还原: 2026-11-20
 
 import Foundation
+import JavaScriptCore
 
 /// 朗读源登录配置分析器（evaluate/configuredAnalyzer 签名域确证）。
 struct HttpTtsLoginConfigurationEvaluator {
@@ -33,7 +34,9 @@ struct HttpTtsLoginConfigurationEvaluator {
     private func configuredAnalyzer(for source: HttpTts)
         throws -> AnalyzeRule {
         let temporary = try temporaryBookSource(for: source)
-        return AnalyzeRule(source: temporary, parent: nil)
+        let analyzer = AnalyzeRule(source: temporary, parent: nil, isolatedJavaScript: true)
+        JsBridgeTemplates.registerHttpTtsSourceBridge(in: analyzer.jsContextHandle(), source: source, runtimeStore: store)
+        return analyzer
     }
 
     /// temporaryBookSource(for: HttpTts)（签名域确证：loginUi JSON →
@@ -55,34 +58,51 @@ struct HttpTtsLoginConfigurationEvaluator {
     /// evaluate(_: String, source: HttpTts)（签名域确证：配置串求值）。
     func evaluate(_ expression: String, source: HttpTts) throws
         -> String? {
+        let raw = expression.trimmingCharacters(in: .whitespacesAndNewlines)
+        let isScript = raw.hasPrefix("@js:") || (raw.hasPrefix("<js>") && raw.hasSuffix("</js>"))
+        if !isScript {
+            if let data = raw.data(using: .utf8),
+               let value = try? JSONSerialization.jsonObject(with: data),
+               let json = LegadoJSONLiteral.jsonString(from: value) { return json }
+            // 0x10026779c显式拒绝顶层数组尾逗号，不沿用通用解析器的自动修复。
+            guard !LegadoJSONLiteral.hasTopLevelArrayTrailingComma(raw),
+                  let value = LegadoJSONLiteral.parse(raw), let json = LegadoJSONLiteral.jsonString(from: value) else {
+                throw AppError.parsing("朗读配置不是有效JSON")
+            }
+            return json
+        }
         let analyzer = try configuredAnalyzer(for: source)
-        // 已登录信息域（loginInfo 域桥）。
-        if let loginInfo = store.loginInfo(sourceID: source.id) {
-            analyzer.putVariable("loginInfo", value: loginInfo)
+        defer { analyzer.releaseOwnedJSContext() }
+        let context = analyzer.jsContextHandle()
+        context.exceptionHandler = { _, _ in }
+        if let library = source.jsLib, !library.isEmpty {
+            context.evaluateScript(library)
+            guard context.exception == nil else { throw AppError.parsing("朗读配置脚本库执行失败") }
         }
-        if let header = store.loginHeader(sourceID: source.id) {
-            analyzer.putVariable("header", value: header)
+        let result = context.evaluateScript(AnalyzeUrl.processJsPrefix(raw))
+        guard context.exception == nil, let result, !result.isUndefined, !result.isNull,
+              let output = result.toString(), !output.isEmpty, output != "undefined" else {
+            throw AppError.parsing("朗读配置脚本未返回有效内容")
         }
-        for (key, value) in store.loginInfoMap(sourceID: source.id) {
-            analyzer.putVariable(key, value: value)
-        }
-        if let variable = store.sourceVariable(sourceID: source.id) {
-            analyzer.putVariable("sourceVariable", value: variable)
-        }
-        return analyzer.getString(rule: expression, isUrl: false)
+        return output
     }
 
     /// prepareDefaultsIfNeeded(for:store:)（签名域确证：默认键预置）。
     func prepareDefaultsIfNeeded(
         for source: HttpTts, store: HttpTtsRuntimeStore
     ) throws {
-        if store.loginInfo(sourceID: source.id) == nil,
-           let loginUi = source.loginUi, !loginUi.isEmpty {
-            store.setLoginInfoMap([:], sourceID: source.id)
+        guard store.loginInfo(sourceID: source.id) == nil,
+              let loginUi = source.loginUi, !loginUi.isEmpty else { return }
+        let evaluator = HttpTtsLoginConfigurationEvaluator(store: store)
+        guard let json = try evaluator.evaluate(loginUi, source: source),
+              let rows = LegadoJSONLiteral.parse(json) as? [[String: Any]] else { return }
+        var values: [String: String] = [:]
+        for row in rows {
+            let name = LegadoJSONLiteral.stringValue(row["name"]) ?? ""
+            let type = LegadoJSONLiteral.stringValue(row["type"]) ?? "text"
+            guard !name.isEmpty, type != "button" else { continue }
+            values[name] = LegadoJSONLiteral.stringValue(row["default"]) ?? ""
         }
-        if store.loginHeader(sourceID: source.id) == nil,
-           let header = source.header, !header.isEmpty {
-            store.setLoginHeader(header, sourceID: source.id)
-        }
+        if !values.isEmpty { store.setLoginInfoMap(values, sourceID: source.id) }
     }
 }
