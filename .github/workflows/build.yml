@@ -169,7 +169,8 @@ jobs:
 
       - name: UI smoke (real gestures and rendered pages)
         id: ui_smoke
-        timeout-minutes: 35
+        # 24项手势加产物导出已超过35分钟，单用例180/300秒限制保持不变。
+        timeout-minutes: 45
         run: |
           set +e
           UDID=$(xcrun simctl list devices available | grep -m1 "iPhone" | grep -oE '[0-9A-F-]{36}')
