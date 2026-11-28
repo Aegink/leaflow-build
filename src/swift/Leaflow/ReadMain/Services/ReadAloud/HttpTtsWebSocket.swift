@@ -83,8 +83,8 @@ struct HttpTtsWebSocketConfiguration {
         if handler.isString { fields["onMessage"] = handler.toString() }
         else {
             let context = value.context!
-            let isFunction = context.evaluateScript("(function(value) { return typeof value === 'function'; })")
-                ?.call(withArguments: [handler])?.toBool() == true
+            let checker = context.evaluateScript("(function(value) { return typeof value === 'function'; })")
+            let isFunction = checker?.call(withArguments: [handler])?.toBool() == true
             guard isFunction, let script = handler.toString() else {
                 throw HttpTtsWebSocketError.invalidConfiguration("onMessage必须是函数或表达式字符串")
             }
