@@ -25,6 +25,10 @@ extension PageContentViewController {
         bookName = newBookName
         totalChapters = newTotalChapters
         originalText = newPage.content
+        if isViewLoaded, widgetInstances.map(\.widget) != newSettings.layoutWidgets {
+            setupWidgetLabels(settings: newSettings)
+            refreshAllWidgetContent()
+        }
 
         // widget 字体变化检测（L5844-5896：fontName 桥接比较；widgetFont
         // 非可选——直取，wave-16）。
@@ -222,8 +226,11 @@ extension PageContentViewController {
     func makeWidgetContext(for page: PageData) -> ReaderDisplayContext {
         ReaderDisplayContext(
             bookName: bookName,
+            chapterTitle: page.chapterTitle,
             totalChapters: totalChapters,
             currentChapterIndex: page.chapterIndex,
-            currentPageIndex: page.pageIndex)
+            currentPageIndex: page.pageIndex,
+            totalPages: page.chapterTotalPages,
+            timeText: ReaderWidgetDisplayItem.dateFormatter.string(from: Date()))
     }
 }

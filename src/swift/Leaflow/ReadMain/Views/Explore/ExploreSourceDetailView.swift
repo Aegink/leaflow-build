@@ -53,8 +53,7 @@ struct ExploreSourceDetailView: View {
             ExploreSourceDetailLifecycleModifier(
                 onAppear: { handleViewAppear() },
                 onDisappear: { handleViewDisappear() }))
-        .modifier(
-            ExploreSourceDetailPresentationsModifier(
+        .exploreSourceDetailPresentations(
                 selectedBook: $selectedBook,
                 pendingReadBook: $pendingReadBook,
                 onReadBookFromDetail: handleReadBookFromDetail,
@@ -62,7 +61,7 @@ struct ExploreSourceDetailView: View {
                 browserRequest: $browserRequest,
                 openRoute: $openRoute,
                 searchRoute: $searchRoute,
-                source: source))
+                source: source)
         .onReceive(
             NotificationCenter.default.publisher(
                 for: Notification.Name("notification.refreshExplore"))

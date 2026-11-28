@@ -29,11 +29,11 @@ struct ExploreReadingSmokeView: View {
                 else { ProgressView("准备固定样本") }
             }
             .navigationTitle("发现阅读验证")
-            .modifier(ExploreSourceDetailPresentationsModifier(
+            .exploreSourceDetailPresentations(
                 selectedBook: $selectedBook, pendingReadBook: $pendingReadBook,
                 onReadBookFromDetail: { book in pendingReadBook = book; selectedBook = nil },
                 filterSheet: .constant(false), browserRequest: .constant(nil),
-                openRoute: .constant(nil), searchRoute: .constant(nil), source: source, preparedTextReader: vm))
+                openRoute: .constant(nil), searchRoute: .constant(nil), source: source, preparedTextReader: vm)
         }
         .task {
             guard !ready else { return }

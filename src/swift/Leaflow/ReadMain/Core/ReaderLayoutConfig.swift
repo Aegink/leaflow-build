@@ -131,18 +131,24 @@ enum ReaderTextLayout {
 // MARK: - Widget 布局度量
 
 /// Widget 页面范围。
-enum WidgetPageScope {
-    /// 伪代码 0x1007664b4（L143-149）：`return isFirstPage`。
-    static func shouldShow(isFirstPage: Bool) -> Bool {
-        isFirstPage
+enum WidgetPageScope: String, Codable, CaseIterable {
+    case allPages, firstPageOnly, normalPageOnly
+
+    /// 类型表3152与0x1007664b4：首章页/普通页/所有页。
+    func shouldShow(isFirstPage: Bool) -> Bool {
+        switch self {
+        case .allPages: return true
+        case .firstPageOnly: return isFirstPage
+        case .normalPageOnly: return !isFirstPage
+        }
     }
 }
 
 /// Widget 文本对齐。
 enum WidgetTextAlignment: String, Codable {
-    case leading
+    case leading = "left"
     case center
-    case trailing
+    case trailing = "right"
 
     /// 伪代码 0x1007bc848（L158）。
     var displayName: String {
@@ -191,11 +197,6 @@ struct ReaderWidgetLayoutMetrics {
 /// Widget 布局配置。
 /// refreshCadence 为计算推导（ReaderWidgetRefreshDriver 扩展域确证：
 /// 按类型映射节流档，wave-16 撤销误加的存储字段）。
-struct LayoutWidget: Codable {
-    var type: String
-    var alignment: WidgetTextAlignment
-    var showOnFirstPage: Bool
-}
 
 /// 章节标题排版配置（Codable：T-1401-01 ChapterTitlePreset 双档解码桥）。
 struct ChapterTitleConfig: Codable, Equatable {

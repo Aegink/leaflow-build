@@ -29,7 +29,7 @@ SWIFT_SOURCE_PARTS = {
     "ReadMain/Core/ReaderLayoutConfig.swift": [
         "ReadMain/Core/ReaderLayoutConfig+Configuration.swift",
         "ReadMain/Core/ReaderLayoutConfig+Display.swift",
-        "ReadMain/Core/ReaderLayoutConfig+Duration.swift"],
+        "ReadMain/Core/ReaderLayoutConfig+Duration.swift", "ReadMain/Core/ReaderLayoutConfig+Widgets.swift"],
     "ReadMain/Services/BackupService.swift": [
         "ReadMain/Services/BackupService+Export.swift",
         "ReadMain/Services/BackupService+Cloud.swift",

@@ -224,6 +224,23 @@ extension RemoteBrowserRequest: Identifiable {
     }
 }
 
+extension View {
+    /// 原版PGO入口：把已实现的详情/阅读交接及浏览器路由绑定统一交给呈现修饰器。
+    /// TODO(T-1602): 原版筛选、源登录与待提交文本的额外呈现分支仍需逐项恢复。
+    func exploreSourceDetailPresentations(
+        selectedBook: Binding<ExploreSelectedBook?>, pendingReadBook: Binding<Book?>,
+        onReadBookFromDetail: @escaping (Book) -> Void, filterSheet: Binding<Bool>,
+        browserRequest: Binding<RemoteBrowserRequest?>, openRoute: Binding<ExploreOpenRoute?>,
+        searchRoute: Binding<ExploreSearchRoute?>, source: BookSource,
+        preparedTextReader: ReaderViewModel? = nil
+    ) -> some View {
+        modifier(ExploreSourceDetailPresentationsModifier(selectedBook: selectedBook,
+            pendingReadBook: pendingReadBook, onReadBookFromDetail: onReadBookFromDetail,
+            filterSheet: filterSheet, browserRequest: browserRequest, openRoute: openRoute,
+            searchRoute: searchRoute, source: source, preparedTextReader: preparedTextReader))
+    }
+}
+
 /// 类型表8015：每次选择创建独立呈现身份，重复打开同一书也能重新初始化详情。
 struct ExploreSelectedBook: Identifiable {
     let id = UUID()

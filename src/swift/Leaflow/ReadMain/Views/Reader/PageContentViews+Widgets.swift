@@ -132,7 +132,7 @@ extension PageContentViewController {
             label.numberOfLines = 1
             label.lineBreakMode = .byTruncatingTail
             view.addSubview(label)
-            let id = UUID()
+            let id = widget.id
             widgetLabels[id] = label
 
             let imageView = UIImageView()
@@ -153,11 +153,15 @@ extension PageContentViewController {
         context: ReaderDisplayContext,
         isFirstPage: Bool
     ) -> String {
-        _ = context
+        if widget.item == "customText" { return widget.customText ?? "" }
+        if widget.item == "bookName" { return context.bookName }
+        if widget.item == "chapterTitle" || widget.item == "chapterTitleShort" { return context.chapterTitle }
+        if widget.item == "currentTime" { return context.timeText }
+        if let item = ReaderDisplayItem(rawValue: widget.type) { return item.getContent(context: context) }
         if widget.type.lowercased().contains("date") {
             return ReaderWidgetDisplayItem.dateFormatter.string(from: Date())
         }
-        // 非 date widget 的文本来源待真机对照（电量和进度类由驱动推送）。
+        // TODO(T-1602): 秒级时间、进度条和电量复合符号等剩余原版条目继续逐项恢复。
         _ = isFirstPage
         return ""
     }
@@ -176,16 +180,16 @@ extension PageContentViewController {
             guard let label = widgetLabels[id],
                   let imageView = widgetImageViews[id] else { continue }
             // WidgetPageScope.shouldShow（已还原 ReaderLayoutConfig.swift）。
-            guard WidgetPageScope.shouldShow(isFirstPage: isFirstPage)
-                || widget.showOnFirstPage else {
+            guard widget.pageScope.shouldShow(isFirstPage: isFirstPage) else {
                 label.isHidden = true
                 imageView.isHidden = true
                 continue
             }
             let content = widgetContent(for: widget, context: context, isFirstPage: isFirstPage)
-            let tintColor = settings.textUIColor.withAlphaComponent(0.85)
+            let tintColor = (widget.customColorHex.map { UIColor(leaflowColor($0)) } ?? settings.textUIColor)
+                .withAlphaComponent(min(1, max(0, widget.opacity)))
             // widgetFont(size:) 非可选（UIFont 返回域确证）——直取。
-            label.font = settings.widgetFont(size: settings.fontSize)
+            label.font = settings.widgetFont(size: max(1, widget.fontSize))
             label.textColor = tintColor
             let configured = configureWidgetView(
                 label: label,
@@ -228,17 +232,6 @@ extension PageContentViewController {
 
     // MARK: 布局与尺寸
 
-    /// 垂直锚点比例（伪代码 L2757：y = pageHeight * 比例 + height * -0.5）。
-    /// 类型→比例映射未从反编译恢复，待真机对照；顶部/底部两档近似。
-    private func verticalAnchor(for widget: LayoutWidget) -> CGFloat {
-        switch widget.type.lowercased() {
-        case "battery", "progress", "chapter", "time":
-            return 1.0
-        default:
-            return 0.0
-        }
-    }
-
     /// 伪代码 0x1007655ec L256-284。
     /// 对齐分支 setTextAlignment:（1/2/0 三分支确证，对应 center/right/left）；
     /// frame：y = pageHeight * 比例锚点 + height * -0.5（L2757 确证），
@@ -250,7 +243,6 @@ extension PageContentViewController {
         pageWidth: CGFloat,
         pageHeight: CGFloat
     ) {
-        _ = pageWidth
         let size = preferredWidgetSize(label: label, imageView: imageView, widget: widget)
         // setTextAlignment 三分支（伪代码 L2722=1(center)/L2735=2(right)/L2746=0(left)）。
         switch widget.alignment {
@@ -258,9 +250,9 @@ extension PageContentViewController {
         case .trailing: label.textAlignment = .right
         case .leading: label.textAlignment = .left
         }
-        let y = pageHeight * verticalAnchor(for: widget) + size.height * -0.5
-        label.frame = CGRect(x: 0, y: y, width: size.width, height: size.height)
-        imageView.isHidden = imageView.image == nil
+        let frame = widget.frame(contentSize: size, pageSize: CGSize(width: pageWidth, height: pageHeight))
+        if imageView.isHidden { label.frame = frame }
+        else { imageView.frame = frame }
     }
 
     /// 伪代码 0x1007657ac L286-295。
@@ -354,7 +346,8 @@ extension PageContentViewController {
         let size = configured?.size ?? base.size
         let renderer = UIGraphicsImageRenderer(size: size, format: format)
         let rendered = renderer.image { _ in
-            // 渲染闭包（0x100762530）：tint 绘制，细节待真机对照。
+            (configured ?? base).withTintColor(tintColor, renderingMode: .alwaysOriginal)
+                .draw(in: CGRect(origin: .zero, size: size))
         }
         return rendered.withTintColor(tintColor, renderingMode: .alwaysTemplate)
     }
