@@ -419,6 +419,7 @@ struct SourceLoginView: View {
 
     /// handleButtonAction（签名确证）。
     func handleButtonAction(_ item: LoginUiItem) {
+        fieldActionScheduler.cancelAll()
         executeLoginUiAction(for: item, values: loginValues)
     }
 

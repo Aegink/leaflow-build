@@ -37,6 +37,28 @@ extension LeaflowSmokeTests {
         XCTAssertTrue(app.staticTexts["fixed-widget"].waitForExistence(timeout: 10))
         XCTAssertFalse(add.exists)
         capture("widget-cold-rendered")
+        open.tap()
+        for _ in 0..<5 {
+            if edit.isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(edit.isHittable)
+        edit.tap()
+        XCTAssertTrue(add.waitForExistence(timeout: 15))
+        let handle = app.staticTexts.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label == %@",
+            "reader-widget-", "fixed-widget")).firstMatch
+        XCTAssertTrue(handle.waitForExistence(timeout: 10))
+        handle.tap()
+        let delete = app.buttons["删除组件"]
+        for _ in 0..<5 {
+            if delete.isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(delete.isHittable)
+        delete.tap()
+        XCTAssertTrue(add.waitForExistence(timeout: 10))
+        app.buttons["reader-widget-done"].tap()
+        XCTAssertFalse(app.staticTexts["fixed-widget"].exists)
         passed("reader_widget_edit_persistence")
     }
 }
