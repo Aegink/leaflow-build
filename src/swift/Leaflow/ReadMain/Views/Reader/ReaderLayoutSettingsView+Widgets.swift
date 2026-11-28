@@ -34,7 +34,7 @@ struct WidgetEditOverlay: View {
     let chapterTitle: String
     let onDismiss: () -> Void
     @State private var selectedWidgetID: UUID?
-    @State private var showEditPanel = false
+    @State private var editingWidget: LayoutWidget?
     @State private var isFirstPage = false
 
     var body: some View {
@@ -49,7 +49,7 @@ struct WidgetEditOverlay: View {
                         .overlay(RoundedRectangle(cornerRadius: 6).stroke(selectedWidgetID == widget.id ? Color.accentColor : Color.secondary))
                         .position(x: geometry.size.width * widget.xPercent, y: geometry.size.height * widget.yPercent)
                         .accessibilityIdentifier("reader-widget-" + widget.id.uuidString)
-                        .onTapGesture { selectedWidgetID = widget.id; showEditPanel = true }
+                        .onTapGesture { selectedWidgetID = widget.id; editingWidget = widget }
                         .gesture(DragGesture(coordinateSpace: .named("widget-canvas"))
                             .onChanged { gesture in
                                 guard let index = settings.layoutWidgets.firstIndex(where: { $0.id == widget.id }),
@@ -66,7 +66,7 @@ struct WidgetEditOverlay: View {
                             customText: "自定义文本", textAlignment: .center)
                         settings.layoutWidgets.append(widget)
                         selectedWidgetID = widget.id
-                        showEditPanel = true
+                        editingWidget = widget
                     }
                     .accessibilityIdentifier("reader-widget-add")
                     Spacer()
@@ -78,12 +78,15 @@ struct WidgetEditOverlay: View {
             }
             .coordinateSpace(name: "widget-canvas")
         }
-        .sheet(isPresented: $showEditPanel, onDismiss: { settings.save() }) {
-            if let id = selectedWidgetID, let index = settings.layoutWidgets.firstIndex(where: { $0.id == id }) {
-                WidgetEditPanel(widget: $settings.layoutWidgets[index]) {
-                    settings.layoutWidgets.removeAll { $0.id == id }
-                    showEditPanel = false
-                }
+        .sheet(item: $editingWidget, onDismiss: { settings.save() }) { snapshot in
+            WidgetEditPanel(widget: Binding(
+                get: { settings.layoutWidgets.first { $0.id == snapshot.id } ?? snapshot },
+                set: { updated in
+                    guard let current = settings.layoutWidgets.firstIndex(where: { $0.id == snapshot.id }) else { return }
+                    settings.layoutWidgets[current] = updated
+                })) {
+                editingWidget = nil
+                settings.layoutWidgets.removeAll { $0.id == snapshot.id }
             }
         }
     }

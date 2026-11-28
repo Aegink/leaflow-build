@@ -8,7 +8,8 @@ extension LeaflowSmokeTests {
         XCTAssertTrue(restore.waitForExistence(timeout: 10))
         restore.tap()
         let cancel = app.buttons.matching(NSPredicate(format: "label IN %@", ["Cancel", "取消"])).firstMatch
-        XCTAssertTrue(cancel.waitForExistence(timeout: 15), "备份恢复必须打开系统文件选择器")
+        // 失败层级已出现系统选择器；首次文件服务启动可能超过15秒，仍要求实际取消按钮可操作。
+        XCTAssertTrue(cancel.waitForExistence(timeout: 30), "备份恢复必须打开系统文件选择器")
         capture("backup-restore-file-picker")
         cancel.tap()
         XCTAssertTrue(restore.waitForExistence(timeout: 10))
