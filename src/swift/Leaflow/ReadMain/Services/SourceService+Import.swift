@@ -203,6 +203,7 @@ extension SourceService {
     }
 
     /// 批量保存按存储域分发，远程错误不能报告为本地保存成功。
+    @MainActor
     func saveBookSources(_ sources: [BookSource]) async -> Bool {
         let remote = sources.filter { $0.storageKind == .remote }
         let (merged, _) = mergeImportedSources(sources.filter {

@@ -205,12 +205,13 @@ final class SourceService: SourceServiceProtocol, ObservableObject {
             // closure2（0x1003acf0c L197-203）：弱取 self，存活则派发 Task；
             // closure1（0x1003ad05c L198-202）转发内部重载 thunk。
             guard let self = self else { return }
-            Task { await self.handleSettingsChange() }
+            Task { @MainActor in await self.handleSettingsChange() }
         }
     }
 
     /// 观察者终点（closure1 0x1003ad05c → 内部 thunk，体未展开）：
     /// 设置变更后的重载/同步入口（推断）。
+    @MainActor
     private func handleSettingsChange() async {
         guard hasLoadedOnce else { return }
         await loadLocalSources()

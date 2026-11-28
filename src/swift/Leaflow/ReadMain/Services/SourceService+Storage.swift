@@ -62,6 +62,7 @@ extension SourceService {
     /// 伪代码 0x1003c904c（L8-10）：本地加载入口（薄包装；块体形态含
     /// registerPendingLocalSave + scheduleSave 内联，符号以
     /// ida_function_names.csv 为准）。
+    @MainActor
     func loadLocalSources() async {
         await loadLocalSourcesImpl(forceRefresh: false)
     }
@@ -72,6 +73,7 @@ extension SourceService {
     /// 跳过旧磁盘数据: " 确证）；forceRefresh → 合并加载
     ///（"[配置] 开始合并加载: localCount=" / "[配置] 合并加载完成: 本地 " 确证）；
     /// 失败诊断 "从后端加载配置失败: "。
+    @MainActor
     private func loadLocalSourcesImpl(forceRefresh: Bool) async {
         guard !isLoading else { return }
         if !forceRefresh, let snapshot = pendingLocalSaveSnapshot {
@@ -206,6 +208,7 @@ extension SourceService {
     /// 伪代码 0x1003cc314（L257-281）：启动快速通道——磁盘/内存远程缓存
     /// 立即填充 sources（"[quickLoad调试]" 调试串族 + "[配置] 快速加载: 本地 "
     /// 确证；磁盘缓存为空时回退内存远程）。
+    @MainActor
     func quickLoadLocalSources() {
         let local = filterOutRemoteSources(loadLocalSourcesFromDisk().sources)
         let cachedRemote = remoteBackend.loadCachedRemoteSources().filter { $0.storageKind == .remote }
@@ -257,6 +260,7 @@ extension SourceService {
     /// pgo_only（续体区诊断串确证："[配置] 开始合并加载: localCount=" /
     /// "[配置] 合并加载完成: 本地 " / "[配置] 合并加载降级为本地: localCount="）：
     /// 本地 + 远程合并加载；远程失败降级为本地列表。
+    @MainActor
     private func loadMergedSources(
         localSources: [BookSource], forceRefresh: Bool
     ) async {
@@ -370,6 +374,7 @@ extension SourceService {
     // MARK: 远程加载族
 
     /// pgo_only（"[配置] 开始仅远程加载: localCount=" 确证）：仅远程加载编排。
+    @MainActor
     func fetchBookSources(forceRefresh: Bool) async {
         Logger.log(
             "[配置] 开始仅远程加载: localCount=\(bookSources.count)",
@@ -381,6 +386,7 @@ extension SourceService {
     /// 仅远程加载；失败记三条日志（"[远程后端] 获取远程配置失败: " /
     /// "从后端加载配置失败: " / "[配置] 仅远程加载失败，保留当前列表: total="）
     /// 并保留当前列表（重抛点在续体，签名无 throws，落地为吞错）。
+    @MainActor
     func fetchRemoteSourcesOnly(forceRefresh: Bool) async {
         do {
             let remote = try await remoteBackend.getBookSources(
@@ -402,6 +408,7 @@ extension SourceService {
     }
 
     /// pgo_only：远程拉取封装（网络在 RemoteBackendService）。
+    @MainActor
     func loadRemoteSources() async -> [BookSource] {
         (try? await remoteBackend.getBookSources(forceRefresh: false)) ?? []
     }

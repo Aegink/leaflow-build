@@ -115,6 +115,7 @@ enum RuleSampleSelfTest {
             await HelpResourceSelfTest.run(emit: emit)
             await HttpTtsLoginCheckSelfTest.run(emit: emit)
             HttpTtsConfigurationSelfTest.run(emit: emit)
+            await SourcePublicationSelfTest.run(emit: emit)
             await TtsPlayerSampleSelfTest.run(emit: emit)
             BookshelfActionSampleSelfTest.run(emit: emit)
             await SourceImportSampleSelfTest.run(emit: emit)
