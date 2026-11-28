@@ -98,21 +98,26 @@ enum ReaderPaginationLayoutSampleSelfTest {
             settings.fontName = "System"
             settings.fontSize = 29.5
             settings.letterSpacing = 0
-            let longPages = try ReaderPaginator.paginate(content: text, chapterIndex: 0,
-                chapterTitle: "实际标题", settings: settings, pageBounds: bounds)
             var heightsFit = true
             var maximumOverflow: CGFloat = 0
-            for current in longPages {
-                controller.configure(pageData: current, settings: settings, bookName: "固定样本", totalChapters: 1)
-                controller.view.setNeedsLayout()
-                controller.view.layoutIfNeeded()
-                controller.contentTextView.layoutIfNeeded()
-                let manager = controller.contentTextView.layoutManager
-                manager.ensureLayout(for: controller.contentTextView.textContainer)
-                let height = manager.usedRect(for: controller.contentTextView.textContainer).height
-                let overflow = height - controller.contentTextView.bounds.height
-                maximumOverflow = max(maximumOverflow, overflow)
-                heightsFit = heightsFit && overflow <= 1
+            for pageSize in [bounds, CGSize(width: 402, height: 713), CGSize(width: 402, height: 874)] {
+                settings.leftPageMargin = pageSize == bounds ? 42 : 16
+                settings.rightPageMargin = pageSize == bounds ? 38 : 16
+                let longPages = try ReaderPaginator.paginate(content: text, chapterIndex: 0,
+                    chapterTitle: "实际标题", settings: settings, pageBounds: pageSize)
+                controller.view.frame = CGRect(origin: .zero, size: pageSize)
+                for current in longPages {
+                    controller.configure(pageData: current, settings: settings, bookName: "固定样本", totalChapters: 1)
+                    controller.view.setNeedsLayout()
+                    controller.view.layoutIfNeeded()
+                    controller.contentTextView.layoutIfNeeded()
+                    let manager = controller.contentTextView.layoutManager
+                    manager.ensureLayout(for: controller.contentTextView.textContainer)
+                    let height = manager.usedRect(for: controller.contentTextView.textContainer).height
+                    let overflow = height - controller.contentTextView.bounds.height
+                    maximumOverflow = max(maximumOverflow, overflow)
+                    heightsFit = heightsFit && overflow <= 1
+                }
             }
             emit("pagination_layout_all_rendered_pages_fit", ["true", "0"],
                 [String(heightsFit), String(Int(ceil(maximumOverflow)))])
