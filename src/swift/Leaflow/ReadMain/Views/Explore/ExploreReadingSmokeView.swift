@@ -10,12 +10,13 @@ struct ExploreReadingSmokeView: View {
     @State private var failure: String?
     private var isDetailState: Bool { ProcessInfo.processInfo.arguments.contains("-smokeExploreBookState") }
     private var isVariableState: Bool { ProcessInfo.processInfo.arguments.contains("-smokeExploreBookVariables") }
+    private var isSourceVariableState: Bool { ProcessInfo.processInfo.arguments.contains("-smokeExploreSourceVariables") }
     private var source: BookSource {
-        BookSource(bookSourceUrl: "https://sample.invalid/" + (isVariableState ? "explore-detail-variables" : isDetailState ? "explore-detail-state" : "explore-reading"),
+        BookSource(bookSourceUrl: "https://sample.invalid/" + (isSourceVariableState ? "explore-source-variables" : isVariableState ? "explore-detail-variables" : isDetailState ? "explore-detail-state" : "explore-reading"),
                    bookSourceName: "发现阅读样本")
     }
     private var book: Book {
-        Book(bookUrl: source.bookSourceUrl + "/book", name: "固定发现书籍", author: isVariableState ? "详情变量样本作者" : isDetailState ? "详情状态样本作者" : "发现阅读样本作者",
+        Book(bookUrl: source.bookSourceUrl + "/book", name: "固定发现书籍", author: isSourceVariableState ? "源变量样本作者" : isVariableState ? "详情变量样本作者" : isDetailState ? "详情状态样本作者" : "发现阅读样本作者",
             bookSourceUrl: source.bookSourceUrl, sourceStorageKind: .local)
     }
 
