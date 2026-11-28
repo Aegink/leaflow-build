@@ -396,12 +396,11 @@ final class TtsSourceStore {
         self.repository = repository
         self.preferences = preferences
         self.didChange = didChange
+        preferences.migrateLegacySourceSelection(using: repository)
     }
 
     func loadSources() -> [HttpTts] {
         repository.reload()
-        preferences.reload()
-        preferences.migrateLegacySourceSelection(using: repository)
         return repository.sources
     }
 
@@ -441,6 +440,7 @@ final class TtsSourceStore {
         _ = loadSources()
         let previous = preferences.selectedHTTPSourceID.flatMap { repository.source(id: $0) }
         let count = repository.importSources(from: json)
+        preferences.migrateLegacySourceSelection(using: repository)
         let current = preferences.selectedHTTPSourceID.flatMap { repository.source(id: $0) }
         if previous != current { didChange() }
         return count

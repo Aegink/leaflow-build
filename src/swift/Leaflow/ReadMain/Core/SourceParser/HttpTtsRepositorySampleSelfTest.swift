@@ -1,5 +1,6 @@
 // T-1602：原ID解码、仓库合并、管理选择和备份往返，隔离持久化样本。
 import Foundation
+import Combine
 
 enum HttpTtsRepositorySampleSelfTest {
     @MainActor
@@ -96,6 +97,11 @@ enum HttpTtsRepositorySampleSelfTest {
             var changes = 0
             let bridge = TtsSourceStore(repository: repository, preferences: preferences, didChange: { changes += 1 })
             _ = bridge.loadSources()
+            var readNotifications = 0
+            let observation = preferences.objectWillChange.sink { readNotifications += 1 }
+            for _ in 0..<5 { _ = bridge.loadSources() }
+            emit("tts_source_list_read_does_not_publish_preferences", ["0"], [String(readNotifications)])
+            observation.cancel()
             emit("tts_selection_legacy_int64_migration", ["9007199254740993", "http", "true"],
                 [String(bridge.currentSourceID ?? -1), preferences.selectedEngine.rawValue,
                  String(defaults.object(forKey: "reader_tts_current") == nil)])
