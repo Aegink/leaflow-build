@@ -7,9 +7,13 @@ extension SourceLoginView {
 
     /// scheduleFieldAction(for:values:)（签名确证）。
     func scheduleFieldAction(
-        for item: LoginUiItem, values: [String: String]
+        for item: LoginUiItem, values: [String: String], debounced: Bool = false
     ) {
-        executeLoginUiAction(for: item, values: values)
+        guard item.action?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else { return }
+        fieldActionScheduler.schedule(key: item.name, debounced: debounced) {
+            guard loginValues[item.name] == values[item.name] else { return }
+            executeLoginUiAction(for: item, values: loginValues)
+        }
     }
 
     /// executeLoginUiAction(for:values:)（签名确证）。
@@ -33,6 +37,7 @@ extension SourceLoginView {
 
     func runLoginAction(_ action: String?) {
         guard !isExecuting else { return }
+        fieldActionScheduler.cancelAll()
         let values = loginValues
         isExecuting = true
         actionStatus = nil

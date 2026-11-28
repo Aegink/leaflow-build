@@ -22,7 +22,7 @@ SWIFT_SOURCE_PARTS = {
         "ReadMain/Views/Source/SourceLoginView+BrowserRequests.swift",
         "ReadMain/Views/Source/SourceLoginView+InteractiveBrowser.swift",
         "ReadMain/Views/Source/SourceLoginView+FormComponents.swift",
-        "ReadMain/Views/Source/SourceLoginView+RemoteBrowser.swift"],
+        "ReadMain/Views/Source/SourceLoginView+RemoteBrowser.swift", "ReadMain/Views/Source/SourceLoginView+FieldActions.swift"],
     "ReadMain/Services/LoginService.swift": ["ReadMain/Services/LoginService+Models.swift",
         "ReadMain/Services/LoginService+Execution.swift", "ReadMain/Services/LoginService+ViewNames.swift",
         "ReadMain/Services/LoginService+UIParsing.swift", "ReadMain/Services/LoginService+Callbacks.swift"],

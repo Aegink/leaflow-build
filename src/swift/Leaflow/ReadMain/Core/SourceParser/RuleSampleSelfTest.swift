@@ -131,6 +131,7 @@ enum RuleSampleSelfTest {
             LoginActionSampleSelfTest.run(emit: emit)
             LoginHeaderSampleSelfTest.run(emit: emit)
             LoginUISampleSelfTest.run(emit: emit)
+            await LoginFieldActionSampleSelfTest.run(emit: emit)
             await ScreenAwakeSampleSelfTest.run(emit: emit)
             LayoutWidgetSampleSelfTest.run(emit: emit)
             emitRaw("SELFTEST_END")

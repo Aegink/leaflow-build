@@ -105,6 +105,7 @@ struct SourceLoginView: View {
     @State var resolvedViewNames: [String: String] = [:]
     @State var viewNameResolutionTask: Task<Void, Never>?
     @State var loginInitializationStarted = false
+    @State var fieldActionScheduler = LoginFieldActionScheduler()
     @Environment(\.dismiss) var dismiss
 
     init(source: BookSource, book: Book?, chapter: Chapter?) {
@@ -151,7 +152,7 @@ struct SourceLoginView: View {
             .onAppear {
                 initLogin()
             }
-            .onDisappear { flushEditedLoginInfo(); viewNameResolutionTask?.cancel() }
+            .onDisappear { flushEditedLoginInfo(); viewNameResolutionTask?.cancel(); fieldActionScheduler.cancelAll() }
             .onChange(of: loginValues) { _, _ in refreshResolvedViewNames(items: loginItems, force: false) }
             .onReceive(NotificationCenter.default.publisher(for: LoginService.dataUpdatedNotification)) { notification in
                 guard notification.userInfo?["sourceStateKey"] as? String == source.stateKey else { return }
@@ -374,7 +375,12 @@ struct SourceLoginView: View {
 
     /// binding(for: LoginUiItem)（签名确证）。
     func binding(for item: LoginUiItem) -> Binding<String> {
-        binding(for: item.name)
+        Binding(get: { currentValue(for: item) }, set: { value in
+            loginValues[item.name] = value
+            flushEditedLoginInfo()
+            scheduleFieldAction(for: item, values: loginValues,
+                debounced: item.normalizedType == "text" || item.normalizedType == "password")
+        })
     }
 
     /// currentValue(for:)（签名确证）。

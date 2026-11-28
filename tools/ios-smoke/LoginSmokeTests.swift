@@ -14,6 +14,8 @@ extension LeaflowSmokeTests {
         account.tap()
         account.typeText("sample")
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == %@", "字段:sample"), object: statusField)], timeout: 10), .completed)
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "label == %@", "执行:sample"),
             object: app.buttons["source-login-action-apply"])], timeout: 10), .completed)
         app.buttons["source-login-action-apply"].tap()
