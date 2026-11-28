@@ -48,7 +48,9 @@ extension LeaflowSmokeTests {
         }
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: positive, object: count)], timeout: 20), .completed)
         capture("tts-help-search")
-        search.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 17))
+        // 原HTML逐键搜索会重建DOM；使用搜索框自身的清除按钮一次清空。
+        search.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
+            .withOffset(CGVector(dx: search.frame.width - 16, dy: search.frame.height / 2)).tap()
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "匹配 0"), object: count)], timeout: 10), .completed)
         let cancelSearch = app.buttons.matching(NSPredicate(format: "label IN %@", ["Cancel", "取消"])).firstMatch
         XCTAssertTrue(cancelSearch.waitForExistence(timeout: 10))

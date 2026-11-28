@@ -46,7 +46,7 @@ extension LeaflowSmokeTests {
                         && row.contains(CGPoint(x: frame.midX, y: frame.midY)) && $0.isHittable
                 }
                 XCTAssertNotNil(actual, "同步分类行必须包含实际开关")
-                actual?.tap()
+                actual?.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
             }
             XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
                 predicate: NSPredicate(format: "value == %@", enabled ? "1" : "0"), object: control)], timeout: 5), .completed)
