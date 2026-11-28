@@ -171,6 +171,7 @@ struct PageViewController: UIViewControllerRepresentable {
     var menuVisible: Bool
     var pageTurnCommand: ReaderPageTurnCommand?
     var onTap: () -> Void
+    var onPaginationMetrics: ((CGSize, UIEdgeInsets) -> Void)? = nil
     var onSwipeUp: (() -> Void)?
     var onSwipeUpDown: (() -> Void)?
     var onSwipeUpProgress: ((ReaderGestureDismissState) -> Void)?
@@ -258,6 +259,7 @@ struct PageViewController: UIViewControllerRepresentable {
     private func updateHorizontalPagingViewController(
         _ controller: HorizontalPagingViewController, context: Context
     ) {
+        controller.onPaginationMetrics = onPaginationMetrics
         controller.apply(
             pages: pages,
             committedIndex: currentPageIndex,
@@ -275,6 +277,7 @@ struct PageViewController: UIViewControllerRepresentable {
         controller.onPageCommitted = onPageCommitted
         controller.menuVisible = menuVisible
         controller.submitPageTurnCommand(pageTurnCommand)
+        if controller.isViewLoaded { controller.view.setNeedsLayout() }
         _ = colorVersion
         _ = isRebuildPending
     }

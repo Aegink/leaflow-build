@@ -187,6 +187,14 @@ enum ReaderPageTurnSampleSelfTest {
         controller.loadViewIfNeeded()
         controller.view.frame = CGRect(x: 0, y: 0, width: 400, height: 600)
         controller.additionalSafeAreaInsets = UIEdgeInsets(top: 100, left: 0, bottom: 20, right: 0)
+        var actualSize: CGSize = .zero
+        var actualInsets: UIEdgeInsets = .zero
+        controller.onPaginationMetrics = { actualSize = $0; actualInsets = $1 }
+        controller.view.setNeedsLayout()
+        controller.view.layoutIfNeeded()
+        await ReadAloudSampleSelfTest.settle()
+        emit("turn_layout_reports_actual_safe_area", ["true", "true"],
+            [String(actualSize == controller.view.bounds.size), String(actualInsets.top >= 100 && actualInsets.bottom >= 20)])
         controller.transitionStyle = .none
         var synchronousMainUpdate = false
         performReaderUIUpdate { synchronousMainUpdate = Thread.isMainThread }

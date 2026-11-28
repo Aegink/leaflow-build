@@ -12,6 +12,9 @@ final class HorizontalPagingViewController: UIViewController, UIGestureRecognize
     var onSwipeUpCancel: (() -> Void)?
     var onPageCommitted: ((ReaderPageCommit) -> Void)?
     var onCommentTap: (() -> Void)?
+    var onPaginationMetrics: ((CGSize, UIEdgeInsets) -> Void)?
+    private var reportedPaginationSize: CGSize = .zero
+    private var reportedPaginationInsets: UIEdgeInsets = .zero
 
     var menuVisible = false {
         didSet { if !menuVisible { schedulePendingCommandConsumption() } }
@@ -46,6 +49,21 @@ final class HorizontalPagingViewController: UIViewController, UIGestureRecognize
         renderer.install(in: self)
         setupGestures()
         displayCurrentPage()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        let size = view.bounds.size
+        let insets = view.safeAreaInsets
+        guard onPaginationMetrics != nil, size.width > 1, size.height > 1,
+              size != reportedPaginationSize || insets != reportedPaginationInsets else { return }
+        reportedPaginationSize = size
+        reportedPaginationInsets = insets
+        // UIKit最终布局可能与SwiftUI忽略安全区的GeometryReader不同，提交最终可见域。
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.view.bounds.size == size, self.view.safeAreaInsets == insets else { return }
+            self.onPaginationMetrics?(size, insets)
+        }
     }
 
     private func setupGestures() {

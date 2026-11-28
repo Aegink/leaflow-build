@@ -92,6 +92,7 @@ final class ReaderViewModel {
     var hasError = false
     var menuVisible = false
     var menuToggleHandler: (() -> Void)?
+    var paginationMetricsHandler: ((CGSize, UIEdgeInsets) -> Void)?
     private(set) var speechHighlight = ReaderSpeechHighlight.none
     private(set) var colorVersion = 0
     var isRebuildPending = false
@@ -100,6 +101,7 @@ final class ReaderViewModel {
     private(set) var pendingPageTurnCommand: ReaderPageTurnCommand?
     var containerSize: CGSize = .zero
     var paginationSafeAreaInsets: UIEdgeInsets = .zero
+    private var hasRenderedPaginationMetrics = false
 
     var canCancelLoadingIndicator: Bool {
         isLoadingPage
@@ -224,10 +226,16 @@ final class ReaderViewModel {
     func handleCommentTap(_ comment: ParagraphComment, pageIndex: Int) {}
 
     func containerSizeChanged(from oldSize: CGSize, to newSize: CGSize,
-                              safeAreaInsets: UIEdgeInsets = .zero) {
+                              safeAreaInsets: UIEdgeInsets = .zero, fromRenderedView: Bool = false) {
+        if hasRenderedPaginationMetrics && !fromRenderedView { return }
+        if fromRenderedView { hasRenderedPaginationMetrics = true }
         let insetsChanged = paginationSafeAreaInsets != safeAreaInsets
         paginationSafeAreaInsets = safeAreaInsets
         let sizeChanged = updatePaginationBoundsIfNeeded(size: newSize)
+        if (sizeChanged || insetsChanged), let paginationMetricsHandler {
+            paginationMetricsHandler(newSize, safeAreaInsets)
+            return
+        }
         if (sizeChanged || insetsChanged), !pages.isEmpty, pageCommitHandler == nil {
             requestRebuild(reason: "阅读区域变化")
         }

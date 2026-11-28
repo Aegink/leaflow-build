@@ -42,6 +42,10 @@ extension LeaflowSmokeTests {
         XCTAssertTrue(count.waitForExistence(timeout: 20))
         XCTAssertEqual(app.staticTexts["repagination-font-size"].label, saved)
         XCTAssertTrue(body.waitForExistence(timeout: 30))
+        let hierarchy = XCTAttachment(string: app.debugDescription)
+        hierarchy.name = "reader-spacing-cold-layout"
+        hierarchy.lifetime = .keepAlways
+        add(hierarchy)
         capture("reader-spacing-cold")
         passed("reader_quick_spacing_repagination")
     }

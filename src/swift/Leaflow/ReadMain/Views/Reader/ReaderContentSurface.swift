@@ -128,6 +128,10 @@ struct ReaderContentSurface: View {
                 menuVisible: viewModel.menuVisible,
                 pageTurnCommand: viewModel.pendingPageTurnCommand,
                 onTap: { viewModel.handleTap() },
+                onPaginationMetrics: { size, insets in
+                    viewModel.containerSizeChanged(from: viewModel.containerSize, to: size,
+                        safeAreaInsets: insets, fromRenderedView: true)
+                },
                 onSwipeUp: { viewModel.handleSwipeUp() },
                 onSwipeUpDown: { viewModel.handleSwipeUpDown() },
                 onSwipeUpProgress: { viewModel.handleSwipeUpProgress($0) },

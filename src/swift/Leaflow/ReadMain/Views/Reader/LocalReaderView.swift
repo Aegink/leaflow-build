@@ -231,6 +231,11 @@ struct LocalReaderView: View {
         adapter.settings = settings
         adapter.pageCommitHandler = { [weak vm] commit in vm?.commitPageTurn(commit) }
         adapter.menuToggleHandler = { menuVisible.toggle() }
+        adapter.paginationMetricsHandler = { [weak vm] size, insets in
+            guard let vm, vm.updatePaginationBoundsIfNeeded(size: size, safeAreaInsets: insets,
+                fromRenderedView: true) else { return }
+            Task { await vm.rebuildPages(resyncSpeech: true) }
+        }
     }
 
     /// 章节滑条（_chapterSliderValue 初始化确证）。
