@@ -12,6 +12,10 @@ extension SourceLoginView {
         guard item.action?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else { return }
         fieldActionScheduler.schedule(key: item.name, debounced: debounced) {
             guard loginValues[item.name] == values[item.name] else { return }
+            if isExecuting {
+                scheduleFieldAction(for: item, values: loginValues, debounced: true)
+                return
+            }
             executeLoginUiAction(for: item, values: loginValues, fieldAction: true)
         }
     }
@@ -37,7 +41,7 @@ extension SourceLoginView {
 
     func runLoginAction(_ action: String?, fieldAction: Bool = false) {
         guard !isExecuting else { return }
-        fieldActionScheduler.cancelAll()
+        if !fieldAction { fieldActionScheduler.cancelAll() }
         let values = loginValues
         isExecuting = true
         isFieldActionExecuting = fieldAction
