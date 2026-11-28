@@ -20,11 +20,11 @@ extension ReadingSettings {
             ? (preset?.darkConfig ?? preset?.lightConfig)
             : (preset?.lightConfig ?? chapterTitleConfigLight)
         if let config {
-            return ChapterTitleConfig(
-                fontName: config.fontName.isEmpty ? fontName : config.fontName,
-                fontSize: config.fontSize > 0 ? config.fontSize : fontSize,
-                textAlignment: config.textAlignment,
-                useBold: config.useBold || isBold)
+            var active = config
+            active.fontName = config.fontName.isEmpty ? fontName : config.fontName
+            active.fontSize = config.fontSize > 0 ? config.fontSize : fontSize
+            active.useBold = config.useBold || isBold
+            return active
         }
         return ChapterTitleConfig(
             fontName: fontName, fontSize: fontSize,
@@ -344,6 +344,20 @@ extension ReadingSettings {
             weight: weight, prefersSimplifiedChinese: prefersSimplifiedChinese)
         return UIFont(name: name, size: size)
             ?? .systemFont(ofSize: size, weight: weight)
+    }
+
+    /// 0x100222bb8：自定义字体按family/weight构造描述符，缺失时回退系统字体。
+    var uiFont: UIFont {
+        guard fontName != "System", !fontName.isEmpty,
+              let custom = UIFont(name: fontName, size: fontSize) else {
+            return Self.preferredReaderSystemUIFont(ofSize: fontSize, weight: fontWeight,
+                prefersSimplifiedChinese: false)
+        }
+        let descriptor = UIFontDescriptor(fontAttributes: [
+            .family: custom.familyName,
+            .traits: [UIFontDescriptor.TraitKey.weight: fontWeight.rawValue]
+        ])
+        return UIFont(descriptor: descriptor, size: fontSize)
     }
 
     /// 伪代码 0x100222f5c（L1799-1809）：fontName == "System" → systemFont；

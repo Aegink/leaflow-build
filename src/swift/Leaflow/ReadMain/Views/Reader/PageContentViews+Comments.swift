@@ -76,14 +76,10 @@ func buildReaderBodyAttributedText(
     let startedAt = ProcessInfo.processInfo.systemUptime
     var metrics: [String: Double] = [:]
 
-    let font = ReadingSettings.preferredReaderSystemUIFont(
-        ofSize: settings.fontSize, weight: .regular, prefersSimplifiedChinese: false)
+    let font = settings.uiFont
 
     let paragraphStyle = NSMutableParagraphStyle()
-    // UIFont 无 lineSpacing 成员——以 lineHeight - pointSize 推导基准行距
-    // （还原推断）。
-    paragraphStyle.lineSpacing =
-        (font.lineHeight - font.pointSize) + extraLineSpacing
+    paragraphStyle.lineSpacing = settings.lineSpacing + extraLineSpacing
     paragraphStyle.paragraphSpacing = settings.paragraphSpacing
     paragraphStyle.lineBreakMode = .byWordWrapping
     paragraphStyle.alignment = settings.textAlignment

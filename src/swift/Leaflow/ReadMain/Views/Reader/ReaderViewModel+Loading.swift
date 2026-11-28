@@ -171,7 +171,8 @@ extension ReaderViewModel {
             let freshPages = try ReaderPaginator.paginate(
                 content: chapterContents[chapterIndex], chapterIndex: chapterIndex,
                 chapterTitle: chapters[chapterIndex].name,
-                settings: settings ?? ReadingSettings.load(), pageBounds: bounds)
+                settings: settings ?? ReadingSettings.load(), pageBounds: bounds,
+                safeAreaInsets: paginationSafeAreaInsets)
             chapterStateStore.setChapterPages(chapterIndex, pages: freshPages)
             mergePages(preservePosition: true, centerChapter: currentChapterIndex,
                 newPages: pages.filter { $0.chapterIndex != chapterIndex } + freshPages)

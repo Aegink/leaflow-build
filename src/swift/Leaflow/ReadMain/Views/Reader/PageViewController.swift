@@ -93,6 +93,7 @@ func readerPageContentStyleSignature(
     for settings: ReadingSettings, pageMode: ReadingSettings.PageMode?
 ) -> Int {
     var hasher = Hasher()
+    hasher.combine(settings.paginationSettingsSignature)
     hasher.combine(settings.fontSize)
     hasher.combine(settings.lineSpacing)
     hasher.combine(settings.textAlignment)

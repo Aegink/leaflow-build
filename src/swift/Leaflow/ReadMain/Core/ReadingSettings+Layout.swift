@@ -17,6 +17,11 @@ extension ReadingSettings {
         fields.append(String(isBold))
         fields.append(pageMode.rawValue)
         fields.append(doublePageMode.rawValue)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        if let title = try? encoder.encode(activeChapterTitleConfig) {
+            fields.append(title.base64EncodedString())
+        }
         return fields.joined(separator: "|")
     }
     // MARK: 布局域
@@ -36,18 +41,13 @@ extension ReadingSettings {
 
     /// 伪代码 0x100222014（L1568-1580）：canWritePersistentDefaults 为真 →
     /// 用窗口度量缓存；否则走 getContentAreaSize 摘要链。
-    /// 注：仓库现行 calculateLayout 签名以 safeAreaFrame 取代
-    /// chapterTitle/fontFamily 两参（T-302 还原形态），语义等价合并。
     func getLayout(
         isFirstPage: Bool, screenBounds: CGRect?, chapterTitle: String
     ) throws -> ReaderLayoutResult {
-        let resolvedBounds = Self.canWritePersistentDefaults
-            ? (ReaderLayoutCalculator.resolveWindowMetrics()?.bounds ?? screenBounds)
-            : screenBounds
+        let resolvedBounds = screenBounds ?? ReaderLayoutCalculator.resolveWindowMetrics()?.bounds
         guard let bounds = resolvedBounds else {
             throw CocoaError(.fileReadUnknown)
         }
-        _ = chapterTitle
         return ReaderLayoutCalculator.calculateLayout(
             isFirstPage: isFirstPage,
             chapterTitleConfig: activeChapterTitleConfig,
@@ -56,7 +56,8 @@ extension ReadingSettings {
             topInsetExtra: topInsetExtra,
             bottomInsetExtra: bottomInsetExtra,
             screenBounds: bounds,
-            safeAreaFrame: screenBounds ?? bounds)
+            safeAreaFrame: screenBounds ?? ReaderLayoutCalculator.resolveWindowMetrics()?.safeArea ?? bounds,
+            chapterTitle: chapterTitle)
     }
 
     /// 伪代码 0x100222130（L1583-1594）：getLayout 链 → contentRect 尺寸。

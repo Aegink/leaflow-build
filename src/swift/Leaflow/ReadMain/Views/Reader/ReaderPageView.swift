@@ -37,6 +37,7 @@ final class ReaderChapterTitleView: UIView {
         textView.isSelectable = false
         textView.backgroundColor = .clear
         textView.textContainer.lineFragmentPadding = 0
+        textView.textContainerInset = .zero
         textView.textContainer.lineBreakMode = .byWordWrapping
         return textView
     }()
@@ -103,6 +104,7 @@ final class ReaderChapterTitleView: UIView {
     /// 伪代码 0x1007c060c（L117-150）：文本样式应用
     ///（addAttribute/setAlignment/setLineBreakStrategy/setAttributedText 确证）。
     func applyStyle(text: String, font: UIFont, color: UIColor, alignment: NSTextAlignment) {
+        snapshotImageView.isHidden = true
         currentTextColor = color
         let paragraphStyle = NSMutableParagraphStyle()
         paragraphStyle.alignment = alignment

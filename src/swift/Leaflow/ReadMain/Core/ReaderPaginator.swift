@@ -114,10 +114,10 @@ enum ReaderPaginator {
         paragraphStyle.lineBreakStrategy = []
 
         // 2. 构建 attributed string。
-        let attributedContent = NSMutableAttributedString(
-            string: effectiveContent,
-            attributes: [.font: font, .paragraphStyle: paragraphStyle]
-        )
+        var attributes: [NSAttributedString.Key: Any] = [.font: font, .paragraphStyle: paragraphStyle]
+        if letterSpacing != 0 { attributes[.kern] = letterSpacing }
+        if fontStrokeWidth != 0 { attributes[.strokeWidth] = fontStrokeWidth }
+        let attributedContent = NSMutableAttributedString(string: effectiveContent, attributes: attributes)
 
         // 3. 首行缩进（伪代码：static ReaderTextLayout.applyParagraphIndentLayout 调用）。
         ReaderTextLayout.applyParagraphIndentLayout(
@@ -284,17 +284,20 @@ enum ReaderPaginator {
         chapterIndex: Int,
         chapterTitle: String = "",
         settings: ReadingSettings,
-        pageBounds: CGSize
+        pageBounds: CGSize,
+        safeAreaInsets: UIEdgeInsets = .zero
     ) throws -> [PageData] {
-        try paginate(
+        let sizes = contentSizes(settings: settings, pageBounds: pageBounds,
+            safeAreaInsets: safeAreaInsets, chapterTitle: chapterTitle)
+        return try paginate(
             content: content,
             chapterIndex: chapterIndex,
             chapterTitle: chapterTitle,
-            font: UIFont.systemFont(ofSize: settings.fontSize),
+            font: settings.uiFont,
             lineSpacing: settings.lineSpacing,
             paragraphSpacing: settings.paragraphSpacing,
-            contentSizeFirst: pageBounds,
-            contentSizeNormal: pageBounds,
+            contentSizeFirst: sizes.first,
+            contentSizeNormal: sizes.normal,
             textIndent: settings.textIndent,
             letterSpacing: settings.letterSpacing,
             textAlignment: settings.textAlignment,
@@ -302,7 +305,7 @@ enum ReaderPaginator {
             paragraphSeparatorLines: settings.paragraphSeparatorLines,
             imageContext: nil,
             comments: [],
-            fontStrokeWidth: 0,
+            fontStrokeWidth: settings.textStrokeWidth,
             languageIdentifier: "",
             highlightLayoutRules: [],
             useDarkHighlightAttributes: false,
@@ -323,19 +326,17 @@ enum ReaderPaginator {
         comments: [ParagraphCommentParser.ParagraphComment],
         priorPages: [PageData]?
     ) async throws -> [PageData] {
-        try paginate(
+        let sizes = contentSizes(settings: settings, pageBounds: screenBounds.size,
+            safeAreaInsets: .zero, chapterTitle: chapterTitle)
+        return try paginate(
             content: content,
             chapterIndex: chapterIndex,
             chapterTitle: chapterTitle,
-            font: UIFont.systemFont(ofSize: settings.fontSize),
+            font: settings.uiFont,
             lineSpacing: settings.lineSpacing,
             paragraphSpacing: settings.paragraphSpacing,
-            contentSizeFirst: CGSize(
-                width: screenBounds.width, height: screenBounds.height
-            ),
-            contentSizeNormal: CGSize(
-                width: screenBounds.width, height: screenBounds.height
-            ),
+            contentSizeFirst: sizes.first,
+            contentSizeNormal: sizes.normal,
             textIndent: settings.textIndent,
             letterSpacing: settings.letterSpacing,
             textAlignment: settings.textAlignment,
@@ -343,7 +344,7 @@ enum ReaderPaginator {
             paragraphSeparatorLines: settings.paragraphSeparatorLines,
             imageContext: imageContext,
             comments: comments,
-            fontStrokeWidth: 0,
+            fontStrokeWidth: settings.textStrokeWidth,
             languageIdentifier: "",
             highlightLayoutRules: [],
             useDarkHighlightAttributes: false,

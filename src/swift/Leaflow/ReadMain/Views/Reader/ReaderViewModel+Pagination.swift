@@ -51,6 +51,7 @@ extension ReaderViewModel {
     ) async throws -> [PageData] {
         var allPages: [PageData] = []
         let bounds = containerSize
+        let insets = paginationSafeAreaInsets
         try await withThrowingTaskGroup(of: (Int, [PageData]).self) { group in
             for (chapterIndex, content) in chapterContents.enumerated() {
                 group.addTask(priority: .userInitiated) {
@@ -61,7 +62,7 @@ extension ReaderViewModel {
                             content: content,
                             chapterIndex: chapterIndex,
                             settings: settings,
-                            pageBounds: bounds)
+                            pageBounds: bounds, safeAreaInsets: insets)
                     }
                     return (chapterIndex, pages)
                 }
@@ -85,7 +86,7 @@ extension ReaderViewModel {
             content: content,
             chapterIndex: chapterIndex,
             settings: ReadingSettings.load(),
-            pageBounds: containerSize)
+            pageBounds: containerSize, safeAreaInsets: paginationSafeAreaInsets)
     }
 
     /// 章页回填（伪代码 0x10088fd68，L313-323，@MainActor）。
@@ -209,6 +210,7 @@ extension ReaderViewModel {
         let content = chapterContents
         let titles = chapters.map(\.name)
         let bounds = containerSize
+        let insets = paginationSafeAreaInsets
         var replacement = pages.filter { !content.indices.contains($0.chapterIndex) || content[$0.chapterIndex].isEmpty }
         do {
             let frozen = try JSONDecoder().decode(ReadingSettings.self, from: JSONEncoder().encode(settings))
@@ -217,13 +219,14 @@ extension ReaderViewModel {
                 guard revision == paginationRevision else { return }
                 let rebuilt = try ReaderPaginator.paginate(content: content[index], chapterIndex: index,
                     chapterTitle: titles.indices.contains(index) ? titles[index] : "",
-                    settings: frozen, pageBounds: bounds)
+                    settings: frozen, pageBounds: bounds, safeAreaInsets: insets)
                 replacement.append(contentsOf: rebuilt)
                 await Task.yield()
             }
             try Task.checkCancellation()
             guard revision == paginationRevision else { return }
-            if chapterContents != content || settings.paginationSettingsSignature != frozen.paginationSettingsSignature {
+            if chapterContents != content || containerSize != bounds || paginationSafeAreaInsets != insets
+                || settings.paginationSettingsSignature != frozen.paginationSettingsSignature {
                 requestRebuild(reason: "重排期间内容或设置更新")
                 return
             }

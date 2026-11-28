@@ -67,6 +67,7 @@ final class LocalReaderViewModel {
     private(set) var speechHighlight = ReaderSpeechHighlight.none
     private(set) var activeReadAloudAnchor: ReadAloudAnchor?
     private(set) var containerSize: CGSize = .zero
+    private(set) var paginationSafeAreaInsets: UIEdgeInsets = .zero
     private var chapterPageMeta: [Int: (start: Int, end: Int, count: Int)] = [:]
     private var storedRenderSnapshot: ReaderRenderSnapshot?
     private var pendingRepagination = false
@@ -191,7 +192,7 @@ final class LocalReaderViewModel {
             return try ReaderPaginator.paginate(
                 content: content, chapterIndex: chapterIndex,
                 chapterTitle: chapterTitle,
-                settings: settings, pageBounds: containerSize)
+                settings: settings, pageBounds: containerSize, safeAreaInsets: paginationSafeAreaInsets)
         } catch {
             Logger.log("local paginate failure \(error)", level: .warning)
             return []
@@ -231,10 +232,11 @@ final class LocalReaderViewModel {
 
     /// 伪代码 0x10074cd54（L514-544）：分页边界更新。
     @discardableResult
-    func updatePaginationBoundsIfNeeded(size: CGSize) -> Bool {
+    func updatePaginationBoundsIfNeeded(size: CGSize, safeAreaInsets: UIEdgeInsets = .zero) -> Bool {
         guard size.width.isFinite, size.height.isFinite, size.width > 0, size.height > 0 else { return false }
-        if containerSize != size {
+        if containerSize != size || paginationSafeAreaInsets != safeAreaInsets {
             containerSize = size
+            paginationSafeAreaInsets = safeAreaInsets
             return true
         }
         return false

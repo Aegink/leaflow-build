@@ -49,8 +49,8 @@ extension PageContentViewController {
             leftPageMargin: settings.leftPageMargin, rightPageMargin: settings.rightPageMargin,
             topInsetExtra: settings.topInsetExtra, bottomInsetExtra: settings.bottomInsetExtra,
             screenBounds: bounds, safeAreaFrame: safeFrame.width > 0 && safeFrame.height > 0
-                ? safeFrame : bounds.inset(by: view.safeAreaInsets))
-        chapterTitleView.frame = CGRect(x: layout.contentRect.minX, y: layout.topInset,
+                ? safeFrame : bounds.inset(by: view.safeAreaInsets), chapterTitle: page.chapterTitle)
+        chapterTitleView.frame = CGRect(x: layout.contentRect.minX, y: bounds.minY + layout.topInset,
             width: layout.contentRect.width, height: layout.titleHeight)
         chapterTitleView.isHidden = layout.titleHeight <= 0
         fullLineUnderlineView.frame = bounds
@@ -149,14 +149,17 @@ extension PageContentViewController {
                     "[TitleSnapshot] CACHE HIT: \(page.chapterTitle)")
             } else {
                 lastTitleSnapshotKey = nil
+                let config = settings.activeChapterTitleConfig
+                chapterTitleView.applyStyle(text: page.chapterTitle,
+                    font: config.resolvedUIFont(fontFamily: config.fontName),
+                    color: settings.textUIColor, alignment: config.textAlignment)
                 ReaderPerformanceTrace.log(
                     "[TitleSnapshot] CACHE MISS: \(page.chapterTitle)")
             }
         }
 
         // 正文安装（trace "textInstall" 字面量确证）。
-        let font = ReadingSettings.preferredReaderSystemUIFont(
-            ofSize: settings.fontSize, weight: .regular, prefersSimplifiedChinese: false)
+        let font = settings.uiFont
         contentTextView.font = font
         contentTextView.isScrollEnabled = false
         contentTextView.textContainer.lineBreakMode = .byWordWrapping
@@ -203,7 +206,7 @@ extension PageContentViewController {
             contentWidth: bodyContentWidth,
             displayScale: view.traitCollection.displayScale,
             imageContext: nil,
-            extraLineSpacing: settings.lineSpacing,
+            extraLineSpacing: pageData?.extraLineSpacing ?? 0,
             preserveTrailingJustification: shouldPreserveTrailingJustification(
                 forcePreserve: forcePreserveTrailingJustification),
             continuationPreviewText: "",

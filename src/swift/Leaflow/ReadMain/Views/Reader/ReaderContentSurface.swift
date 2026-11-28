@@ -65,7 +65,15 @@ struct ReaderContentSurface: View {
             }
             .onChange(of: geometry.size, initial: true) { oldSize, newSize in
                 // 闭包 #3（0x10079827c，L68-72）：尺寸变化回调。
-                viewModel.containerSizeChanged(from: oldSize, to: newSize)
+                viewModel.containerSizeChanged(from: oldSize, to: newSize,
+                    safeAreaInsets: UIEdgeInsets(top: geometry.safeAreaInsets.top,
+                        left: geometry.safeAreaInsets.leading, bottom: geometry.safeAreaInsets.bottom,
+                        right: geometry.safeAreaInsets.trailing))
+            }
+            .onChange(of: geometry.safeAreaInsets) { _, insets in
+                viewModel.containerSizeChanged(from: geometry.size, to: geometry.size,
+                    safeAreaInsets: UIEdgeInsets(top: insets.top, left: insets.leading,
+                        bottom: insets.bottom, right: insets.trailing))
             }
             .onChange(of: viewModel.isLoadingPage, initial: false) { _, _ in
                 // 闭包 #4（0x1007983d0，L73-81）：状态双 Bool 回调。

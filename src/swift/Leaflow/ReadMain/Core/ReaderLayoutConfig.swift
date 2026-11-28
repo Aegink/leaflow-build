@@ -293,23 +293,10 @@ final class ReaderLayoutCalculator {
         topInsetExtra: CGFloat,
         bottomInsetExtra: CGFloat,
         screenBounds: CGRect,
-        safeAreaFrame: CGRect
+        safeAreaFrame: CGRect,
+        chapterTitle: String = ""
     ) -> ReaderLayoutResult {
-        // 伪代码：WindowMetricsCache 命中早退。
-        if let cached = resolveWindowMetrics() {
-            return buildResult(
-                isFirstPage: isFirstPage,
-                config: chapterTitleConfig,
-                leftMargin: leftPageMargin,
-                rightMargin: rightPageMargin,
-                topExtra: topInsetExtra,
-                bottomExtra: bottomInsetExtra,
-                bounds: cached.bounds,
-                safeArea: cached.safeArea
-            )
-        }
-
-        // 伪代码：窗口度量缺失 → 直接用 screenBounds/safeAreaFrame。
+        // 0x1001f6b68：显式screenBounds优先；不能被另一窗口的缓存覆盖。
         return buildResult(
             isFirstPage: isFirstPage,
             config: chapterTitleConfig,
@@ -318,7 +305,8 @@ final class ReaderLayoutCalculator {
             topExtra: topInsetExtra,
             bottomExtra: bottomInsetExtra,
             bounds: screenBounds,
-            safeArea: safeAreaFrame
+            safeArea: safeAreaFrame,
+            chapterTitle: chapterTitle
         )
     }
 
@@ -331,16 +319,17 @@ final class ReaderLayoutCalculator {
         topExtra: CGFloat,
         bottomExtra: CGFloat,
         bounds: CGRect,
-        safeArea: CGRect
+        safeArea: CGRect,
+        chapterTitle: String
     ) -> ReaderLayoutResult {
         // contentRect：从 bounds 减去 margins（伪代码 sub_1001FB92C 调用族）。
         let contentX = bounds.minX + leftMargin
-        let contentWidth = bounds.width - leftMargin - rightMargin
+        let contentWidth = max(1, bounds.width - leftMargin - rightMargin)
 
         // 标题高度计算（伪代码：boundingRectWithSize:options:3）。
         var titleHeight: CGFloat = 0
-        if let config = config {
-            let font = buildTitleFont(config)
+        if isFirstPage, let config, config.isEnabled, !chapterTitle.isEmpty {
+            let font = config.resolvedUIFont(fontFamily: config.fontName)
             let paragraphStyle = NSMutableParagraphStyle()
             paragraphStyle.alignment = config.textAlignment
             paragraphStyle.lineBreakMode = .byWordWrapping
@@ -349,7 +338,7 @@ final class ReaderLayoutCalculator {
                 .font: font,
                 .paragraphStyle: paragraphStyle,
             ]
-            let titleText = "章" as NSString
+            let titleText = chapterTitle as NSString
             let boundingRect = titleText.boundingRect(
                 with: CGSize(width: contentWidth, height: .greatestFiniteMagnitude),
                 options: [.usesLineFragmentOrigin, .usesFontLeading],
@@ -360,12 +349,12 @@ final class ReaderLayoutCalculator {
         }
 
         // 安全区叠加（伪代码：safeArea 偏移叠加到 top/bottom inset）。
-        let topInset = safeArea.minY + topExtra
-        let bottomInset = (bounds.height - safeArea.maxY) + bottomExtra
+        let topInset = max(0, safeArea.minY - bounds.minY) + topExtra
+        let bottomInset = max(0, bounds.maxY - safeArea.maxY) + bottomExtra
 
         let contentRect = CGRect(
             x: contentX,
-            y: topInset + titleHeight,
+            y: bounds.minY + topInset + titleHeight,
             width: contentWidth,
             height: max(0, bounds.height - topInset - bottomInset - titleHeight)
         )
@@ -388,16 +377,5 @@ final class ReaderLayoutCalculator {
         )
     }
 
-    /// 标题字体构建（伪代码：fontDescriptorWithSymbolicTraits: 2 → bold）。
-    private static func buildTitleFont(_ config: ChapterTitleConfig) -> UIFont {
-        let baseFont = UIFont.systemFont(ofSize: config.fontSize)
-        if config.useBold {
-            // UIFont(descriptor:size:) 非可失败——单层绑定（wave-63）。
-            if let descriptor = baseFont.fontDescriptor.withSymbolicTraits(.traitBold) {
-                return UIFont(descriptor: descriptor, size: config.fontSize)
-            }
-        }
-        return baseFont
-    }
 }
 

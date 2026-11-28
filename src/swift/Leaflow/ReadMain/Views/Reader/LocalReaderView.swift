@@ -189,9 +189,23 @@ struct LocalReaderView: View {
                     settings: settings,
                     onRetry: { await viewModel.retryLoading() })
                     .task(id: contentGeometry.size) {
-                        if viewModel.updatePaginationBoundsIfNeeded(size: contentGeometry.size) {
+                        if viewModel.updatePaginationBoundsIfNeeded(size: contentGeometry.size,
+                            safeAreaInsets: UIEdgeInsets(top: contentGeometry.safeAreaInsets.top,
+                                left: contentGeometry.safeAreaInsets.leading, bottom: contentGeometry.safeAreaInsets.bottom,
+                                right: contentGeometry.safeAreaInsets.trailing)) {
                             await viewModel.rebuildPages(resyncSpeech: true)
                         }
+                    }
+                    .onChange(of: contentGeometry.safeAreaInsets) { _, insets in
+                        if viewModel.updatePaginationBoundsIfNeeded(size: contentGeometry.size,
+                            safeAreaInsets: UIEdgeInsets(top: insets.top, left: insets.leading,
+                                bottom: insets.bottom, right: insets.trailing)) {
+                            Task { await viewModel.rebuildPages(resyncSpeech: true) }
+                        }
+                    }
+                    .task(id: settings.paginationSettingsSignature) {
+                        settings.save()
+                        await viewModel.rebuildPages(resyncSpeech: true)
                     }
             }
         }
@@ -212,6 +226,7 @@ struct LocalReaderView: View {
         adapter.hasError = vm.hasError
         adapter.menuVisible = menuVisible
         adapter.containerSize = vm.containerSize
+        adapter.paginationSafeAreaInsets = vm.paginationSafeAreaInsets
         adapter.settings = settings
         adapter.pageCommitHandler = { [weak vm] commit in vm?.commitPageTurn(commit) }
     }

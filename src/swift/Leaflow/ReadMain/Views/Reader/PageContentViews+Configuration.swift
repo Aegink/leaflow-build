@@ -19,6 +19,10 @@ extension PageContentViewController {
     ) {
         let needsFrameUpdate = bookName != newBookName || totalChapters != newTotalChapters
         let contentChanged = pageData.map { !newPage.hasSameRenderableState(as: $0) } ?? true
+        let signature = readerPageContentStyleSignature(for: newSettings, pageMode: newSettings.pageMode)
+        let styleChanged = contentStyleSignature != signature
+        contentStyleSignature = signature
+        storedContentStyleSignature = nil
 
         settings = newSettings
         pageData = newPage
@@ -39,13 +43,14 @@ extension PageContentViewController {
             refreshAllWidgetContent()
         }
 
-        guard contentChanged else {
+        guard contentChanged || styleChanged else {
             if needsFrameUpdate {
                 updateFrames()
             }
             return
         }
         _ = ReaderPageDebug.visibleTextLength(in: newPage)
+        if styleChanged { bodyCache.invalidate(); lastTitleSnapshotKey = nil }
         updateContent(reason: "configure")
     }
 

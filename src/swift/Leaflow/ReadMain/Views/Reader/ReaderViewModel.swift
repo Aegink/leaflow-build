@@ -98,6 +98,7 @@ final class ReaderViewModel {
     @ObservationIgnored var paginationRevision: UInt64 = 0
     private(set) var pendingPageTurnCommand: ReaderPageTurnCommand?
     var containerSize: CGSize = .zero
+    var paginationSafeAreaInsets: UIEdgeInsets = .zero
 
     var canCancelLoadingIndicator: Bool {
         isLoadingPage
@@ -220,8 +221,12 @@ final class ReaderViewModel {
 
     func handleCommentTap(_ comment: ParagraphComment, pageIndex: Int) {}
 
-    func containerSizeChanged(from oldSize: CGSize, to newSize: CGSize) {
-        if updatePaginationBoundsIfNeeded(size: newSize), !pages.isEmpty {
+    func containerSizeChanged(from oldSize: CGSize, to newSize: CGSize,
+                              safeAreaInsets: UIEdgeInsets = .zero) {
+        let insetsChanged = paginationSafeAreaInsets != safeAreaInsets
+        paginationSafeAreaInsets = safeAreaInsets
+        let sizeChanged = updatePaginationBoundsIfNeeded(size: newSize)
+        if (sizeChanged || insetsChanged), !pages.isEmpty, pageCommitHandler == nil {
             requestRebuild(reason: "阅读区域变化")
         }
     }

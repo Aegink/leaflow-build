@@ -70,13 +70,14 @@ extension ChapterTitleConfig {
     /// ICF 合并，题名视图域按桥处理）。
     func resolvedUIFont(fontFamily: String) -> UIFont {
         let base: UIFont
+        let weight = useBold ? UIFont.Weight.bold : uiFontWeight
         if fontFamily == "System" {
-            base = .systemFont(ofSize: fontSize, weight: uiFontWeight)
+            base = .systemFont(ofSize: fontSize, weight: weight)
         } else {
             base = UIFont(name: fontFamily, size: fontSize)
-                ?? .systemFont(ofSize: fontSize, weight: uiFontWeight)
+                ?? .systemFont(ofSize: fontSize, weight: weight)
         }
-        if fontWeightName == "bold" {
+        if useBold || fontWeightName == "bold" {
             if let descriptor = base.fontDescriptor
                 .withSymbolicTraits(.traitBold) {
                 return UIFont(descriptor: descriptor, size: fontSize)
@@ -181,18 +182,19 @@ extension ReaderLayoutCalculator {
         chapterTitle: String,
         fontFamily: String
     ) throws -> CGSize {
-        _ = chapterTitle
-        _ = fontFamily
+        var config = chapterTitleConfig
+        if config.fontName.isEmpty { config.fontName = fontFamily }
         let bounds = screenBounds ?? UIScreen.main.bounds
         let layout = calculateLayout(
             isFirstPage: isFirstPage,
-            chapterTitleConfig: chapterTitleConfig,
+            chapterTitleConfig: config,
             leftPageMargin: leftPageMargin,
             rightPageMargin: rightPageMargin,
             topInsetExtra: topInsetExtra,
             bottomInsetExtra: bottomInsetExtra,
             screenBounds: bounds,
-            safeAreaFrame: bounds)
+            safeAreaFrame: bounds,
+            chapterTitle: chapterTitle)
         return layout.contentRect.size
     }
 }
