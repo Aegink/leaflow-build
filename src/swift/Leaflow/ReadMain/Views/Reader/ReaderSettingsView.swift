@@ -52,6 +52,7 @@ struct ReaderSettingsView: View {
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("完成") {
+                            settings.save()
                             onDismiss()
                             dismiss()
                         }
@@ -61,6 +62,7 @@ struct ReaderSettingsView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .presentationDetents([.height(520), .large])
                 .onAppear { selectedTab = min(3, max(0, initialTab)) }
+                .onDisappear { settings.save() }
         }
     }
 
@@ -409,6 +411,8 @@ struct ReaderSettingsView: View {
                     get: { Double(value.wrappedValue) },
                     set: { value.wrappedValue = CGFloat($0) }),
                 in: range, step: step)
+                .accessibilityLabel(title)
+                .accessibilityIdentifier("reader-setting-" + title)
         }
     }
 

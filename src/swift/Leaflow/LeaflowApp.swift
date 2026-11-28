@@ -110,6 +110,8 @@ struct LeaflowApp: App {
                     ExploreReadingSmokeView()
                 } else if ProcessInfo.processInfo.arguments.contains("-smokeBackupSettings") {
                     NavigationStack { BackupView() }
+                } else if ProcessInfo.processInfo.arguments.contains("-smokeReadingSettings") {
+                    ReadingSettingsSmokeView()
                 } else if ProcessInfo.processInfo.arguments.contains("-smokeLocalBookImport")
                     || ProcessInfo.processInfo.arguments.contains("-smokeEpubImport")
                     || ProcessInfo.processInfo.arguments.contains("-smokePDFImport") {
@@ -328,6 +330,6 @@ struct LeaflowApp: App {
 @MainActor
 enum PersistenceFlushCoordinator {
     static func flushNow() {
-        // 冲刷体（ReaderPageDebug/LRUCache 落盘）待分册落地。
+        ReadingSettings.flushLoadedInstances()
     }
 }

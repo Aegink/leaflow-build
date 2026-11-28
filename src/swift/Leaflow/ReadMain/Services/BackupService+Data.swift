@@ -19,7 +19,7 @@ extension BackupService {
                     let decoder = JSONDecoder()
                     decoder.dateDecodingStrategy = .iso8601
                     _ = try decoder.decode([ReadingRecord].self, from: data)
-                case .readingSettings: _ = try JSONDecoder().decode(ReadingSettings.self, from: data)
+                case .readingSettings: _ = try ReadingSettingsBackup.validatedValues(from: data)
                 case .localBooks: _ = try JSONDecoder().decode([LocalBook].self, from: data)
                 default: break
                 }

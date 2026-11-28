@@ -289,22 +289,8 @@ final class BackupService {
             }
         }
         if categories.contains(.readingSettings) {
-            let settingsFile = directory.appendingPathComponent(
-                "reading_settings.json")
-            if fileManager.fileExists(atPath: settingsFile.path),
-               let data = try? Data(contentsOf: settingsFile) {
-                importReadingSettings(from: data)
-            }
+            if let data = try readJSONPayload("reading_settings.json", from: directory) { try importReadingSettings(from: data) }
         }
-    }
-
-    /// importReadingSettings(from: Data)（签名域确证）。
-    func importReadingSettings(from data: Data) {
-        guard let settings = try? JSONDecoder().decode(
-            ReadingSettings.self, from: data) else {
-            return
-        }
-        settings.save()
     }
 
     /// importAppSettings(from: Data)（签名域确证）。
@@ -377,7 +363,7 @@ final class BackupService {
         if categories.contains(.chapterRules), existingFile(estimatedFiles(for: .chapterRules)) == nil {
             total += Int64(defaults.data(forKey: "chapter_rules")?.count ?? 0)
         }
-        if categories.contains(.readingSettings) { total += Int64((try? JSONEncoder().encode(ReadingSettings.load()))?.count ?? 0) }
+        if categories.contains(.readingSettings) { total += Int64((try? exportReadingSettings())?.count ?? 0) }
         if categories.contains(.ttsSources) { total += Int64(defaults.data(forKey: "reader_tts_sources")?.count ?? 0) }
         return total
     }

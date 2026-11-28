@@ -125,6 +125,7 @@ enum RuleSampleSelfTest {
             await ReadingStatisticsSampleSelfTest.run(emit: emit)
             await WebDAVSampleSelfTest.run(emit: emit)
             ReadingDurationSampleSelfTest.run(emit: emit)
+            await ReadingSettingsSampleSelfTest.run(emit: emit)
             emitRaw("SELFTEST_END")
             exit(0)
         }

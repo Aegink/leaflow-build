@@ -21,7 +21,8 @@ SWIFT_SOURCE_PARTS = {
     "ReadMain/Services/BackupService.swift": [
         "ReadMain/Services/BackupService+Export.swift",
         "ReadMain/Services/BackupService+Cloud.swift",
-        "ReadMain/Services/BackupService+Data.swift"],
+        "ReadMain/Services/BackupService+Data.swift",
+        "ReadMain/Services/BackupService+Settings.swift"],
     "ReadMain/Views/Bookshelf/LocalBookImportView.swift": [
         "ReadMain/Views/Bookshelf/LocalBookImportView+Metadata.swift"],
     "ReadMain/Services/LocalBookService.swift": [
@@ -47,7 +48,10 @@ SWIFT_SOURCE_PARTS = {
         "ReadMain/Views/Reader/PageContentViews+UnderlineGeometry.swift",
         "ReadMain/Views/Reader/PageContentViews+Layout.swift",
         "ReadMain/Views/Reader/PageContentViews+Configuration.swift"],
-    "ReadMain/Core/ReadingSettings.swift": ["ReadMain/Core/ReadingSettings+Background.swift"],
+    "ReadMain/Core/ReadingSettings.swift": ["ReadMain/Core/ReadingSettings+Background.swift",
+        "ReadMain/Core/ReadingSettings+Types.swift", "ReadMain/Core/ReadingSettings+Codable.swift",
+        "ReadMain/Core/ReadingSettings+Rendering.swift", "ReadMain/Core/ReadingSettings+Layout.swift",
+        "ReadMain/Core/ReadingSettings+Persistence.swift"],
     "ReadMain/Core/SourceParser/LocalSourceParser.swift": ["ReadMain/Core/SourceParser/LocalSourceParser+Reviews.swift"],
     "ReadMain/Views/Reader/ReaderViewModifiers.swift": ["ReadMain/Views/Reader/ReaderSelectionPresentations.swift",
                                                         "ReadMain/Views/Reader/ReaderReviewPresentation.swift"],

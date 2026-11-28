@@ -154,15 +154,9 @@ extension BackupService {
 
     // MARK: 设置域（exportReadingSettings/exportAppSettings 签名域）
 
-    /// exportReadingSettings（签名域确证：flush 桥）。
-    func exportReadingSettings() {
-        ReadingSettings.load().save()
-    }
-
     /// exportReadingSettingsFile(to:)（签名域确证）。
     func exportReadingSettingsFile(to directory: URL) throws {
-        let settings = ReadingSettings.load()
-        let data = try JSONEncoder().encode(settings)
+        let data = try exportReadingSettings()
         try data.write(
             to: directory.appendingPathComponent("reading_settings.json"),
             options: .atomic)
@@ -188,7 +182,8 @@ extension BackupService {
     }
 
     func flushReadingSettingsForBackup() throws {
-        ReadingSettings.load().save()
+        // 只冲刷已加载实例，不能新建部分设置再覆盖未加载字段。
+        ReadingSettings.flushLoadedInstances()
     }
 
     func flushAppThemeSettingsForBackup() throws {
