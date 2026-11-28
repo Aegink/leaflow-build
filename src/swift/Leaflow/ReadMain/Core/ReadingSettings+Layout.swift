@@ -6,12 +6,18 @@ import UIKit
 extension ReadingSettings {
     /// 正文排版输入签名，不包括页面呈现修订，避免重排提交再次触发自身。
     var paginationSettingsSignature: String {
-        [String(Double(fontSize)), String(Double(lineSpacing)), String(Double(paragraphSpacing)),
-         String(Double(letterSpacing)), String(textIndent), String(textAlignment.rawValue),
-         String(verticalJustify), String(paragraphSeparatorLines), fontName, String(isBold),
-         String(Double(fontWeight.rawValue)), String(Double(leftPageMargin)), String(Double(rightPageMargin)),
-         String(Double(topInsetExtra)), String(Double(bottomInsetExtra)), pageMode.rawValue,
-         doublePageMode.rawValue].joined(separator: "|")
+        let dimensions: [CGFloat] = [fontSize, lineSpacing, paragraphSpacing, letterSpacing,
+            fontWeight.rawValue, leftPageMargin, rightPageMargin, topInsetExtra, bottomInsetExtra]
+        var fields: [String] = dimensions.map { String(Double($0)) }
+        fields.append(String(textIndent))
+        fields.append(String(textAlignment.rawValue))
+        fields.append(String(verticalJustify))
+        fields.append(String(paragraphSeparatorLines))
+        fields.append(fontName)
+        fields.append(String(isBold))
+        fields.append(pageMode.rawValue)
+        fields.append(doublePageMode.rawValue)
+        return fields.joined(separator: "|")
     }
     // MARK: 布局域
 
