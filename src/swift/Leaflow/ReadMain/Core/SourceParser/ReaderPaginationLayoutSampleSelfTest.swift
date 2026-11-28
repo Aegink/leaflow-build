@@ -95,6 +95,27 @@ enum ReaderPaginationLayoutSampleSelfTest {
             emit("pagination_layout_short_page_refresh", ["28", "true"],
                 [String(Int(refreshedFont?.pointSize ?? 0)),
                  String(controller.contentTextView.attributedText.string == "短页保持正文")])
+            settings.fontName = "System"
+            settings.fontSize = 29.5
+            settings.letterSpacing = 0
+            let longPages = try ReaderPaginator.paginate(content: text, chapterIndex: 0,
+                chapterTitle: "实际标题", settings: settings, pageBounds: bounds)
+            var heightsFit = true
+            var maximumOverflow: CGFloat = 0
+            for current in longPages {
+                controller.configure(pageData: current, settings: settings, bookName: "固定样本", totalChapters: 1)
+                controller.view.setNeedsLayout()
+                controller.view.layoutIfNeeded()
+                controller.contentTextView.layoutIfNeeded()
+                let manager = controller.contentTextView.layoutManager
+                manager.ensureLayout(for: controller.contentTextView.textContainer)
+                let height = manager.usedRect(for: controller.contentTextView.textContainer).height
+                let overflow = height - controller.contentTextView.bounds.height
+                maximumOverflow = max(maximumOverflow, overflow)
+                heightsFit = heightsFit && overflow <= 1
+            }
+            emit("pagination_layout_all_rendered_pages_fit", ["true", "0"],
+                [String(heightsFit), String(Int(ceil(maximumOverflow)))])
             emit("pagination_layout_setup", ["成功"], ["成功"])
         } catch {
             ReaderLayoutCalculator.invalidateLayoutCache()
