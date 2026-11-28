@@ -1,6 +1,42 @@
 import XCTest
 
 extension LeaflowSmokeTests {
+    func testReadingFontPickerPersistence() {
+        executionTimeAllowance = 300
+        launch(["-smokeReadingSettings"])
+        let open = app.buttons["settings-open-editor"]
+        XCTAssertTrue(open.waitForExistence(timeout: 15))
+        open.tap()
+        let picker = app.buttons["reader-font-picker"]
+        XCTAssertTrue(picker.waitForExistence(timeout: 15))
+        picker.tap()
+        let search = app.searchFields.firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 15))
+        search.tap()
+        search.typeText("Courier")
+        let font = app.buttons["reader-font-Courier"]
+        XCTAssertTrue(font.waitForExistence(timeout: 15))
+        font.tap()
+        XCTAssertTrue(picker.waitForExistence(timeout: 10))
+        app.buttons["完成"].tap()
+        XCTAssertTrue(open.waitForExistence(timeout: 10))
+        XCTAssertEqual(app.staticTexts["settings-saved-font-name"].label, "Courier")
+        capture("reader-font-selected")
+        launch(["-smokeReadingSettings"])
+        XCTAssertTrue(open.waitForExistence(timeout: 15))
+        XCTAssertEqual(app.staticTexts["settings-saved-font-name"].label, "Courier")
+        open.tap()
+        XCTAssertTrue(picker.waitForExistence(timeout: 15))
+        picker.tap()
+        let system = app.buttons["reader-font-System"]
+        XCTAssertTrue(system.waitForExistence(timeout: 15))
+        system.tap()
+        XCTAssertTrue(picker.waitForExistence(timeout: 10))
+        app.buttons["完成"].tap()
+        XCTAssertEqual(app.staticTexts["settings-saved-font-name"].label, "System")
+        passed("reader_font_picker_persistence")
+    }
+
     func testReadingSettingsColdPersistence() {
         launch(["-smokeReadingSettings"])
         let open = app.buttons["settings-open-editor"]

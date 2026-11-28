@@ -13,6 +13,7 @@ struct ReadingSettingsSmokeView: View {
                     .lineSpacing(settings.lineSpacing)
                 Text(String(Double(settings.fontSize))).accessibilityIdentifier("settings-saved-font-size")
                 Text(String(Double(settings.lineSpacing))).accessibilityIdentifier("settings-saved-line-spacing")
+                Text(settings.fontName).accessibilityIdentifier("settings-saved-font-name")
                 Button("打开阅读设置") { showSettings = true }.accessibilityIdentifier("settings-open-editor")
             }
             .padding()

@@ -57,14 +57,16 @@ struct ThemeButton: View {
 
 /// 字体选择器（伪代码 0x1007ced70，L70-138）。
 struct FontPickerView: View {
-    var fonts: [CustomFontService.FontInfo]
     @Binding var selectedFontName: String
-    var onImport: () -> Void
+    var fontService: CustomFontService = .shared
+    @Environment(\.dismiss) private var dismiss
+    @State private var showFileImporter = false
+    @State private var importError: String?
     @State private var searchText = ""
 
     private var filteredCustomFonts: [CustomFontService.FontInfo] {
-        guard !searchText.isEmpty else { return fonts }
-        return fonts.filter {
+        guard !searchText.isEmpty else { return fontService.fonts }
+        return fontService.fonts.filter {
             $0.displayName.localizedCaseInsensitiveContains(searchText)
                 || $0.name.localizedCaseInsensitiveContains(searchText)
         }
@@ -97,20 +99,37 @@ struct FontPickerView: View {
             }
             Section {
                 Button {
-                    onImport()
+                    showFileImporter = true
                 } label: {
                     Label("导入字体文件", systemImage: "doc.badge.plus")
                 }
                 .tint(Color.accentColor)
+                .accessibilityIdentifier("reader-font-import")
             }
         }
         .searchable(text: $searchText, prompt: "搜索字体")
+        .navigationTitle("选择字体")
+        .sheet(isPresented: $showFileImporter) {
+            CopiedFilePicker(allowedContentTypes: [.font], allowsMultipleSelection: false) { urls in
+                showFileImporter = false
+                guard let url = urls.first else { return }
+                switch fontService.importFont(from: url) {
+                case .success(let font): selectedFontName = font.name; dismiss()
+                case .failure(let error): importError = error.localizedDescription
+                }
+            }
+        }
+        .alert("字体导入失败", isPresented: Binding(get: { importError != nil },
+            set: { if !$0 { importError = nil } })) {
+                Button("确定", role: .cancel) { importError = nil }
+            } message: { Text(importError ?? "") }
     }
 
     /// 系统字体行。
     private func systemFontRow(name: String, displayName: String) -> some View {
         Button {
             selectedFontName = name
+            dismiss()
         } label: {
             HStack {
                 Text(displayName).font(.system(size: 16))
@@ -121,12 +140,14 @@ struct FontPickerView: View {
             }
         }
         .foregroundStyle(.primary)
+        .accessibilityIdentifier("reader-font-" + name)
     }
 
     /// 伪代码 0x1007cf540（L73-75）：fontRow（Font.custom 试渲染确证）。
     private func fontRow(name: String, displayName: String) -> some View {
         Button {
             selectedFontName = name
+            dismiss()
         } label: {
             HStack {
                 Text(displayName)
@@ -138,6 +159,7 @@ struct FontPickerView: View {
             }
         }
         .foregroundStyle(.primary)
+        .accessibilityIdentifier("reader-font-" + name)
     }
 }
 

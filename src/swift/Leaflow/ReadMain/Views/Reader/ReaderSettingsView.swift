@@ -195,6 +195,13 @@ struct ReaderSettingsView: View {
     private var fontStyleSection: some View {
         Section("字体") {
             NavigationLink {
+                FontPickerView(selectedFontName: $settings.fontName)
+            } label: {
+                LabeledContent("选择字体", value: CustomFontService.shared.displayName(
+                    forFontFamily: settings.fontName, systemName: "系统字体"))
+            }
+            .accessibilityIdentifier("reader-font-picker")
+            NavigationLink {
                 FontManageView()
             } label: {
                 LabeledContent("字体管理", value: settings.fontName)
