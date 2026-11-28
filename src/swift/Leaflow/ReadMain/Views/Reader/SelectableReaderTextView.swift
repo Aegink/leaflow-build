@@ -117,7 +117,10 @@ final class SelectableReaderTextView: UITextView, ReaderTextSelectionHandling {
     override func layoutSubviews() {
         // 伪代码 0x1008b5cbc（L154-164）。
         super.layoutSubviews()
-        textContainer.size = CGSize(width: bounds.width, height: .infinity)
+        let width = max(1, bounds.width - textContainerInset.left - textContainerInset.right)
+        if textContainer.size.width != width {
+            textContainer.size = CGSize(width: width, height: .greatestFiniteMagnitude)
+        }
     }
 
     /// 伪代码 0x1008b5f20（L177-192）：非选择态禁用单击

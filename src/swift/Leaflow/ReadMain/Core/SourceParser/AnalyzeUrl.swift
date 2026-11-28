@@ -91,9 +91,11 @@ final class AnalyzeUrl {
     var suppressRequestWhenResolvedUrlIsEmpty = false
     var webJs: String?
     var sourceRegex: String?
+    var urlParseError: String?
 
     /// 伪代码 L197-230：实例 JS 上下文。
     private var ownedJSContext: JSContext?
+    private let isolatedJavaScript: Bool
     private let contextLock = NSLock()
 
     init(
@@ -101,10 +103,12 @@ final class AnalyzeUrl {
         key: String?,
         page: Int,
         baseUrl: String,
-        source: BookSource? = nil
+        source: BookSource? = nil,
+        isolatedJavaScript: Bool = false
     ) {
         // 伪代码 0x100083c54（L634-668）。
         self.ruleUrl = ruleUrl
+        self.isolatedJavaScript = isolatedJavaScript
         self.source = source
         self.sourceKey = key ?? ""
         self.sourceName = key ?? ""
@@ -170,7 +174,7 @@ final class AnalyzeUrl {
         if let owned = ownedJSContext {
             return owned
         }
-        let context = JSContextPool.acquire()
+        let context = isolatedJavaScript ? JSContext()! : JSContextPool.acquire()
         setupJSContext(context)
         ownedJSContext = context
         return context
@@ -181,7 +185,7 @@ final class AnalyzeUrl {
         contextLock.lock()
         defer { contextLock.unlock() }
         guard let owned = ownedJSContext else { return }
-        JSContextPool.release(owned)
+        if !isolatedJavaScript { JSContextPool.release(owned) }
         ownedJSContext = nil
     }
 
@@ -195,10 +199,16 @@ final class AnalyzeUrl {
 
     /// 伪代码 0x100084b88（L712-939）：URL 规则解析主入口（主干顺序见读后记推断 1）。
     func parseUrl() {
+        urlParseError = nil
         var working = ruleUrl
 
         // 事实 9：JS 前缀剥离。
-        working = Self.processJsPrefix(working)
+        if working.lowercased().hasPrefix("@js:") || working.lowercased().hasPrefix("<js>") {
+            let context = jsContext()
+            context.exception = nil
+            working = executeJsUrl(Self.processJsPrefix(working), withResult: nil) ?? ""
+            if context.exception != nil { urlParseError = "URL脚本执行失败" }
+        }
 
         // T-1601-B4：搜索关键字替换（legado `{{key}}` → URL 编码关键字）。
         // 必须在 `{{...}}` JS 表达式求值之前完成；否则 key 会按未定义
@@ -218,7 +228,7 @@ final class AnalyzeUrl {
         working = evaluatePageExpressions(working) ?? working
 
         // 事实 10：JSON 配置段。
-        parseJsonConfig(working)
+        working = parseJsonConfig(working)
 
         // 事实 10：初始头。
         loadInitialHeaders()
@@ -237,7 +247,7 @@ final class AnalyzeUrl {
         }
     }
 
-    private var headersJson: String = ""
+    var headersJson: String = ""
     private var resolvedUrl: String = ""
 
     /// 伪代码 0x10008a050（L1324-1353）：JS 前缀剥离。
@@ -319,6 +329,7 @@ final class AnalyzeUrl {
         context.exception = nil
         let value = context.evaluateScript(script)
         if let exception = context.exception {
+            urlParseError = "URL表达式执行失败"
             Logger.log(
                 "[evaluateJsExpr] exception: \(exception)",
                 level: Self.analyzeUrlLogLevel
@@ -397,35 +408,6 @@ final class AnalyzeUrl {
     // MARK: - 配置与头
 
     /// 伪代码 0x10008d854（L1698-1828）：JSON 配置段解析（method/headers/body/charset 等）。
-    func parseJsonConfig(_ rule: String) {
-        guard let open = rule.firstIndex(of: "{"),
-              let close = rule.lastIndex(of: "}"), open < close else { return }
-        let jsonText = String(rule[rule.index(after: open)...rule.index(before: close)])
-        guard let data = jsonText.data(using: .utf8),
-              let config = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-        else {
-            Logger.log("JSON 解析失败: \(jsonText)", level: Self.analyzeUrlLogLevel)
-            return
-        }
-        if let method = config["method"] as? String {
-            self.method = method.uppercased()
-        }
-        if let charset = config["charset"] as? String {
-            self.charset = charset
-        }
-        if let body = config["body"] as? String {
-            self.body = body
-        }
-        if let webView = config["webView"] {
-            self.useWebView = (webView as? Bool) ?? (webView as? String == "true")
-                || (webView as? Int == 1)
-        }
-        if let retry = config["retry"] as? Int {
-            self.retry = retry
-        }
-        headersJson = config["headers"] as? String ?? ""
-    }
-
     private var headersJsonPlaceholder: String { headersJson }
 
     /// 伪代码 0x10008e698（L1831-1870）。

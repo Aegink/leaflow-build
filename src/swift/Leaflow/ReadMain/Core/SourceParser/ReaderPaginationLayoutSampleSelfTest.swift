@@ -81,6 +81,14 @@ enum ReaderPaginationLayoutSampleSelfTest {
             controller.view.frame = CGRect(origin: .zero, size: bounds)
             controller.view.setNeedsLayout()
             controller.view.layoutIfNeeded()
+            controller.contentTextView.layoutIfNeeded()
+            emit("pagination_layout_text_container_insets", ["160"],
+                [String(Int(controller.contentTextView.textContainer.size.width))])
+            let layoutManager = controller.contentTextView.layoutManager
+            layoutManager.ensureLayout(for: controller.contentTextView.textContainer)
+            let used = layoutManager.usedRect(for: controller.contentTextView.textContainer)
+            emit("pagination_layout_rendered_width", ["true"],
+                [String(used.maxX <= 160.5 && used.minX >= -0.5)])
             settings.fontSize = 28
             controller.configure(pageData: page, settings: settings, bookName: "固定样本", totalChapters: 1)
             let refreshedFont = controller.contentTextView.attributedText.attribute(.font, at: 0, effectiveRange: nil) as? UIFont

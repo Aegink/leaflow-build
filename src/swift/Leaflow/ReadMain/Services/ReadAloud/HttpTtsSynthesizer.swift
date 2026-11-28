@@ -50,7 +50,7 @@ final class HttpTtsSynthesizer: HttpTtsSynthesizing {
     func audioData(
         source: HttpTts, text: String, speechRate: Float
     ) async throws -> Data {
-        let speed = Int(max(min(speechRate, 10), 1))
+        let speed = speechRate.isFinite ? Int(max(min(speechRate, 10), 1)) : 1
         return try await requestAudio(
             source: source, text: text, speed: speed)
     }
@@ -60,12 +60,14 @@ final class HttpTtsSynthesizer: HttpTtsSynthesizing {
     private func requestAudio(
         source: HttpTts, text: String, speed: Int
     ) async throws -> Data {
-        try rethrowCancellation(URLRequestError.invalidUrl)
+        try Task.checkCancellation()
         // 限流域（HttpTtsRateLimiterRegistry limiter(for:) 域桥）。
         let limiter = rateLimiterRegistry.limiter(for: source)
         try await limiter.waitForPermission()
-        let request = URLRequest(url: URL(string: source.url)!)
+        try Task.checkCancellation()
+        let request = try Self.makeRequest(source: source, text: text, speed: speed, store: runtimeStore)
         let (data, response) = try await transport.data(for: request)
+        try Task.checkCancellation()
         guard let httpResponse = response as? HTTPURLResponse else {
             throw URLRequestError.invalidResponse
         }

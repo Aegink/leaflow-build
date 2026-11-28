@@ -16,7 +16,10 @@ STUB_MARKERS = ("待真机", "骨架", "占位", "计数器桩", "推断", "未�
 SWIFT_SOURCE_PARTS = {
     "ReadMain/Views/Reader/ReaderLayoutSettingsView.swift": ["ReadMain/Views/Reader/ReaderLayoutSettingsView+Widgets.swift"],
     "ReadMain/Views/Reader/ReaderSharedViews.swift": ["ReadMain/Views/Reader/ReaderSharedViews+SettingsCard.swift"],
-    "ReadMain/Core/SourceParser/AnalyzeUrl.swift": ["ReadMain/Core/SourceParser/AnalyzeUrl+Runtime.swift"],
+    "ReadMain/Core/SourceParser/AnalyzeUrl.swift": ["ReadMain/Core/SourceParser/AnalyzeUrl+Runtime.swift",
+        "ReadMain/Core/SourceParser/AnalyzeUrl+Options.swift"],
+    "ReadMain/Core/ReaderPaginator.swift": ["ReadMain/Core/ReaderPaginator+Layout.swift"],
+    "ReadMain/Services/ReadAloud/HttpTtsSynthesizer.swift": ["ReadMain/Services/ReadAloud/HttpTtsSynthesizer+Request.swift"],
     "ReadMain/Views/Source/SourceLoginView.swift": [
         "ReadMain/Views/Source/SourceLoginView+Actions.swift",
         "ReadMain/Views/Source/SourceLoginView+BrowserRequests.swift",

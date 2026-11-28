@@ -31,7 +31,9 @@ final class HttpTtsRuntimeStore {
 
     static let shared = HttpTtsRuntimeStore()
 
-    private let defaults = UserDefaults.standard
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) { self.defaults = defaults }
 
     /// loginInfo(sourceID:)（0x 域 L9-11 确证）。
     func loginInfo(sourceID: Int64) -> String? {

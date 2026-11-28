@@ -207,6 +207,7 @@ struct ReaderView: View {
                         onSearch: { showSearch = true },
                         onSettings: { showSpacingSettings = false; showQuickSettings.toggle() })
                 }
+                .background(Color(uiColor: .systemBackground))
                 .transition(.move(edge: .bottom))
             }
         }

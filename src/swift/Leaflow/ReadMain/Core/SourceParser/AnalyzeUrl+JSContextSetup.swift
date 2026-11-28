@@ -132,6 +132,7 @@ extension AnalyzeUrl {
             var java = this.java || {};
             java.put = java.put || function(k, v) { return v; };
             java.get = java.get || function(k) { return ''; };
+            this.java = java;
         })();
         """
     }
