@@ -35,6 +35,7 @@ final class CustomFontService {
         case unsupportedFormat
         case readFailed
         case duplicate
+        case invalidFont
 
         var errorDescription: String? {
             switch self {
@@ -44,6 +45,8 @@ final class CustomFontService {
                 return "字体文件读取失败"
             case .duplicate:
                 return "字体已存在"
+            case .invalidFont:
+                return "文件不包含有效字体"
             }
         }
     }
@@ -143,9 +146,12 @@ final class CustomFontService {
         guard let data = try? Data(contentsOf: url) else {
             return .failure(.readFailed)
         }
+        // 原版导入先读文件描述符及kCTFontNameAttribute，再复制和注册。
+        guard let descriptor = Self.descriptor(of: url),
+              let postScriptName = (CTFontDescriptorCopyAttribute(descriptor, kCTFontNameAttribute) as? String).flatMap(FontInfo.readableName)
+        else { return .failure(.invalidFont) }
         if fonts.contains(where: {
-            // closure #1 域确证：同原始文件名去重。
-            $0.originalFileName == url.lastPathComponent
+            $0.postScriptName == postScriptName
         }) {
             return .failure(.duplicate)
         }
@@ -160,9 +166,9 @@ final class CustomFontService {
             let info = FontInfo(
                 id: UUID().uuidString, fileName: newFileName,
                 originalFileName: url.lastPathComponent,
-                postScriptName: Self.postScriptName(of: destination),
-                familyName: Self.familyName(of: destination),
-                importedAt: Date())
+                postScriptName: postScriptName,
+                familyName: CTFontDescriptorCopyAttribute(descriptor, kCTFontFamilyNameAttribute) as? String,
+                importedAt: Date(), displayName: CTFontDescriptorCopyAttribute(descriptor, kCTFontDisplayNameAttribute) as? String)
             fonts.append(info)
             saveFontList()
             return .success(info)
@@ -176,17 +182,15 @@ final class CustomFontService {
     }
 
     private static func postScriptName(of url: URL) -> String? {
-        let font = CTFontCreateWithName(
-            (url.lastPathComponent as NSString) as CFString, 12, nil)
-        let name = CTFontCopyPostScriptName(font) as String
-        return name.isEmpty ? nil : name
+        descriptor(of: url).flatMap { CTFontDescriptorCopyAttribute($0, kCTFontNameAttribute) as? String }
     }
 
     private static func familyName(of url: URL) -> String? {
-        let font = CTFontCreateWithName(
-            (url.lastPathComponent as NSString) as CFString, 12, nil)
-        let name = CTFontCopyFamilyName(font) as String
-        return name.isEmpty ? nil : name
+        descriptor(of: url).flatMap { CTFontDescriptorCopyAttribute($0, kCTFontFamilyNameAttribute) as? String }
+    }
+
+    private static func descriptor(of url: URL) -> CTFontDescriptor? {
+        (CTFontManagerCreateFontDescriptorsFromURL(url as CFURL) as? [CTFontDescriptor])?.first
     }
 
     /// deleteFont(_:)（'删除字体: ' L2543 域确证：删文件 + 反注册 +
@@ -196,7 +200,7 @@ final class CustomFontService {
         CTFontManagerUnregisterFontsForURL(url as CFURL, .process, nil)
         try? FileManager.default.removeItem(at: url)
         fonts.removeAll { $0.id == font.id }
-        resetFontReferences(font.internalDisplayName)
+        resetFontReferences(font.name)
         saveFontList()
     }
 

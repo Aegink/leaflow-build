@@ -52,9 +52,8 @@ extension CustomFontService {
             try values.encode(displayName, forKey: .displayName)
         }
 
-        /// name 桥（ChapterTitleFontPickerView 字体选择域确证——即
-        /// fileName，wave-16 补桥）。
-        var name: String { fileName }
+        /// UIFont/Font.custom消费PostScript名字，不能把磁盘文件名当字体名字。
+        var name: String { postScriptName.flatMap(Self.readableName) ?? familyName.flatMap(Self.readableName) ?? "System" }
 
         /// displayName 桥（readableName 归一；nil 回退 fileName）。
         var displayName: String {

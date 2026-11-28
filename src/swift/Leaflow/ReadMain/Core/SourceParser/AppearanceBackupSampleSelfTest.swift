@@ -22,12 +22,21 @@ enum AppearanceBackupSampleSelfTest {
             let decoded = try JSONDecoder().decode([CustomFontService.FontInfo].self, from: metadata)
             emit("appearance_font_original_metadata", ["固定字体", "Fixed-Regular", "原文件.ttf"],
                 [decoded[0].displayName, decoded[0].postScriptName ?? "", decoded[0].importDisplayFileName])
+            emit("appearance_font_selection_uses_postscript", ["Fixed-Regular"], [decoded[0].name])
             let encoded = try JSONSerialization.jsonObject(with: JSONEncoder().encode(decoded[0])) as! [String: Any]
             emit("appearance_font_original_encoded_keys", ["displayName,fileName,id,originalFileName,postScriptName"], [encoded.keys.sorted().joined(separator: ",")])
             try FileManager.default.createDirectory(at: support.appendingPathComponent("Fonts/CustomFonts"), withIntermediateDirectories: true)
             try fontData.write(to: support.appendingPathComponent("Fonts/CustomFonts/fixed.ttf"))
             defaults.set(metadata, forKey: "reader_custom_fonts")
             let fonts = CustomFontService(documentsDirectory: docs, applicationSupportDirectory: support, defaults: defaults, registerFonts: false)
+            let invalidURL = root.appendingPathComponent("invalid.ttf")
+            try Data("not a font".utf8).write(to: invalidURL)
+            let countBefore = fonts.fonts.count
+            let importResult = fonts.importFontFromLocalFile(invalidURL)
+            let invalidRejected: Bool
+            if case .failure(.invalidFont) = importResult { invalidRejected = true } else { invalidRejected = false }
+            emit("appearance_invalid_font_not_imported", ["true", "true"],
+                [String(invalidRejected), String(fonts.fonts.count == countBefore)])
             emit("appearance_font_legacy_path_migrates", ["true", "true"],
                 [String(fonts.fontsDirectory == docs.appendingPathComponent("CustomFonts", isDirectory: true)),
                  String(try Data(contentsOf: fonts.fontsDirectory.appendingPathComponent("fixed.ttf")) == fontData)])
