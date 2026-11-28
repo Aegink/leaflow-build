@@ -112,6 +112,7 @@ enum RuleSampleSelfTest {
             await BookReviewSampleSelfTest.run(emit: emit)
             ReaderRenderingSampleSelfTest.run(emit: emit)
             await ReaderPageTurnSampleSelfTest.run(emit: emit)
+            await ReaderRepaginationSampleSelfTest.run(emit: emit)
             await ReaderPageCurlSampleSelfTest.run(emit: emit)
             ReaderRouteSampleSelfTest.run(emit: emit)
             ExploreSourceSampleSelfTest.run(emit: emit)

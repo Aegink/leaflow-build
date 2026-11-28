@@ -34,8 +34,7 @@ extension ReaderViewModel {
     /// 伪代码 0x10088b13c（L11-41）：分页边界尺寸更新（设备判定确证）。
     @discardableResult
     func updatePaginationBoundsIfNeeded(size: CGSize) -> Bool {
-        let idiom = UIDevice.current.userInterfaceIdiom
-        _ = idiom
+        guard size.width.isFinite, size.height.isFinite, size.width > 1, size.height > 1 else { return false }
         if containerSize != size {
             containerSize = size
             return true
@@ -104,7 +103,7 @@ extension ReaderViewModel {
         let orderedPages = newPages.sorted {
             ($0.chapterIndex, $0.pageIndex) < ($1.chapterIndex, $1.pageIndex)
         }
-        let preservedPageIndex = preservedPageIndex(in: orderedPages, centerChapter: centerChapter)
+        let preserved = preservedPageIndex(in: orderedPages, centerChapter: centerChapter)
         pages = orderedPages
         // buildChapterPageMeta 产出 (start,end,count) 字典——VM 域为
         // [ChapterPageMeta] 数组（debugRenderSnapshot 消费域），此处换算。
@@ -112,10 +111,15 @@ extension ReaderViewModel {
         chapterPageMeta = metaMap
             .map { ChapterPageMeta(chapterIndex: $0.key, pageCount: $0.value.count) }
             .sorted { $0.chapterIndex < $1.chapterIndex }
-        if preservePosition, let preserved = preservedPageIndex {
+        if preservePosition, let preserved {
             currentPageIndex = preserved
+        } else {
+            currentPageIndex = orderedPages.firstIndex { $0.chapterIndex == centerChapter } ?? 0
         }
-        Logger.log("mergePages count=\(newPages.count) preserved=\(String(describing: preservedPageIndex))", level: .verbose)
+        currentChapterIndex = currentPage?.chapterIndex ?? max(0, centerChapter)
+        _ = chapterStateStore.commitPages(newPages: pages, targetIndex: currentPageIndex,
+            newMeta: metaMap, oldMeta: chapterStateStore.renderSnapshot.chapterPageMeta, reason: "合并分页")
+        Logger.log("合并分页数=\(newPages.count)，当前页=\(currentPageIndex)", level: .verbose)
     }
 
     /// 伪代码 0x100891ad4（L422-430）：占位抑制（Task 确证）。
@@ -126,11 +130,20 @@ extension ReaderViewModel {
     /// 伪代码 0x10089174c（L437-452）+ 过滤闭包（0x100894d74/0x100894a54）：
     /// 位置保持索引（在合并后页集中定位旧页）。
     private func preservedPageIndex(in newPages: [PageData], centerChapter: Int) -> Int? {
-        guard pages.indices.contains(currentPageIndex) else { return nil }
-        let anchor = pages[currentPageIndex]
-        return newPages.firstIndex { page in
-            page.chapterIndex == anchor.chapterIndex && page.pageIndex == anchor.pageIndex
+        Self.preservedPageIndex(in: newPages, oldChapterIndex: currentPage?.chapterIndex ?? centerChapter,
+            oldPageInChapter: currentPage?.pageIndex ?? 0, fallbackIndex: currentPageIndex)
+    }
+
+    /// 0x10089174c：精确章页优先，缺页时钳制到该章范围；缺章才回退全局页。
+    static func preservedPageIndex(in pages: [PageData], oldChapterIndex: Int,
+                                   oldPageInChapter: Int, fallbackIndex: Int) -> Int {
+        guard !pages.isEmpty else { return 0 }
+        if let exact = pages.firstIndex(where: { $0.chapterIndex == oldChapterIndex && $0.pageIndex == oldPageInChapter }) {
+            return exact
         }
+        let indices = pages.indices.filter { pages[$0].chapterIndex == oldChapterIndex }
+        if !indices.isEmpty { return indices[min(max(0, oldPageInChapter), indices.count - 1)] }
+        return min(max(0, fallbackIndex), pages.count - 1)
     }
 
     /// 伪代码 0x100891558（L457-470）：连续章区间。
@@ -165,46 +178,79 @@ extension ReaderViewModel {
     /// 伪代码 0x10088b4c0（L499-520）：重建请求——去重位（isRebuildPending
     /// 域）+ 异步分派。
     func requestRebuild(reason: String) {
-        guard !isRebuildPending else { return }
+        paginationRevision &+= 1
+        let revision = paginationRevision
+        paginationRebuildTask?.cancel()
         isRebuildPending = true
-        Task {
-            await rebuildPagedModeAtCurrentChapterStart(reason: reason)
-            isRebuildPending = false
+        paginationRebuildTask = Task { [weak self] in
+            await Task.yield()
+            guard !Task.isCancelled, let self else { return }
+            await self.rebuildLoadedChapters(reason: reason, revision: revision, preservePosition: true)
+            guard self.paginationRevision == revision else { return }
+            self.isRebuildPending = false
+            self.paginationRebuildTask = nil
         }
     }
 
     /// 伪代码 0x100892338（L536-578）：当前章起点重建——页集重建 + 快照
     /// 提交域。
     func rebuildPagedModeAtCurrentChapterStart(reason: String) async {
-        Logger.log(
-            "rebuild paged at chapter start reason=\(reason)", level: .verbose)
-        let meta = ReaderPaginator.buildChapterPageMeta(from: chapterPages)
-        _ = chapterStateStore.commitPages(
-            newPages: chapterPages,
-            targetIndex: currentPageIndex,
-            newMeta: meta,
-            oldMeta: [:],
-            reason: reason)
+        paginationRevision &+= 1
+        let revision = paginationRevision
+        paginationRebuildTask?.cancel()
+        paginationRebuildTask = nil
+        isRebuildPending = true
+        await rebuildLoadedChapters(reason: reason, revision: revision, preservePosition: false)
+        if paginationRevision == revision { isRebuildPending = false }
+    }
+
+    private func rebuildLoadedChapters(reason: String, revision: UInt64, preservePosition: Bool) async {
+        guard let settings, containerSize.width > 1, containerSize.height > 1 else { return }
+        let content = chapterContents
+        let titles = chapters.map(\.name)
+        let bounds = containerSize
+        var replacement = pages.filter { !content.indices.contains($0.chapterIndex) || content[$0.chapterIndex].isEmpty }
+        do {
+            let frozen = try JSONDecoder().decode(ReadingSettings.self, from: JSONEncoder().encode(settings))
+            for index in content.indices where !content[index].isEmpty {
+                try Task.checkCancellation()
+                guard revision == paginationRevision else { return }
+                let rebuilt = try ReaderPaginator.paginate(content: content[index], chapterIndex: index,
+                    chapterTitle: titles.indices.contains(index) ? titles[index] : "",
+                    settings: frozen, pageBounds: bounds)
+                replacement.append(contentsOf: rebuilt)
+                await Task.yield()
+            }
+            try Task.checkCancellation()
+            guard revision == paginationRevision else { return }
+            mergePages(preservePosition: preservePosition, centerChapter: currentChapterIndex, newPages: replacement)
+            chapterPages = pages.filter { $0.chapterIndex == currentChapterIndex }
+            needsRepagination = false
+            hasError = false
+            settings.typographyRevision &+= 1
+            if readAloudCoordinator.owns(self) { syncSpeechForPageChange(to: currentPageIndex) }
+            settings.save()
+            if currentBook != nil { saveProgress() }
+            Logger.log("阅读重排完成：\(reason)，页数=\(pages.count)", level: .info)
+        } catch is CancellationError {
+            return
+        } catch {
+            guard revision == paginationRevision else { return }
+            handlePaginationFailure(error, notify: true)
+        }
     }
 
     /// 伪代码 0x10088b9a4（L656-663）：多章重建。
     func rebuildChapters(_ chapterIndices: [Int]) {
-        for index in chapterIndices
-        where chapterContents.indices.contains(index) {
-            chapterContents[index] = chapterContents[index]
-        }
+        guard chapterIndices.contains(where: { chapterContents.indices.contains($0) }) else { return }
         requestRebuild(reason: "rebuildChapters")
     }
 
     /// 伪代码 0x10088e6bc（L698-745）：内容分页——calculateLayout 全参链 +
     /// 页集装配域。
     func paginateContent() async {
-        let bounds = ReaderLayoutCalculator.resolveWindowMetrics()?.bounds
-            ?? UIScreen.main.bounds
-        let layout = try? settings?.getLayout(
-            isFirstPage: true, screenBounds: bounds, chapterTitle: "")
-        _ = layout
         requestRebuild(reason: "paginateContent")
+        await paginationRebuildTask?.value
     }
 
     /// 伪代码 0x10088d888（L748-793）：标题高度预测量。

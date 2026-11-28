@@ -44,6 +44,7 @@ struct ReaderView: View {
     @State private var sliderDraftValue: Double?
     @State private var isSliderChanging = false
     @State private var showQuickSettings = false
+    @State private var showSpacingSettings = false
     @State private var showTtsQuickSettings = false
     @State private var showTtsPlayer = false
     @State private var pendingTtsChapterList = false
@@ -128,6 +129,12 @@ struct ReaderView: View {
                             onSettings: { showTtsQuickSettings = false; settingsInitialTab = 3; showSettings = true },
                             onStop: { showTtsQuickSettings = false }, coordinator: speechCoordinator,
                             preferences: viewModel.readAloudPreferences)
+                    } else if showSpacingSettings {
+                        ReaderSpacingSettingsPanel(settings: settings) {
+                            settings.save()
+                            showSpacingSettings = false
+                            showQuickSettings = true
+                        }
                     } else if showQuickSettings {
                         ReaderQuickSettingsPanel(
                             settings: settings,
@@ -135,7 +142,7 @@ struct ReaderView: View {
                                 showQuickSettings = false
                                 showSettings = true
                             },
-                            onSpacing: { showQuickSettings = true },
+                            onSpacing: { showQuickSettings = false; showSpacingSettings = true },
                             onSpeech: {
                                 showQuickSettings = false
                                 showTtsQuickSettings = true
@@ -169,7 +176,7 @@ struct ReaderView: View {
                         isSpeaking: speechCoordinator.owns(viewModel) && speechCoordinator.isSpeaking,
                         isPreparing: speechCoordinator.owns(viewModel) && speechCoordinator.isPreparing,
                         isPaused: speechCoordinator.owns(viewModel) && speechCoordinator.isPaused,
-                        isSettingsActive: showSettings,
+                        isSettingsActive: showSettings || showQuickSettings || showSpacingSettings,
                         sliderValue: $sliderValue,
                         sliderDraftValue: $sliderDraftValue,
                         isSliderChanging: $isSliderChanging,
@@ -198,7 +205,7 @@ struct ReaderView: View {
                         onToggleSpeech: { viewModel.toggleSpeech(); showTtsQuickSettings = true },
                         onStopSpeech: { viewModel.stopSpeech() },
                         onSearch: { showSearch = true },
-                        onSettings: { settingsInitialTab = 0; showSettings = true })
+                        onSettings: { showSpacingSettings = false; showQuickSettings.toggle() })
                 }
                 .transition(.move(edge: .bottom))
             }
@@ -234,6 +241,10 @@ struct ReaderView: View {
                 showChapterList: $pendingTtsChapterList, showSettings: $pendingTtsSettings, sleepTimer: ttsSleepTimer)
         }
         .onDisappear { viewModel.saveProgress() }
+        .onChange(of: settings.paginationSettingsSignature) { _, _ in
+            settings.save()
+            viewModel.requestRebuild(reason: "排版设置变化")
+        }
         .modifier(ReadingStatisticsLifecycleModifier(
             bookFingerprint: viewModel.currentBook?.contentFingerprint, bookName: viewModel.bookName,
             pageIndex: viewModel.currentPageIndex, chapterIndex: viewModel.currentChapterIndex,

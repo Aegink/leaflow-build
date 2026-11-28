@@ -179,7 +179,8 @@ final class ChapterStateStore {
         defer { lock.unlock() }
         loadingChapters.remove(chapterIndex)
         failedChapters.removeValue(forKey: chapterIndex)
-        pages = newPages
+        pages = (pages.filter { $0.chapterIndex != chapterIndex } + newPages)
+            .sorted { ($0.chapterIndex, $0.pageIndex) < ($1.chapterIndex, $1.pageIndex) }
     }
 
     /// 伪代码 0x100696c24（L363-443）：提交页面集合。
@@ -194,11 +195,12 @@ final class ChapterStateStore {
         lock.lock()
         defer { lock.unlock() }
         pages = newPages
+        let target = newPages.isEmpty ? 0 : min(max(0, targetIndex), newPages.count - 1)
         snapshot = ReaderRenderSnapshot(
             pages: newPages,
-            currentPageIndex: targetIndex,
+            currentPageIndex: target,
             chapterPageMeta: newMeta,
-            currentChapterIndex: 0,
+            currentChapterIndex: newPages.indices.contains(target) ? newPages[target].chapterIndex : 0,
             revision: snapshot.revision + 1
         )
         return true

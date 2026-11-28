@@ -4,6 +4,15 @@ import SwiftUI
 import UIKit
 
 extension ReadingSettings {
+    /// 正文排版输入签名，不包括页面呈现修订，避免重排提交再次触发自身。
+    var paginationSettingsSignature: String {
+        [String(Double(fontSize)), String(Double(lineSpacing)), String(Double(paragraphSpacing)),
+         String(Double(letterSpacing)), String(textIndent), String(textAlignment.rawValue),
+         String(verticalJustify), String(paragraphSeparatorLines), fontName, String(isBold),
+         String(Double(fontWeight.rawValue)), String(Double(leftPageMargin)), String(Double(rightPageMargin)),
+         String(Double(topInsetExtra)), String(Double(bottomInsetExtra)), pageMode.rawValue,
+         doublePageMode.rawValue].joined(separator: "|")
+    }
     // MARK: 布局域
 
     /// 伪代码 0x100221ef8（L1555-1565）：模板写入（sub_100227F80 域）→

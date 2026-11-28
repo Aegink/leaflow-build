@@ -106,6 +106,8 @@ struct LeaflowApp: App {
                     BookReviewSmokeView()
                 } else if ProcessInfo.processInfo.arguments.contains("-smokeReaderPageTurn") {
                     ReaderPageTurnSmokeView()
+                } else if ProcessInfo.processInfo.arguments.contains("-smokeReaderRepagination") {
+                    ReaderRepaginationSmokeView()
                 } else if ProcessInfo.processInfo.arguments.contains("-smokeSourceLogin") {
                     SourceLoginSmokeView()
                 } else if ProcessInfo.processInfo.arguments.contains("-smokeExploreReading") {

@@ -183,6 +183,7 @@ struct ReaderBottomToolbar: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("reader-toolbar-" + title)
     }
 }
 
@@ -237,6 +238,7 @@ struct ReaderQuickSettingsPanel: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("reader-quick-" + title)
     }
 }
 
@@ -254,6 +256,7 @@ struct ReaderSpacingSettingsPanel: View {
                     Image(systemName: "chevron.left")
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("reader-spacing-back")
                 Text("排版")
                     .appThemeText(.headline)
                 Spacer()
@@ -285,6 +288,7 @@ struct ReaderSpacingSettingsPanel: View {
                     get: { Double(value.wrappedValue) },
                     set: { value.wrappedValue = CGFloat($0) }),
                 in: range, step: step)
+                .accessibilityIdentifier("reader-spacing-" + title)
             Text(String(format: "%.1f", Double(value.wrappedValue)))
                 .appThemeText(.caption, opacity: 0.6)
                 .frame(width: 34.0, alignment: .trailing)

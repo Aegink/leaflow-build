@@ -49,6 +49,12 @@ final class ReaderViewModel {
     @ObservationIgnored var pageCommitHandler: ((ReaderPageCommit) -> Void)?
 
     func configure(book: Book, settings: ReadingSettings) {
+        if currentBook?.bookUrl != book.bookUrl || currentBook?.bookSourceUrl != book.bookSourceUrl {
+            paginationRevision &+= 1
+            paginationRebuildTask?.cancel()
+            paginationRebuildTask = nil
+            isRebuildPending = false
+        }
         currentBook = book
         bookName = book.name
         self.settings = settings
@@ -88,6 +94,8 @@ final class ReaderViewModel {
     private(set) var speechHighlight = ReaderSpeechHighlight.none
     private(set) var colorVersion = 0
     var isRebuildPending = false
+    @ObservationIgnored var paginationRebuildTask: Task<Void, Never>?
+    @ObservationIgnored var paginationRevision: UInt64 = 0
     private(set) var pendingPageTurnCommand: ReaderPageTurnCommand?
     var containerSize: CGSize = .zero
 
@@ -143,6 +151,10 @@ final class ReaderViewModel {
 
     /// 取消全部任务（骨架签名）。
     func cancelAllTasks() {
+        paginationRevision &+= 1
+        paginationRebuildTask?.cancel()
+        paginationRebuildTask = nil
+        isRebuildPending = false
         isLoadingPage = false
     }
 
@@ -209,7 +221,9 @@ final class ReaderViewModel {
     func handleCommentTap(_ comment: ParagraphComment, pageIndex: Int) {}
 
     func containerSizeChanged(from oldSize: CGSize, to newSize: CGSize) {
-        containerSize = newSize
+        if updatePaginationBoundsIfNeeded(size: newSize), !pages.isEmpty {
+            requestRebuild(reason: "阅读区域变化")
+        }
     }
 
     /// 章节缓存键（骨架签名）。
