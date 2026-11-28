@@ -38,8 +38,15 @@ extension LeaflowSmokeTests {
             XCTAssertTrue(control.exists || control.waitForExistence(timeout: 10))
             XCTAssertTrue(control.isHittable)
             if (control.value as? String == "1") != enabled {
-                // SwiftUI的Switch无障碍框覆盖整行，默认中点命中标签；点右侧实际开关。
-                control.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
+                // 失败层级同时暴露整行Switch和51×31实体Switch，直接定位行内实体中心。
+                let row = control.frame
+                let actual = app.switches.allElementsBoundByIndex.first {
+                    let frame = $0.frame
+                    return frame.width > 0 && frame.width < 80
+                        && row.contains(CGPoint(x: frame.midX, y: frame.midY)) && $0.isHittable
+                }
+                XCTAssertNotNil(actual, "同步分类行必须包含实际开关")
+                actual?.tap()
             }
             XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
                 predicate: NSPredicate(format: "value == %@", enabled ? "1" : "0"), object: control)], timeout: 5), .completed)
