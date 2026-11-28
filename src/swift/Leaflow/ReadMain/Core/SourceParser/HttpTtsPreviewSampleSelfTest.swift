@@ -91,7 +91,58 @@ enum HttpTtsPreviewSampleSelfTest {
         output.completion?()
         await ReadAloudSampleSelfTest.settle()
         emit("tts_preview_real_driver_finish", ["false", "7"], [String(real.isPlaying), String(playback.releases.count)])
+        await verifyLoopback(emit: emit)
         emit("tts_preview_setup", ["成功"], ["成功"])
+    }
+
+    @MainActor
+    private static func verifyLoopback(emit: (String, [String], [String]) -> Void) async {
+        let suite = "tts-preview-loopback-\(UUID())"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        guard let raw = ProcessInfo.processInfo.environment["T1602_WS_PORT"],
+              let port = Int(raw), (1...65535).contains(port) else {
+            emit("tts_preview_loopback_setup", ["成功"], ["缺少回环端口"]); return
+        }
+        let source = HttpTts(numericId: 1602004, name: "真实WAV试听", url: "http://127.0.0.1:\(port)/preview.wav",
+            header: #"{"X-T1602":"fixed"}"#)
+        let transport = PreviewLoopbackTransport()
+        let synthesizer = HttpTtsSynthesizer(transport: transport, webSocketTransport: URLSessionHttpTtsWebSocketTransport(),
+            runtimeStore: HttpTtsRuntimeStore(defaults: defaults))
+        let cache = HttpTtsAudioCache(), output = PreviewSampleOutput(), playback = PreviewSamplePlayback()
+        let errors = PreviewSampleErrors()
+        let player = HttpTtsPreviewPlayer(synthesizer: synthesizer, audioPlayback: playback, errorPresenter: errors,
+            makeDriver: { source, synthesizer in
+                HttpReadAloudDriver(source: source, speechRate: 1, downloadAhead: 1, tailTrimMilliseconds: 0,
+                    synthesizer: synthesizer, decoder: HttpTtsAudioDecoder(), audioCache: cache,
+                    startupTimeoutNanoseconds: 5_000_000_000, makeOutput: { output })
+            })
+        defer { player.stop() }
+        player.play(source: source, text: HttpTtsPreviewPlayer.defaultText)
+        await ReadAloudSampleSelfTest.until { output.completion != nil || player.lastError != nil }
+        await ReadAloudSampleSelfTest.settle()
+        emit("tts_preview_loopback_real_wav_decode", ["1", "2400", "24000", "true", "true"],
+            [String(transport.requests), String(output.frames), String(Int(output.sampleRate)),
+             String(output.nonzeroPCM), String(player.isPlaying)])
+        output.completion?()
+        await ReadAloudSampleSelfTest.settle()
+        emit("tts_preview_loopback_completion_releases", ["false", "1", "0"],
+            [String(player.isPlaying), String(playback.releases.count), String(errors.messages.count)])
+        output.completion = nil
+        player.play(source: source, text: HttpTtsPreviewPlayer.defaultText)
+        await ReadAloudSampleSelfTest.until { output.completion != nil || player.lastError != nil }
+        await ReadAloudSampleSelfTest.settle()
+        emit("tts_preview_loopback_audio_cache_reuse", ["1", "2", "1"],
+            [String(transport.requests), String(output.playCount), String(cache.count)])
+        emit("tts_preview_loopback_setup", ["成功"], [player.lastError ?? "成功"])
+    }
+}
+
+private final class PreviewLoopbackTransport: HttpTtsTransporting {
+    var requests = 0
+    func data(for request: URLRequest) async throws -> (Data, URLResponse) {
+        requests += 1
+        return try await URLSession.shared.data(for: request)
     }
 }
 
@@ -154,8 +205,18 @@ private final class PreviewSampleDecoder: HttpTtsAudioDecoding {
 private final class PreviewSampleOutput: HttpTtsAudioOutput {
     var completion: (@MainActor @Sendable () -> Void)?
     var playCount = 0
+    var frames: UInt32 = 0
+    var sampleRate: Double = 0
+    var nonzeroPCM = false
     func prepare(format: ReadAloudAudioFormat) throws {}
-    func schedule(_ buffer: ReadAloudAudioBuffer, completion: @escaping @MainActor @Sendable () -> Void) { self.completion = completion }
+    func schedule(_ buffer: ReadAloudAudioBuffer, completion: @escaping @MainActor @Sendable () -> Void) {
+        self.completion = completion
+        frames = buffer.pcmBuffer.frameLength
+        sampleRate = buffer.pcmBuffer.format.sampleRate
+        if let channel = buffer.pcmBuffer.floatChannelData?[0] {
+            nonzeroPCM = (0..<Int(frames)).contains { abs(channel[$0]) > 0.001 }
+        }
+    }
     func play() throws { playCount += 1 }
     func pause() {}
     func stop() {}

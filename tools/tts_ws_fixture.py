@@ -2,9 +2,22 @@
 import argparse
 import base64
 import hashlib
+import io
+import math
 import socketserver
 import struct
+import wave
 from pathlib import Path
+
+
+def preview_wave():
+    output = io.BytesIO()
+    with wave.open(output, "wb") as audio:
+        audio.setnchannels(1)
+        audio.setsampwidth(2)
+        audio.setframerate(24000)
+        audio.writeframes(b"".join(struct.pack("<h", int(1200 * math.sin(2 * math.pi * 440 * i / 24000))) for i in range(2400)))
+    return output.getvalue()
 
 
 class EchoHandler(socketserver.StreamRequestHandler):
@@ -20,6 +33,12 @@ class EchoHandler(socketserver.StreamRequestHandler):
                 return
             key, value = line.decode("ascii").split(":", 1)
             headers[key.lower()] = value.strip()
+        if request == "GET /preview.wav HTTP/1.1" and headers.get("x-t1602") == "fixed":
+            payload = preview_wave()
+            self.wfile.write(("HTTP/1.1 200 OK\r\nContent-Type: audio/wav\r\nContent-Length: "
+                              + str(len(payload)) + "\r\nConnection: close\r\n\r\n").encode("ascii") + payload)
+            print("固定WAV回环响应：2400帧/24000Hz/单声道", flush=True)
+            return
         if request != "GET /audio HTTP/1.1" or headers.get("x-t1602") != "fixed":
             self.wfile.write(b"HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n")
             return
