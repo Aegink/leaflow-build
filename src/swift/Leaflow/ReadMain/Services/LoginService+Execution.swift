@@ -116,6 +116,16 @@ extension LoginService {
         context.setObject(getInfo, forKeyedSubscript: "_sourceGetLoginInfo" as NSString)
         context.setObject(putInfo, forKeyedSubscript: "_sourcePutLoginInfo" as NSString)
         context.setObject(removeInfo, forKeyedSubscript: "_sourceRemoveLoginInfo" as NSString)
+        let getHeader: @convention(block) () -> String = { rawLoginHeader(source: source, defaults: defaults) ?? "" }
+        let putHeader: @convention(block) (String) -> Void = { raw in
+            persistLoginHeader(source: source, rawValue: raw, defaults: defaults)
+        }
+        let removeHeader: @convention(block) () -> Void = {
+            removeLoginHeaderState(source: source, loginUrl: source.loginUrl, defaults: defaults)
+        }
+        context.setObject(getHeader, forKeyedSubscript: "_sourceGetLoginHeader" as NSString)
+        context.setObject(putHeader, forKeyedSubscript: "_sourcePutLoginHeader" as NSString)
+        context.setObject(removeHeader, forKeyedSubscript: "_sourceRemoveLoginHeader" as NSString)
         context.setObject(["bookSourceUrl": source.bookSourceUrl, "bookSourceName": source.bookSourceName],
             forKeyedSubscript: "source" as NSString)
         context.evaluateScript("""
@@ -128,6 +138,14 @@ extension LoginService {
             if (!_sourcePutLoginInfo(raw)) { throw new Error('登录信息保存失败'); }
         };
         source.removeLoginInfo = function() { _sourceRemoveLoginInfo(); };
+        source.getLoginHeader = function() { return _sourceGetLoginHeader(); };
+        source.getLoginHeaderMap = function() {
+            try { return JSON.parse(_sourceGetLoginHeader()) || {}; } catch (e) { return {}; }
+        };
+        source.putLoginHeader = function(value) {
+            _sourcePutLoginHeader(typeof value === 'string' ? value : JSON.stringify(value));
+        };
+        source.removeLoginHeader = function() { _sourceRemoveLoginHeader(); };
         """)
     }
 

@@ -24,7 +24,9 @@ struct LoginWebView: UIViewRepresentable {
         view.configuration.websiteDataStore.httpCookieStore.add(
             context.coordinator)
         if let url = loginURL ?? LoginService.browserURL(source.loginUrl ?? "") {
-            view.load(URLRequest(url: url))
+            var request = URLRequest(url: url)
+            request.allHTTPHeaderFields = LoginService.mergedHeaderMap(source: source, sourceHeaders: source.headerMap)
+            view.load(request)
         }
         return view
     }
@@ -44,6 +46,15 @@ struct LoginWebView: UIViewRepresentable {
         for url: URL, source: BookSource
     ) -> [HTTPCookie] {
         HTTPCookieStorage.shared.cookies(for: url) ?? []
+    }
+
+    nonisolated static func matchingCookies(_ cookies: [HTTPCookie], url: URL, now: Date = Date()) -> [HTTPCookie] {
+        guard let host = url.host?.lowercased() else { return [] }
+        return cookies.filter { cookie in
+            let domain = cookie.domain.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "."))
+            return CookiePersistenceService.domainMatches(host, domain)
+                && cookie.expiresDate.map { $0 > now } != false
+        }
     }
 
     /// 协调器（init/persistObservedCookies/cookiesDidChange/didFinish/
@@ -68,13 +79,14 @@ struct LoginWebView: UIViewRepresentable {
         func persistObservedCookies(
             _ cookies: [HTTPCookie], currentURL: URL
         ) {
-            let merged = LoginWebView.collectExistingCookies(
-                for: currentURL, source: source)
-            let header = cookies
+            let matching = LoginWebView.matchingCookies(cookies, url: currentURL)
+            for cookie in matching { HTTPCookieStorage.shared.setCookie(cookie) }
+            CookiePersistenceService.shared.persistBrowserCookies(matching, currentURL: currentURL)
+            let header = matching
                 .map { "\($0.name)=\($0.value)" }
+                .sorted()
                 .joined(separator: "; ")
             onCookieObserved?(header)
-            _ = merged
         }
 
         /// cookiesDidChange（签名确证）。
@@ -105,10 +117,7 @@ struct LoginWebView: UIViewRepresentable {
         ) {
             webView.configuration.websiteDataStore.httpCookieStore
                 .getAllCookies { cookies in
-                    let header = cookies
-                        .map { "\($0.name)=\($0.value)" }
-                        .joined(separator: "; ")
-                    self.onCookieObserved?(header)
+                    if let url = webView.url { self.persistObservedCookies(cookies, currentURL: url) }
                     completion?()
                 }
         }

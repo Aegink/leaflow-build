@@ -91,5 +91,34 @@ enum LoginActionSampleSelfTest {
             emit("login_model_literal_and_expression", ["固定名称", "true"],
                 [literal.literalViewName ?? "", String(dynamic.literalViewName == nil)])
         } catch { emit("login_model_literal_and_expression", ["通过"], [error.localizedDescription]) }
+        do {
+            let items = try JSONDecoder().decode([LoginUiItem].self, from: Data(#"[{"name":"literal","viewName":"'标题'"},{"name":"dynamic","viewName":"titleFor(result.get('account'))"},{"name":"error","viewName":"missingFunction()"},{"name":"empty","viewName":"''"},{"name":"undefined","viewName":"undefined"},{"name":"nil","viewName":"null"},{"name":"first","viewName":"var leakedName = '旧值'; '首项'"},{"name":"second","viewName":"typeof leakedName"}]"#.utf8))
+            source.jsLib = "function prefix(){ return '库:'; }"
+            source.loginUrl = "@js:function titleFor(v){return prefix() + v + ':' + source.bookSourceName;}"
+            let names = LoginService.evaluateLoginUiViewNames(source: source, items: items,
+                formData: ["account": "名称"], defaults: defaults)
+            emit("login_view_names_context", ["标题", "库:名称:登录固定样本"],
+                [names["literal"] ?? "", names["dynamic"] ?? ""])
+            emit("login_view_names_error", ["err"], [names["error"] ?? ""])
+            emit("login_view_names_empty_and_null", ["true", "true", "true"],
+                [String(names["empty"] == ""), String(names["undefined"] == nil), String(names["nil"] == nil)])
+            emit("login_view_names_isolate_each_expression", ["首项", "true"],
+                [names["first"] ?? "", String(names["second"] == nil)])
+            source.jsLib = "throw '不能执行';"
+            let literals = LoginService.evaluateLoginUiViewNames(source: source, items: [items[0]], formData: [:], defaults: defaults)
+            emit("login_view_literal_does_not_execute_library", ["标题"], [literals["literal"] ?? ""])
+            let fields = try JSONDecoder().decode([LoginUiItem].self,
+                from: Data(#"[{"name":"account","type":"text","defaultValue":"初始"},{"name":"apply","type":" button "},{"name":"missing","defaultValue":"默认"}]"#.utf8))
+            _ = LoginService.persistLoginInfo(["account": "旧输入", "token": "脚本状态"], source: source, defaults: defaults)
+            let edit = LoginService.editedLoginInfo(source: source, items: fields,
+                values: ["account": "", "apply": "不得存", "unowned": "不得存"], defaults: defaults)
+            emit("login_edit_preserves_script_fields", ["脚本状态", "", "默认"],
+                [edit["token"] ?? "", edit["account"] ?? "缺失", edit["missing"] ?? ""])
+            emit("login_edit_excludes_buttons_and_unknown_input", ["true", "true"],
+                [String(edit["apply"] == nil), String(edit["unowned"] == nil)])
+            source.loginUi = String(decoding: try JSONEncoder().encode(fields), as: UTF8.self)
+            emit("login_defaults_exclude_button", ["true", "true"],
+                [String(LoginService.loginInfoDefaults(source: source)["apply"] == nil), String(fields[1].normalizedType == "button")])
+        } catch { emit("login_view_names_context", ["通过"], [error.localizedDescription]) }
     }
 }

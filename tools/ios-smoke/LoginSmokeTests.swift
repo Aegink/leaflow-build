@@ -10,6 +10,9 @@ extension LeaflowSmokeTests {
         XCTAssertFalse(app.staticTexts["登录成功"].exists)
         account.tap()
         account.typeText("sample")
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == %@", "执行:sample"),
+            object: app.buttons["source-login-action-apply"])], timeout: 10), .completed)
         app.buttons["source-login-action-apply"].tap()
         let status = app.staticTexts["source-login-status"]
         XCTAssertTrue(status.waitForExistence(timeout: 10))

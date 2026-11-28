@@ -102,6 +102,8 @@ struct SourceLoginView: View {
     @State var actionURL: URL?
     @State var isExecuting = false
     @State var actionStatus: String?
+    @State var resolvedViewNames: [String: String] = [:]
+    @State var viewNameResolutionTask: Task<Void, Never>?
     @Environment(\.dismiss) var dismiss
 
     init(source: BookSource, book: Book?, chapter: Chapter?) {
@@ -146,7 +148,8 @@ struct SourceLoginView: View {
             .onAppear {
                 initLogin()
             }
-            .onDisappear { flushEditedLoginInfo() }
+            .onDisappear { flushEditedLoginInfo(); viewNameResolutionTask?.cancel() }
+            .onChange(of: loginValues) { _, _ in refreshResolvedViewNames(items: loginItems, force: false) }
             .interactiveDismissDisabled(isExecuting)
             .sheet(isPresented: $showRemoteBrowser) {
                 if let url = actionURL {
@@ -191,7 +194,7 @@ struct SourceLoginView: View {
             from: source.loginUi) ?? []
         loginValues = LoginService.resolvedLoginInfo(source: source, items: loginItems)
         loginModeReady = true
-        applyLoginUiDataUpdate(nil)
+        refreshResolvedViewNames(items: loginItems, force: true)
     }
 
     /// resolveLoginUrl（签名确证；'无效的登录 URL' 域确证）。
@@ -285,7 +288,7 @@ struct SourceLoginView: View {
     /// localLoginUiItemView(for:)（签名确证；type 域确证）。
     @ViewBuilder
     func localLoginUiItemView(for item: LoginUiItem) -> some View {
-        let type = (item.type ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let type = item.normalizedType
         switch type {
         case "button":
             Button {

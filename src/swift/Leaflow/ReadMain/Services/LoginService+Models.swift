@@ -17,10 +17,11 @@ struct LoginUiItem: Codable, Identifiable, Hashable {
     var values: [String]? { chars?.compactMap { $0 } }
     // TODO(T-1602): 原版身份生成仍需取证，不能把字段解码视为整个模型还原。
     var id: String { name + "/" + (type ?? "") + "/" + (viewName ?? "") }
+    var normalizedType: String { type?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? "text" }
 
     var resolvedDefaultValue: String {
         if let defaultValue { return defaultValue }
-        let kind = type?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
+        let kind = normalizedType
         if kind == "select" || kind == "toggle" { return chars?.compactMap { $0 }.first ?? "" }
         return ""
     }

@@ -42,15 +42,15 @@ enum LoginService {
     /// 伪代码 0x10034bc5c（L336-348）：多源头合并
     ///（源 header + 持久化 + 登录注入；setHeader/removeHeader 确证）。
     static func mergedHeaderMap(
-        source: BookSource, sourceHeaders: [String: String]
+        source: BookSource, sourceHeaders: [String: String], hasLoginHeader: Bool = true,
+        defaults: UserDefaults = .standard
     ) -> [String: String] {
         var merged = sourceHeaders
-        let persisted = persistedLoginHeader(
-            incomingRawValue: source.headerMap["Cookie"] ?? "")
-        if let stored = persisted.storedValue {
-            setHeader("Cookie", value: stored, in: &merged)
-        } else if let incoming = persisted.incomingValue {
-            setHeader("Cookie", value: incoming, in: &merged)
+        if headerValue(in: merged, named: "User-Agent") == nil {
+            setHeader("User-Agent", value: NetworkConstants.fullUserAgent, in: &merged)
+        }
+        if hasLoginHeader, let stored = parseLoginHeaderMap(from: rawLoginHeader(source: source, defaults: defaults)) {
+            for (name, value) in stored { setHeader(name, value: value, in: &merged) }
         }
         return merged
     }
@@ -66,13 +66,16 @@ enum LoginService {
     static func removeHeader(
         named name: String, from headers: inout [String: String]
     ) {
-        headers.removeValue(forKey: name)
+        for key in Array(headers.keys) where key.caseInsensitiveCompare(name) == .orderedSame {
+            headers.removeValue(forKey: key)
+        }
     }
 
     /// 伪代码 0x10034f554（L269-272）：设头。
     static func setHeader(
         _ name: String, value: String, in headers: inout [String: String]
     ) {
+        removeHeader(named: name, from: &headers)
         headers[name] = value
     }
 
@@ -81,34 +84,35 @@ enum LoginService {
     /// 伪代码 0x10034caf0（L294-299）：持久化/入参双态判定。
     static func persistedLoginHeader(
         incomingRawValue: String
-    ) -> (storedValue: String?, incomingValue: String?) {
-        guard let url = URL(string: incomingRawValue), url.host != nil else {
-            return (nil, incomingRawValue.isEmpty ? nil : incomingRawValue)
-        }
-        let host = PublicSuffixList.normalizedRegistrableDomain(url.host ?? "")
-        let stored = CookiePersistenceService.shared.getCookies(for: host)
-        return (stored.isEmpty ? nil : stored, nil)
+    ) -> (storedValue: String, headerMap: [String: String]?)? {
+        let raw = incomingRawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !raw.isEmpty else { return nil }
+        return (raw, parseLoginHeaderMap(from: raw))
+    }
+
+    static func rawLoginHeader(source: BookSource, defaults: UserDefaults = .standard) -> String? {
+        defaults.string(forKey: "\(source.stateKey).loginHeader_")
+    }
+
+    static func parseLoginHeaderMap(from raw: String?) -> [String: String]? {
+        guard let raw, let data = raw.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode([String: String].self, from: data)
     }
 
     /// 伪代码 0x10034bf38（L301-320）：登录头持久化。
-    static func persistLoginHeader(source: BookSource, rawValue: String) {
-        guard let loginUrl = source.loginUrl, !loginUrl.isEmpty,
-              let host = URL(string: loginUrl)?.host else { return }
-        let map = [host: rawValue]
-        UserDefaults.standard.set(map, forKey: loginInfoDefaultsCacheKey(source: source))
-        // CookiePersistenceService 域落盘（持久化确证）。
-        CookiePersistenceService.shared.saveResponseCookies([], for: host)
+    static func persistLoginHeader(source: BookSource, rawValue: String, defaults: UserDefaults = .standard) {
+        let key = "\(source.stateKey).loginHeader_"
+        if let parsed = persistedLoginHeader(incomingRawValue: rawValue) {
+            defaults.set(parsed.storedValue, forKey: key)
+        } else { defaults.removeObject(forKey: key) }
     }
 
     /// 伪代码 0x10034c3dc（L1146-1181）：登录头清除。
     static func removeLoginHeaderState(
-        source: BookSource, loginUrl: String?
+        source: BookSource, loginUrl: String?, defaults: UserDefaults = .standard
     ) {
-        guard let loginUrl, !loginUrl.isEmpty,
-              let host = URL(string: loginUrl)?.host else { return }
-        let key = loginInfoDefaultsCacheKey(source: source)
-        UserDefaults.standard.removeObject(forKey: key)
-        CookiePersistenceService.shared.removeCookies(for: host)
+        defaults.removeObject(forKey: "\(source.stateKey).loginHeader_")
+        // TODO(T-1602): 原版关联主机及系统Cookie清除仍需与浏览器域完整对齐。
     }
 
     /// 伪代码 0x10034f228（L237-241）：持久化键。
@@ -159,7 +163,8 @@ enum LoginService {
     static func loginInfoDefaults(source: BookSource) -> [String: String] {
         guard let uiJson = source.loginUi else { return [:] }
         guard let items = decodeLoginUiItems(from: uiJson) else { return [:] }
-        return Dictionary(items.map { ($0.name, $0.resolvedDefaultValue) }, uniquingKeysWith: { _, last in last })
+        return Dictionary(items.filter { $0.normalizedType != "button" }.map { ($0.name, $0.resolvedDefaultValue) },
+            uniquingKeysWith: { _, last in last })
     }
 
     /// 伪代码 0x100351524（L655-657）：JSON 串 → 表。
@@ -173,7 +178,8 @@ enum LoginService {
         source: BookSource, items: [LoginUiItem]?, defaults: UserDefaults = .standard
     ) -> [String: String] {
         let items = items ?? decodeLoginUiItems(from: source.loginUi) ?? []
-        var map = Dictionary(items.map { ($0.name, $0.resolvedDefaultValue) }, uniquingKeysWith: { _, last in last })
+        var map = Dictionary(items.filter { $0.normalizedType != "button" }.map { ($0.name, $0.resolvedDefaultValue) },
+            uniquingKeysWith: { _, last in last })
         map.merge(loginInfoMap(source: source, persistDefaults: false, defaults: defaults)) { _, stored in stored }
         // 0x100352444：select/toggle 的空存值回退默认；普通输入的空值必须保留。
         for item in items {
@@ -201,13 +207,6 @@ enum LoginService {
     /// 伪代码 0x100352d3c（L720-747）：远程登录 UI 拉取。
     static func parseLoginUiRemote(source: BookSource) async -> [LoginUiItem] {
         decodeLoginUiItems(from: source.loginUi) ?? []
-    }
-
-    /// 伪代码 0x100353154（L754-815）：视图名解析（literalViewName 域确证）。
-    static func resolveLoginUiViewNames(
-        source: BookSource, items: [LoginUiItem], forceRefresh: Bool
-    ) -> [String] {
-        items.compactMap(\.literalViewName)
     }
 
     /// 伪代码 0x1003541a8（L818-831）：远程登录信息拉取。

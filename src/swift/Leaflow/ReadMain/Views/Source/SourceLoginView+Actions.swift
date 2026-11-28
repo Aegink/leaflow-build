@@ -78,7 +78,7 @@ extension SourceLoginView {
     func editableLoginData(
         from values: [String: String]
     ) -> [String: String] {
-        values
+        LoginService.editedLoginInfo(source: source, items: loginItems, values: values)
     }
 
     /// hasEditableLoginFields getter（签名确证）。
@@ -115,8 +115,12 @@ extension SourceLoginView {
         items: [LoginUiItem]?, force: Bool
     ) {
         guard let items else { return }
-        for item in items {
-            _ = resolvedViewName(for: item)
+        viewNameResolutionTask?.cancel()
+        let values = loginValues
+        viewNameResolutionTask = Task {
+            let names = await LoginService.resolveLoginUiViewNames(source: source, items: items, formData: values)
+            guard !Task.isCancelled, loginValues == values else { return }
+            resolvedViewNames = names
         }
     }
 
@@ -157,7 +161,13 @@ extension SourceLoginView {
     func saveEffectiveLoginHeader(additionalHosts: [String]) {
         let merged = mergedPersistedCookieString(
             additionalHosts: additionalHosts)
-        loginHeader = merged
+        if !merged.isEmpty { loginHeader = merged }
+        guard !loginHeader.isEmpty else { return }
+        var headers = LoginService.parseLoginHeaderMap(from: LoginService.rawLoginHeader(source: source)) ?? [:]
+        LoginService.setHeader("Cookie", value: loginHeader, in: &headers)
+        if let json = Self.loginInfoJSONString(from: headers) {
+            LoginService.persistLoginHeader(source: source, rawValue: json)
+        }
     }
 
     /// mergedPersistedCookieString(additionalHosts:)（签名确证）。
@@ -213,8 +223,7 @@ extension SourceLoginView {
 
     /// resolvedViewName(for:)（签名确证）。
     func resolvedViewName(for item: LoginUiItem) -> String {
-        // TODO(T-1602): 非字面 viewName 的动态求值仍需恢复。
-        item.literalViewName ?? item.label ?? item.name
+        resolvedViewNames[item.name] ?? item.literalViewName ?? item.label ?? item.name
     }
 
     /// buttonContentAlignment(for:)（签名确证；flex_start/flex_end 域）。

@@ -189,6 +189,8 @@ final class AnalyzeUrl {
         releaseOwnedJSContext()
     }
 
+    deinit { releaseOwnedJSContext() }
+
     // MARK: - URL 解析
 
     /// 伪代码 0x100084b88（L712-939）：URL 规则解析主入口（主干顺序见读后记推断 1）。
@@ -428,8 +430,12 @@ final class AnalyzeUrl {
 
     /// 伪代码 0x10008e698（L1831-1870）。
     func loadInitialHeaders() {
-        if headers["User-Agent"] == nil {
-            headers["User-Agent"] = Self.defaultUserAgent
+        if let source {
+            var merged = LoginService.mergedHeaderMap(source: source, sourceHeaders: source.headerMap)
+            for (key, value) in headers { LoginService.setHeader(key, value: value, in: &merged) }
+            headers = merged
+        } else if LoginService.headerValue(in: headers, named: "User-Agent") == nil {
+            LoginService.setHeader("User-Agent", value: Self.defaultUserAgent, in: &headers)
         }
     }
 
@@ -439,7 +445,7 @@ final class AnalyzeUrl {
         if let data = text.data(using: .utf8),
            let parsed = try? JSONSerialization.jsonObject(with: data) as? [String: String] {
             for (key, value) in parsed {
-                headers[key] = value
+                LoginService.setHeader(key, value: value, in: &headers)
             }
             return
         }
@@ -473,68 +479,4 @@ final class AnalyzeUrl {
         Self.smartPercentEncode(sourceKey)
     }
 
-    // MARK: - 快照与清理
-
-    /// 伪代码 0x1000876d8（L1024-1062）：请求参数快照（重试用，推断 4）。
-    struct Snapshot {
-        var url: String
-        var method: String
-        var headers: [String: String]
-        var body: String?
-
-        init(_ source: AnalyzeUrl) {
-            url = source.url
-            method = source.method
-            headers = source.headers
-            body = source.body
-        }
-    }
-
-    deinit {
-        releaseOwnedJSContext()
-    }
-}
-
-// MARK: - 静态清理族
-
-extension AnalyzeUrl {
-
-    static let analyzeUrlLogLevel: Logger.Level = .warning
-
-    /// 伪代码 0x100081ffc（L365-418）：搜索缓存全清。
-    static func clearSearchCaches() {
-        Logger.log(
-            "[AnalyzeUrl] 清缓存前 AnalyzeUrlPool checkedOut", level: analyzeUrlLogLevel
-        )
-        batchSearchSession?.invalidateAndCancel()
-        batchSearchSession = nil
-        Logger.log(
-            "[AnalyzeUrl] 清缓存后 AnalyzeUrlPool checkedOut 索缓存已全部清理 "
-                + "drainJSContexts=0 clearSharedJsScope=0",
-            level: analyzeUrlLogLevel
-        )
-    }
-
-    /// 伪代码 0x100082658（L420-456）。
-    static func clearIdleRuntimeCaches() {
-        JSContextPool.drain()
-    }
-
-    /// 伪代码 closure @0x10008288c（L461-467）：批量请求取消。
-    static func cancelAllBatchRequests() {
-        batchSearchSession?.getAllTasks { tasks in
-            tasks.forEach { $0.cancel() }
-        }
-    }
-
-    /// 伪代码 0x10008214c（L471-476）。
-    static func drainJSContextPool() {
-        JSContextPool.drain()
-    }
-
-    /// 伪代码 0x100082c5c（L484-513）。
-    static func clearBatchRefreshCaches() {
-        cancelAllBatchRequests()
-        drainJSContextPool()
-    }
 }
