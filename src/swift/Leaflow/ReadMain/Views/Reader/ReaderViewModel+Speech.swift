@@ -80,13 +80,6 @@ enum ReaderSpeechSupport {
     static let sharedCoordinator = ReadAloudCoordinator(
         factory: DefaultReadAloudDriverFactory(preferences: preferences, sources: sources,
             synthesizer: HttpTtsSynthesizer(transport: URLSession.shared,
-                webSocketTransport: TtsWebSocketTransportStub(), runtimeStore: .shared)),
+                webSocketTransport: URLSessionHttpTtsWebSocketTransport(), runtimeStore: .shared)),
         preferences: preferences)
-}
-
-// WebSocket 传输尚未完成，不能把 HTTP 固定样本当作该分支验收。
-final class TtsWebSocketTransportStub: HttpTtsWebSocketTransporting {
-    func connect(request: URLRequest, configuration: HttpTtsWebSocketConfiguration) async throws -> HttpTtsWebSocketConnection {
-        throw HttpTtsWebSocketError.connectionFailed
-    }
 }

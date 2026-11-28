@@ -10,7 +10,7 @@ enum HttpTtsRequestSampleSelfTest {
         checkStore(store, defaults: defaults, emit: emit)
         let transport = RequestTransport()
         let synthesizer = HttpTtsSynthesizer(transport: transport,
-            webSocketTransport: TtsWebSocketTransportStub(), runtimeStore: store)
+            webSocketTransport: URLSessionHttpTtsWebSocketTransport(), runtimeStore: store)
         var source = HttpTts(numericId: 1602001, name: "固定HTTP朗读",
             url: "https://sample.invalid/audio?text={{encodeURIComponent(speakText)}}&speed={{speakSpeed}}")
         do {

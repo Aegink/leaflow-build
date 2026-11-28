@@ -4,8 +4,18 @@ import Foundation
 import JavaScriptCore
 
 extension HttpTtsSynthesizer {
+    struct PreparedRequest {
+        let request: URLRequest
+        let webSocket: HttpTtsWebSocketConfiguration?
+    }
+
     static func makeRequest(source: HttpTts, text: String, speed: Int,
                             store: HttpTtsRuntimeStore) throws -> URLRequest {
+        try prepareRequest(source: source, text: text, speed: speed, store: store).request
+    }
+
+    static func prepareRequest(source: HttpTts, text: String, speed: Int,
+                               store: HttpTtsRuntimeStore) throws -> PreparedRequest {
         let analyzer = AnalyzeUrl(ruleUrl: "", key: nil, page: 1, baseUrl: "", isolatedJavaScript: true)
         defer { analyzer.releaseOwnedJSContext() }
         let context = analyzer.jsContext()
@@ -23,6 +33,16 @@ extension HttpTtsSynthesizer {
         sourceObject.setValue(loginInfo, forProperty: "getLoginInfo")
         sourceObject.setValue(loginMap, forProperty: "getLoginInfoMap")
         context.setObject(sourceObject, forKeyedSubscript: "source" as NSString)
+        var webSocket: HttpTtsWebSocketConfiguration?
+        var webSocketError: Error?
+        let configure: @convention(block) (JSValue) -> String = { value in
+            do {
+                let config = try HttpTtsWebSocketConfiguration(javaScriptValue: value)
+                webSocket = config
+                return config.url.absoluteString
+            } catch { webSocketError = error; return "" }
+        }
+        context.objectForKeyedSubscript("java")?.setValue(configure, forProperty: "webSocket")
         if let library = source.jsLib, !library.isEmpty {
             context.evaluateScript(library)
             guard context.exception == nil else { throw AppError.parsing("朗读源脚本库执行失败") }
@@ -52,11 +72,17 @@ extension HttpTtsSynthesizer {
         analyzer.headers = sourceHeaders
         analyzer.ruleUrl = source.url
         analyzer.parseUrl()
+        if let webSocketError { throw webSocketError }
+        if let webSocket {
+            analyzer.url = webSocket.url.absoluteString
+            analyzer.setExtraHeaders(webSocket.headers)
+        }
         guard analyzer.urlParseError == nil else {
             throw AppError.parsing(analyzer.urlParseError ?? "朗读请求规则解析失败")
         }
         guard var request = analyzer.buildRequest(), let url = request.url,
-              ["http", "https"].contains(url.scheme?.lowercased() ?? ""), url.host?.isEmpty == false else {
+              (webSocket == nil ? ["http", "https"] : ["ws", "wss"]).contains(url.scheme?.lowercased() ?? ""),
+              url.host?.isEmpty == false else {
             throw URLRequestError.invalidUrl
         }
         if source.enabledCookieJar == false {
@@ -65,6 +91,6 @@ extension HttpTtsSynthesizer {
                 request.setValue(nil, forHTTPHeaderField: "Cookie")
             }
         }
-        return request
+        return PreparedRequest(request: request, webSocket: webSocket)
     }
 }

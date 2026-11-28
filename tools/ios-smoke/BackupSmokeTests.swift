@@ -94,7 +94,11 @@ extension LeaflowSmokeTests {
                     && row.contains(CGPoint(x: frame.midX, y: frame.midY)) && $0.isHittable
             }
             XCTAssertNotNil(actual)
-            actual?.tap()
+            if let actual {
+                let frame = actual.frame
+                app.coordinate(withNormalizedOffset: .zero)
+                    .withOffset(CGVector(dx: frame.midX, dy: frame.midY)).tap()
+            }
             XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
                 predicate: NSPredicate(format: "value == %@", "1"), object: control)], timeout: 5), .completed)
         }

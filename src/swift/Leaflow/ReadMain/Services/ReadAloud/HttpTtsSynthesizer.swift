@@ -30,7 +30,7 @@ import Foundation
 final class HttpTtsSynthesizer: HttpTtsSynthesizing {
 
     private let transport: HttpTtsTransporting
-    private let webSocketTransport: HttpTtsWebSocketTransporting
+    let webSocketTransport: HttpTtsWebSocketTransporting
     private let runtimeStore: HttpTtsRuntimeStore
     private let rateLimiterRegistry = HttpTtsRateLimiterRegistry.shared
 
@@ -65,7 +65,12 @@ final class HttpTtsSynthesizer: HttpTtsSynthesizing {
         let limiter = rateLimiterRegistry.limiter(for: source)
         try await limiter.waitForPermission()
         try Task.checkCancellation()
-        let request = try Self.makeRequest(source: source, text: text, speed: speed, store: runtimeStore)
+        let prepared = try Self.prepareRequest(source: source, text: text, speed: speed, store: runtimeStore)
+        let request = prepared.request
+        if let configuration = prepared.webSocket {
+            return try await requestWebSocketAudio(request: request, configuration: configuration,
+                source: source, text: text, speed: speed)
+        }
         let (data, response) = try await transport.data(for: request)
         try Task.checkCancellation()
         guard let httpResponse = response as? HTTPURLResponse else {
@@ -83,50 +88,6 @@ final class HttpTtsSynthesizer: HttpTtsSynthesizing {
                 responseHeaders: httpResponse.allHeaderFields)
         }
         return data
-    }
-
-    /// requestWebSocketAudio(request:configuration:snapshot:)
-    /// （签名域确证：WS 连接 + 收发域）。
-    private func requestWebSocketAudio(
-        request: URLRequest,
-        configuration: HttpTtsWebSocketConfiguration,
-        snapshot: AnalyzeUrl.Snapshot
-    ) async throws -> Data {
-        let connection = try await webSocketTransport.connect(
-            request: request, configuration: configuration)
-        defer { connection.close() }
-        for message in try configuration.outgoingMessages(
-            from: snapshot.body) {
-            try await connection.send(message)
-        }
-        let reply = try await receive(
-            from: connection,
-            timeoutMilliseconds: configuration.receiveTimeoutMilliseconds)
-        return reply
-    }
-
-    /// receive(from:timeoutMilliseconds:)（签名域确证：超时域）。
-    private func receive(
-        from connection: HttpTtsWebSocketConnection,
-        timeoutMilliseconds: Int
-    ) async throws -> Data {
-        try await withThrowingTaskGroup(
-            of: Data.self
-        ) { group in
-            group.addTask {
-                try await connection.receive()
-            }
-            group.addTask {
-                try? await Task.sleep(nanoseconds: UInt64(
-                    timeoutMilliseconds) * 1_000_000)
-                throw URLRequestError.timeout
-            }
-            guard let first = try await group.next() else {
-                throw URLRequestError.timeout
-            }
-            group.cancelAll()
-            return first
-        }
     }
 
     /// checkLogin(checkJs:source:statusCode:bodyString:headers:)

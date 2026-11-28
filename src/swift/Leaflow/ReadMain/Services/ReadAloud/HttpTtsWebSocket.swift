@@ -31,6 +31,11 @@ struct HttpTtsWebSocketConfiguration {
     let headers: [String: String]
     let bodyTemplate: String
     let receiveTimeoutMilliseconds: Int
+    let messages: [HttpTtsWebSocketOutgoingMessage]
+    let onMessageScript: String
+    let connectTimeoutMilliseconds: Int
+    let maximumAudioBytes: Int
+    let audioContentType: String
 
     /// init(url:headers:)（签名域确证）。
     init(
@@ -41,20 +46,69 @@ struct HttpTtsWebSocketConfiguration {
         self.headers = headers
         self.bodyTemplate = bodyTemplate
         self.receiveTimeoutMilliseconds = receiveTimeoutMilliseconds
+        messages = [.text(bodyTemplate)]
+        onMessageScript = "({audio: message.base64(0, message.length), done: true})"
+        connectTimeoutMilliseconds = 12_000
+        maximumAudioBytes = 16 * 1024 * 1024
+        audioContentType = "audio/mpeg"
     }
 
     /// init(javaScriptValue:)（签名域确证：requiredString/positiveInt/
     /// optionalString/stringMap 提取链）。
     init(javaScriptValue fields: [String: Any]) throws {
-        guard let urlString = fields["url"] as? String,
-              let parsed = URL(string: urlString) else {
-            throw URLRequestError.invalidUrl
-        }
+        let urlString = try Self.requiredString("url", in: fields)
+        guard let parsed = URL(string: urlString), ["ws", "wss"].contains(parsed.scheme?.lowercased() ?? ""),
+              parsed.host?.isEmpty == false else { throw HttpTtsWebSocketError.invalidURL }
         url = parsed
         headers = (fields["headers"] as? [String: String]) ?? [:]
-        bodyTemplate = (fields["body"] as? String) ?? ""
-        let timeout = (fields["timeout"] as? Int) ?? 10_000
-        receiveTimeoutMilliseconds = max(timeout, 1000)
+        bodyTemplate = ""
+        messages = try Self.decodeMessages(fields["send"])
+        guard !messages.isEmpty else { throw HttpTtsWebSocketError.invalidConfiguration("send至少需要一条消息") }
+        onMessageScript = try Self.requiredString("onMessage", in: fields)
+        connectTimeoutMilliseconds = Self.positiveInt(fields["connectTimeout"], default: 12_000)
+        receiveTimeoutMilliseconds = Self.positiveInt(fields["receiveTimeout"], default: 30_000)
+        maximumAudioBytes = min(Self.positiveInt(fields["maxAudioBytes"], default: 16 * 1024 * 1024), 64 * 1024 * 1024)
+        audioContentType = fields["contentType"] as? String ?? "audio/mpeg"
+    }
+
+    /// 0x1002862a4：函数回调序列化为(message, webSocketState)调用表达式。
+    init(javaScriptValue value: JSValue) throws {
+        guard value.isObject, !value.isNull, !value.isUndefined,
+              var fields = value.toDictionary() as? [String: Any] else {
+            throw HttpTtsWebSocketError.invalidConfiguration("java.webSocket参数必须是对象")
+        }
+        guard let handler = value.forProperty("onMessage"), !handler.isNull, !handler.isUndefined else {
+            throw HttpTtsWebSocketError.invalidConfiguration("缺少onMessage处理器")
+        }
+        if handler.isString { fields["onMessage"] = handler.toString() }
+        else {
+            let context = value.context!
+            let isFunction = context.evaluateScript("(function(value) { return typeof value === 'function'; })")
+                ?.call(withArguments: [handler])?.toBool() == true
+            guard isFunction, let script = handler.toString() else {
+                throw HttpTtsWebSocketError.invalidConfiguration("onMessage必须是函数或表达式字符串")
+            }
+            fields["onMessage"] = "(" + script + ")(message, webSocketState)"
+        }
+        try self.init(javaScriptValue: fields)
+    }
+
+    static func decodeMessages(_ payload: Any?) throws -> [HttpTtsWebSocketOutgoingMessage] {
+        guard let payload, !(payload is NSNull) else { return [] }
+        let values = payload as? [Any] ?? [payload]
+        return try values.map { value in
+            if let text = value as? String { return .text(text) }
+            guard let map = value as? [String: Any] else {
+                throw HttpTtsWebSocketError.invalidMessage
+            }
+            let type = (map["type"] as? String ?? "text").lowercased()
+            let data = map["data"] as? String ?? ""
+            if type == "text" { return .text(data) }
+            guard type == "binary", let decoded = decodeBase64(data) else {
+                throw HttpTtsWebSocketError.invalidMessage
+            }
+            return .binary(decoded)
+        }
     }
 
     /// outgoingMessages(from: Any?)（0x 域 L586 确证：模板渲染）。
@@ -74,8 +128,8 @@ struct HttpTtsWebSocketConfiguration {
     /// requiredString(_:in:)（0x 域 L1258 确证）。
     private static func requiredString(_ key: String, in fields: [String: Any])
         throws -> String {
-        guard let value = fields[key] as? String else {
-            throw URLRequestError.invalidUrl
+        guard let value = fields[key] as? String, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw HttpTtsWebSocketError.invalidConfiguration("缺少\(key)")
         }
         return value
     }
@@ -84,8 +138,8 @@ struct HttpTtsWebSocketConfiguration {
     private static func positiveInt(
         _ value: Any?, default fallback: Int
     ) -> Int {
-        guard let int = value as? Int, int > 0 else { return fallback }
-        return int
+        guard let number = value as? NSNumber, number.doubleValue.isFinite else { return fallback }
+        return max(1, min(Int(Int32.max), number.intValue))
     }
 
     /// optionalString(JSValue?)（签名域确证）。
@@ -111,7 +165,7 @@ struct HttpTtsWebSocketConfiguration {
 }
 
 /// 出站消息（OutgoingMessage 签名域确证：text/binary 双态）。
-enum HttpTtsWebSocketOutgoingMessage {
+enum HttpTtsWebSocketOutgoingMessage: Equatable {
     case text(String)
     case binary(Data)
 }
@@ -148,12 +202,13 @@ struct HttpTtsWebSocketFrame {
 
     /// 帧内偏移字节（_wsByteAt 桥；越界回 0）。
     func byteAt(_ index: Int) -> Int {
-        guard data.indices.contains(index) else { return 0 }
+        guard index >= 0, index < data.count else { return 0 }
         return Int(data[data.startIndex + index])
     }
 
     /// 大端 16 位读取（_wsUInt16BE 桥；越界回 0）。
     func uint16BE(at offset: Int) -> Int {
+        guard offset >= 0, offset < data.count - 1 else { return 0 }
         let high = byteAt(offset)
         let low = byteAt(offset + 1)
         return high << 8 | low
@@ -173,8 +228,8 @@ struct HttpTtsWebSocketFrame {
 
     /// 帧内切片（offset..offset+count，截断到帧尾）。
     private func slice(offset: Int, count: Int) -> Data? {
-        guard offset >= 0, count >= 0, data.indices.contains(offset) else { return nil }
-        let end = min(offset + count, data.count)
+        guard offset >= 0, count >= 0, offset < data.count else { return nil }
+        let end = offset + min(count, data.count - offset)
         guard end > offset else { return nil }
         return data.subdata(in: (data.startIndex + offset)..<(data.startIndex + end))
     }
@@ -183,7 +238,7 @@ struct HttpTtsWebSocketFrame {
 /// 连接域（Connection/transporting 签名还原桥）。
 protocol HttpTtsWebSocketConnection {
     func send(_ message: HttpTtsWebSocketOutgoingMessage) async throws
-    func receive() async throws -> Data
+    func receive() async throws -> HttpTtsWebSocketFrame
     func close()
 }
 
@@ -198,6 +253,14 @@ protocol HttpTtsWebSocketTransporting {
 enum HttpTtsWebSocketError: LocalizedError {
     case connectionFailed
     case invalidMessage
+    case invalidConfiguration(String)
+    case invalidURL
+    case scriptFailed(String)
+    case sourceReported(String)
+    case audioTooLarge(Int)
+    case receiveTimeout
+    case connectionClosedBeforeCompletion
+    case noAudioReceived
 
     var errorDescription: String? {
         switch self {
@@ -205,6 +268,14 @@ enum HttpTtsWebSocketError: LocalizedError {
             return "朗读源 WebSocket 连接失败"
         case .invalidMessage:
             return "朗读源 WebSocket 消息无效"
+        case .invalidConfiguration(let message): return "朗读源WebSocket配置无效：\(message)"
+        case .invalidURL: return "WebSocket URL必须使用ws或wss"
+        case .scriptFailed(let message): return "WebSocket消息脚本失败：\(message)"
+        case .sourceReported(let message): return message
+        case .audioTooLarge(let limit): return "WebSocket音频超过\(limit)字节限制"
+        case .receiveTimeout: return "WebSocket接收超时"
+        case .connectionClosedBeforeCompletion: return "WebSocket在完成前关闭"
+        case .noAudioReceived: return "WebSocket没有返回音频"
         }
     }
 }

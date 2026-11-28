@@ -19,7 +19,10 @@ SWIFT_SOURCE_PARTS = {
     "ReadMain/Core/SourceParser/AnalyzeUrl.swift": ["ReadMain/Core/SourceParser/AnalyzeUrl+Runtime.swift",
         "ReadMain/Core/SourceParser/AnalyzeUrl+Options.swift"],
     "ReadMain/Core/ReaderPaginator.swift": ["ReadMain/Core/ReaderPaginator+Layout.swift"],
-    "ReadMain/Services/ReadAloud/HttpTtsSynthesizer.swift": ["ReadMain/Services/ReadAloud/HttpTtsSynthesizer+Request.swift"],
+    "ReadMain/Services/ReadAloud/HttpTtsSynthesizer.swift": ["ReadMain/Services/ReadAloud/HttpTtsSynthesizer+Request.swift",
+        "ReadMain/Services/ReadAloud/HttpTtsSynthesizer+WebSocket.swift"],
+    "ReadMain/Services/ReadAloud/HttpTtsWebSocket.swift": ["ReadMain/Services/ReadAloud/HttpTtsWebSocket+Transport.swift",
+        "ReadMain/Services/ReadAloud/HttpTtsWebSocket+Action.swift"],
     "ReadMain/Views/Source/SourceLoginView.swift": [
         "ReadMain/Views/Source/SourceLoginView+Actions.swift",
         "ReadMain/Views/Source/SourceLoginView+BrowserRequests.swift",
